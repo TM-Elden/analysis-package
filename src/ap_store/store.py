@@ -145,7 +145,7 @@ class PackageStore:
             owners = manifest.get("owners") or {}
             analyst_id = (owners.get("analyst") or {}).get("id")
             reviewer_id = (owners.get("reviewer") or {}).get("id")
-            status = str((manifest.get("qa") or {}).get("status", "draft"))
+            status = "draft"
             now = _utcnow()
 
             with self.conn:
