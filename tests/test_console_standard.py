@@ -179,7 +179,10 @@ def test_dry_run_button_shows_not_available_state_not_a_fake_result(client_and_s
     r = client.post(f"/console/standard/proposals/{record.proposal_id}/dry-run", headers={"X-Csrf": csrf})
     assert r.status_code == 200
     assert "not yet available" in r.text.lower()
-    assert "fathm-p4-registry-dryrun" in r.text
+    # The registry dry-run engine (fathm-p4-registry-dryrun) landed and is reachable via
+    # POST /proposals/{id}/dry-run - this console button just isn't wired to call it yet, so the
+    # panel should say that honestly rather than claim the engine itself doesn't exist.
+    assert "doesn't trigger a run yet" in r.text
 
 
 def test_approve_decision_changes_real_store_status(client_and_store):
