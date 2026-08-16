@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased - phase 3: real C11 authentication/authorization
+
+Replaces the phase-2 `X-Ap-Actor-Id`/`X-Ap-Actor-Roles` header placeholder with real authn/authz
+(C11), per `docs/DESIGN-FATHM-SYSTEM.md` section 13b. Full architecture notes live in `AGENTS.md`'s
+"C11 auth model" section; not repeated here.
+
+- New: `src/ap_auth/store.py` (`AuthStore`) + `src/ap_auth/db.py` - a sibling `auth.sqlite3` holding
+  `users` (scrypt password hash, `src/ap_auth/passwords.py`) and `sessions` (shared shape for
+  browser sessions and service-account bearer tokens).
+- New: `ap-auth` CLI (`src/ap_auth/cli.py`, `pyproject.toml` console script) -
+  `adduser`/`passwd`/`disable`/`enable`/`token`/`list`, the only provisioning path until an admin UI
+  exists.
+- New: `POST /login` / `POST /logout` (`src/ap_api/auth_routes.py`). Login verifies the password and
+  sets an HttpOnly/SameSite=Lax/Secure session cookie plus a `csrf_token`
+  (`src/ap_auth/csrf.py`) the client echoes as `X-Csrf` on state-changing requests; bearer-token
+  callers are exempt. No JWTs - server-side sessions only.
+- `src/ap_api/deps.py::identity_from_request` replaces the old header-reading path (removed, not
+  left as a fallback): resolves cookie-or-bearer to the same `Identity` every downstream call site
+  already expected. `require_any_role` enforces the C11 role matrix on every existing route
+  (publish requires `analyst`; read routes require any authenticated identity; `ReviewWorkflow`
+  keeps owning the review-transition policy).
+- 20 new tests (95 total) covering the role matrix, session/CSRF/expiry edge cases, service-account
+  bearer auth, and the login/logout flow. `examples/commodity-commit-v1` still passes
+  `ap-gate check` unchanged.
+
 ## Unreleased - Standard training-export additions (P1-P4)
 
 Additive, `ap/0.2.x`-compatible (STANDARD.md v0.2.2, no MUST field removed or narrowed) additions
