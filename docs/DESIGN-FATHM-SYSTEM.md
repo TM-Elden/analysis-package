@@ -500,7 +500,7 @@ Minimal **chart room** console and/or CLI:
 - HITL queue (Standard proposals) - console tab added in phase 4, once C6/C7 exist; cannot exist earlier since proposals don't exist before then  
 - Gate dashboard (pass rate, top failing checks) - remainder, phase 5  
 - Admin/config and lifecycle screens (C12) - remainder, phase 5  
-- Brand: follow `brand/historical/fathm-brand-system-v1.html` for any web UI  
+- Brand: follow `brand/BRAND.md` (locked visual system) for any web UI  
 
 CLI-only is acceptable for early complete for the operator/engineer persona; for the manager persona the web console is primary, not merely preferred (see §20a).
 
