@@ -1,0 +1,7 @@
+parent_part,component_part,qty_per
+RACK-A,BBU-100,2
+RACK-A,BBU-SHELF-1,2
+RACK-A,PSU-50,4
+RACK-A,PSU-SHELF-1,1
+RACK-B,BBU-100,2
+RACK-B,PSU-50,4

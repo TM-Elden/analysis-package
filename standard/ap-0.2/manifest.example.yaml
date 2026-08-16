@@ -1,0 +1,99 @@
+# MANIFEST.yaml - analysis package v0
+package_id: "pkg_replace_me"
+package_version: "0.1.0"
+title: "Weekly supplier commit pack - example commodity"
+created_at: "2026-08-16T00:00:00Z"
+as_of: "2026-08-15T23:59:59Z"
+
+owners:
+  analyst: { id: "planner_x", role: "commodity_planner" }
+  reviewer: { id: "lead_y", role: "planning_lead" }
+
+purpose: "Supplier-level commit / forecast pack for weekly S&OE"
+output_contract:
+  - name: supplier_forecast
+    consumer: sourcing_managers
+    format: csv
+  - name: exception_list
+    consumer: planning_lead
+    format: csv
+
+inputs:
+  - name: on_hand
+    source_system: wms_extract
+    snapshot_id: "onhand_2026-08-15_1800Z"
+    as_of: "2026-08-15T18:00:00Z"
+    path: inputs/onhand.parquet
+  - name: open_pos
+    source_system: erp
+    snapshot_id: "po_open_2026-08-15"
+    as_of: "2026-08-15T18:00:00Z"
+    path: inputs/open_pos.parquet
+  - name: demand_cut
+    source_system: planning_sheet
+    snapshot_id: "demand_v12"
+    as_of: "2026-08-14T12:00:00Z"
+    path: inputs/demand.csv
+
+method:
+  guideline_version: "commit-pack-guideline@2.3.0"
+  summary: "Explode rack demand via BOM, allocate by supplier split rules, apply overrides."
+  entrypoint: "code/run_commit_pack.py"
+  ontology_version: "parts-suppliers@1.4.0"
+
+engines:
+  - name: bom_explode
+    version: "1.2.0"
+    deterministic: true
+  - name: allocation_heuristic
+    version: "0.9.1"
+    deterministic: true
+
+outputs:
+  - name: supplier_forecast
+    path: outputs/supplier_forecast.csv
+    schema_ref: "schemas/supplier_forecast.json"
+  - name: exception_list
+    path: outputs/exceptions.csv
+
+labels:
+  overrides_path: labels/overrides.jsonl
+  judgments_path: labels/judgments.jsonl
+  truths_applied_path: labels/truths_applied.jsonl
+
+four_bucket_map:
+  structured_inputs: ["on_hand", "open_pos", "demand_cut"]
+  judgment_count: 2
+  truths_applied_count: 3
+  engines: ["bom_explode", "allocation_heuristic"]
+
+qa:
+  status: in_review
+  checks:
+    - name: rowcount_vs_prior
+      result: pass
+      evidence: "within 5% of prior week SKU count"
+    - name: negative_qty
+      result: pass
+      evidence: "0 negatives"
+  gold_reference_package_id: null
+  consensus: null
+
+intended_use: "Internal weekly execution with sourcing; eligible for internal model training if confidentiality allows"
+out_of_scope: "Not an automatic PO release; not finance revenue recognition"
+confidentiality: internal_restricted
+training_eligibility: true
+
+model_run:
+  assisted: false
+  harness: null
+  model: null
+  prompt_tool_hash: null
+
+repro:
+  command: "python code/run_commit_pack.py --manifest MANIFEST.yaml"
+  environment: "python=3.11; deps=requirements.lock"
+
+change_log:
+  - version: "0.1.0"
+    note: "Initial package for standard draft"

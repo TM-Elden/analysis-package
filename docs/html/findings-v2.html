@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Analysis Package — Research Findings + Decisions</title>
+<meta name="description" content="Consolidated research and open decisions for the Analysis Package agent-planner contract."/>
+<style>
+:root { --bg:#0c0d10;--bg2:#12141a;--card:#161922;--text:#e8eaef;--muted:#9aa3b5;--faint:#6b7385;--line:rgba(255,255,255,.08);--accent:#7eb6ff;--warm:#ffb86b;--good:#7ddea3;--max:48rem;
+--sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+--serif:"Iowan Old Style",Palatino,Georgia,serif; }
+*{box-sizing:border-box} body{margin:0;font-family:var(--sans);background:radial-gradient(1000px 500px at 0% -10%,rgba(126,182,255,.12),transparent 50%),var(--bg);color:var(--text);line-height:1.65;font-size:1.05rem}
+.wrap{width:min(100% - 2rem,var(--max));margin:0 auto;padding:2.5rem 0 4rem}
+header.site{border-bottom:1px solid var(--line);padding-bottom:1rem;margin-bottom:1.5rem;display:flex;justify-content:space-between;color:var(--faint);font-size:.8rem;letter-spacing:.05em;text-transform:uppercase}
+header.site strong{color:var(--muted)}
+.pill{display:inline-block;background:rgba(126,182,255,.12);color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:.25rem .7rem;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;margin:0 .35rem .75rem 0}
+.pill.warm{background:rgba(255,184,107,.12);color:var(--warm)}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.2rem;margin:0 0 2rem;font-size:.92rem}
+.toc a{color:var(--accent);margin-right:.75rem}
+h1{font-family:var(--serif);font-size:clamp(1.8rem,4vw,2.4rem);line-height:1.2}
+h2{font-family:var(--serif);font-size:1.35rem;margin-top:2.4rem;scroll-margin-top:1rem}
+h3{font-size:1.08rem;margin-top:1.6rem;color:var(--accent)}
+h4{font-size:1rem;margin-top:1.25rem;color:var(--warm)}
+a{color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1rem 0} th,td{border:1px solid var(--line);padding:.45rem .55rem;vertical-align:top;text-align:left} th{background:var(--bg2);color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+pre{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:1rem;overflow:auto;font-size:.85rem}
+code{font-size:.9em} blockquote{border-left:3px solid var(--warm);margin:1.2rem 0;padding:.2rem 0 .2rem 1rem;color:var(--muted);font-family:var(--serif);font-size:1.1rem}
+hr{border:0;border-top:1px solid var(--line);margin:2rem 0}
+footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--faint);font-size:.8rem}
+.callout{border:1px solid var(--line);border-left:3px solid var(--good);background:var(--card);border-radius:12px;padding:1rem 1.15rem;margin:1.25rem 0;color:var(--muted)}
+.callout strong{color:var(--text)}
+</style></head><body><div class="wrap">
+<header class="site"><strong>AI Supply Chain · Research</strong><span>2026-08-16 · v2 decisions</span></header>
+<p><span class="pill">Consolidated findings</span><span class="pill warm">Decisions D1–D8</span></p>
+<div class="toc">
+  <strong style="color:var(--muted)">Jump:</strong>
+  <a href="#8-decisions">Decisions</a>
+  <a href="#2-executive-answer">Executive answer</a>
+  <a href="#4-standards-to-build-on-foundation-stack">Standards stack</a>
+  <a href="#6-recommended-approach-decision">Approach</a>
+  <a href="#9-primary-links-bookmark-set">Links</a>
+</div>
+<div class="callout"><strong>How to use this page.</strong> Sections 1–7 and 9–10 are research synthesis.
+Section <a href="#8-decisions">8 · Decisions</a> is the action panel: locked choices vs open D1–D8 with tradeoffs and Hermes picks.
+Reply in chat with codes like <code>D1A D2A D3C D4C D5A D6C D7A D8C</code> to freeze and build.</div>
+<h1>Analysis Package: consolidated research findings</h1>
+<p><strong>Date:</strong> 2026-08-16 <strong>Status:</strong> Research synthesis (Hermes parallel scan + standards pass) <strong>Related:</strong> <code>ANALYSIS-PACKAGE-STANDARD.md</code> (draft v0 semantics), <code>templates/analysis-package-manifest.example.yaml</code></p>
+<hr/>
+<h2 id="1-question">1. Question</h2>
+<p>Is there already a product or open standard for packaging <strong>weekly planning/ops analyses</strong> as portable, auditable, trainable artifacts (inputs + method + engines + human overrides/truths + QA)?</p>
+<p>If not, which <strong>existing standards</strong> should we compose to define ours?</p>
+<hr/>
+<h2 id="2-executive-answer">2. Executive answer</h2>
+<div class="table-wrap"><table><thead><tr><th>Claim</th><th>Verdict</th></tr></thead><tbody>
+<tr><td>Something identical already dominates the market</td><td><strong>No</strong></td></tr>
+<tr><td>Reusable packaging / lineage / dataset-card pieces exist</td><td><strong>Yes - many</strong></td></tr>
+<tr><td>Greenfield opportunity</td><td><strong>Semantics + planner UX</strong>, not &quot;invent folders&quot;</td></tr>
+<tr><td>Recommended path</td><td><strong>Compose standards</strong> into an <strong>Analysis Package Profile</strong>; invent only decision-label vocabulary</td></tr>
+</tbody></table></div>
+<p><strong>One-liner:</strong> Nobody standardizes the <em>weekly planning decision pack</em> (Excel/Python reality) as label-grade portable token capital. You should <strong>profile</strong> RO-Crate + PROV + Table Schema + Web Annotation - not start from a blank JSON cult.</p>
+<hr/>
+<h2 id="3-product-platform-landscape-fit-0-5">3. Product / platform landscape (fit 0-5)</h2>
+<div class="table-wrap"><table><thead><tr><th>Name</th><th>Fit</th><th>Role vs us</th></tr></thead><tbody>
+<tr><td><a href="https://www.quilt.bio/">Quilt</a></td><td>4</td><td>Closest <em>product</em>: versioned data+metadata packages, AI-ready pitch. Misses override/truth label model and planner workflow.</td></tr>
+<tr><td><a href="https://www.researchobject.org/ro-crate/">RO-Crate</a></td><td>3.5</td><td>Best <em>open package</em> substrate; profiles exist (Workflow RO-Crate, Workflow Run Crate).</td></tr>
+<tr><td><a href="https://frictionlessdata.io/">Frictionless Data Package</a></td><td>3</td><td>Lightweight <code>datapackage.json</code> + Table Schema; great for tabular I/O, thin on decisions.</td></tr>
+<tr><td><a href="https://openlineage.io/">OpenLineage</a></td><td>3</td><td>Job/run/dataset lineage events - emit from engines, not the human pack.</td></tr>
+<tr><td><a href="https://mlcommons.org/working-groups/data/croissant/">Croissant</a> (MLCommons)</td><td>3</td><td>ML-ready dataset metadata; discovery/load, not weekly ops judgments.</td></tr>
+<tr><td>DVC / MLflow / W&amp;B</td><td>2-3</td><td>DS/ML experiment &amp; data versioning - wrong unit of work (experiments ≠ S&amp;OE packs).</td></tr>
+<tr><td>Dagster asset checks etc.</td><td>2.5</td><td>Pipeline QA - engineering platform, not analyst package.</td></tr>
+<tr><td>DataHub / OpenMetadata / Collibra</td><td>2</td><td>Catalogs - org graph, not a weekly artifact.</td></tr>
+<tr><td>Scale / Labelbox / Snorkel</td><td>2</td><td>Labeling ops inspiration (guidelines, consensus, gold) - not planning packs.</td></tr>
+<tr><td>Kinaxis / Anaplan / SAP IBP</td><td>2</td><td>Decisions stay <strong>inside</strong> the suite; not a portable open package.</td></tr>
+</tbody></table></div>
+<h3>Supply-chain specific</h3>
+<p>No strong portable open standard found for “planning analysis package with overrides-as-labels.” Suites optimize lock-in; your wedge is <strong>beside</strong> export/Excel reality.</p>
+<hr/>
+<h2 id="4-standards-to-build-on-foundation-stack">4. Standards to build on (foundation stack)</h2>
+<h3>Recommended composition</h3>
+<pre><code>Analysis Package Profile
+├── RO-Crate 1.x          → package boundary, entities, people, files
+│   └── optional Workflow / Workflow Run profile if code is a CWL/Nextflow-style workflow
+├── W3C PROV-O            → wasGeneratedBy, used, associatedWith (who/what/when)
+├── Frictionless Table Schema / JSON Schema → output &amp; input table contracts
+├── W3C Web Annotation    → overrides/judgments as annotations on fields/rows
+├── Datasheet sections    → intended_use, out_of_scope, motivation (doc layer)
+├── OpenLineage (optional emit) → when packs are produced by orchestrated jobs
+└── OUR vocabulary        → reason_code, four_buckets, output_contract,
+                            guideline_version, training_eligibility, gold_reference</code></pre>
+<h3>Why each layer</h3>
+<div class="table-wrap"><table><thead><tr><th>Standard</th><th>Spec</th><th>Foundation job</th><th>Maps to our MUST</th></tr></thead><tbody>
+<tr><td><strong>RO-Crate</strong></td><td><a href="https://www.researchobject.org/ro-crate/">researchobject.org/ro-crate</a></td><td>Folder + <code>ro-crate-metadata.json</code> (JSON-LD); <strong>profiles</strong> for domain constraints</td><td>package id, files, authors, license, parts</td></tr>
+<tr><td><strong>Workflow RO-Crate / Run Crate</strong></td><td><a href="https://about.workflowhub.eu/Workflow-RO-Crate/">Workflow RO-Crate</a>, <a href="https://www.researchobject.org/workflow-run-crate/">workflow-run-crate</a></td><td>Package executable method + run provenance</td><td>method entrypoint, run as_of, inputs/outputs of execution</td></tr>
+<tr><td><strong>W3C PROV</strong></td><td><a href="https://www.w3.org/TR/prov-dm/">PROV-DM/PROV-O</a></td><td>Provenance graph semantics</td><td>analyst, inputs used, generation time</td></tr>
+<tr><td><strong>Frictionless / Table Schema</strong></td><td><a href="https://specs.frictionlessdata.io/">specs.frictionlessdata.io</a></td><td>Tabular resource descriptors + validation</td><td>output schemas, input tables</td></tr>
+<tr><td><strong>W3C Web Annotation</strong></td><td><a href="https://www.w3.org/TR/annotation-model/">annotation-model</a></td><td>Body/target annotations on specific segments</td><td>overrides (target=field/row), judgments</td></tr>
+<tr><td><strong>Datasheets for Datasets</strong></td><td><a href="https://arxiv.org/abs/1803.09010">arXiv:1803.09010</a></td><td>Human documentation checklist</td><td>purpose, intended use, maintenance</td></tr>
+<tr><td><strong>Croissant</strong></td><td><a href="https://mlcommons.org/working-groups/data/croissant/">MLCommons Croissant</a></td><td>Optional ML export profile when pack becomes training set</td><td>training_eligibility bridge</td></tr>
+<tr><td><strong>OpenLineage</strong></td><td><a href="https://openlineage.io/">openlineage.io</a></td><td>Optional runtime lineage bus</td><td>engine runs in platforms</td></tr>
+<tr><td><strong>BagIt / OCFL</strong></td><td>integrity layouts</td><td>Optional bit-level checksum inventory</td><td>tamper-evidence</td></tr>
+</tbody></table></div>
+<h3>Fit as foundation (not full product)</h3>
+<div class="table-wrap"><table><thead><tr><th>Standard</th><th>Score (0-5)</th><th>Notes</th></tr></thead><tbody>
+<tr><td>RO-Crate + profiles</td><td>5</td><td>Best extension story (<code>Analysis-Package-Profile</code>)</td></tr>
+<tr><td>PROV-O</td><td>4</td><td>Provenance backbone</td></tr>
+<tr><td>Web Annotation</td><td>4</td><td>Clean model for overrides-as-labels</td></tr>
+<tr><td>Table Schema / JSON Schema</td><td>4</td><td>I/O contracts</td></tr>
+<tr><td>Frictionless Data Package</td><td>3.5</td><td>Simpler alternative package root if RO-Crate feels heavy</td></tr>
+<tr><td>Datasheets</td><td>3</td><td>Process/docs, not runtime</td></tr>
+<tr><td>Croissant</td><td>3</td><td>Downstream ML handoff only</td></tr>
+<tr><td>OpenLineage</td><td>3</td><td>Side channel for pipelines</td></tr>
+<tr><td>GS1 / OAGIS / ISA-95</td><td>1-2</td><td>Domain messages, not analysis packs</td></tr>
+</tbody></table></div>
+<hr/>
+<h2 id="5-what-we-still-invent-the-wedge">5. What we still invent (the wedge)</h2>
+<p>Standards will not give you:</p>
+<ol>
+<li><strong><code>output_contract</code></strong> - inversion-native “who consumes this pack”  </li>
+<li><strong><code>reason_code</code> taxonomy</strong> for planning overrides  </li>
+<li><strong>Four buckets</strong> (structured / judgment / truths / hard compute)  </li>
+<li><strong><code>guideline_version</code></strong> linked to living method cards for planners  </li>
+<li><strong><code>training_eligibility</code> + confidentiality</strong> policy defaults for ops data  </li>
+<li><strong>Gold pack regression</strong> (“new script within tolerance of gold”)  </li>
+<li><strong>Excel/Sheets-first authoring UX</strong> with export to package  </li>
+</ol>
+<p>That bundle is the product/standard delta.</p>
+<hr/>
+<h2 id="6-recommended-approach-decision">6. Recommended approach (decision)</h2>
+<h3>Do this</h3>
+<ol>
+<li><strong>Define <code>analysis-package</code> as an RO-Crate profile</strong> (or Frictionless profile if we prioritize simplicity over JSON-LD ecosystem).  </li>
+<li><strong>Represent overrides</strong> as Web Annotation bodies (or a thin JSONL profile that round-trips to Web Annotation).  </li>
+<li><strong>Attach PROV</strong> activities for “planning run” and agents (people + software).  </li>
+<li><strong>Validate tables</strong> with Table Schema / JSON Schema.  </li>
+<li><strong>Write human datasheet sections</strong> into <code>GUIDELINE.md</code> + manifest fields.  </li>
+<li><strong>Optionally emit OpenLineage</strong> when run under Dagster/Airflow.  </li>
+<li><strong>Optionally export Croissant</strong> when a pack is promoted to ML training.</li>
+</ol>
+<h3>Do not do this</h3>
+<ul>
+<li>Greenfield-only YAML with zero mapping to existing specs (hurts adoption and interop).  </li>
+<li>Compete with Kinaxis/Anaplan as system of record.  </li>
+<li>Assume Croissant alone is enough (no decision/override model).  </li>
+<li>Boil the ocean with full enterprise catalog (DataHub) before one pack type works.</li>
+</ul>
+<h3>Phased delivery</h3>
+<div class="table-wrap"><table><thead><tr><th>Phase</th><th>Deliverable</th></tr></thead><tbody>
+<tr><td>P0</td><td>Semantics freeze (our MUST fields) - mostly done in <code>ANALYSIS-PACKAGE-STANDARD.md</code></td></tr>
+<tr><td>P1</td><td>RO-Crate profile draft + example crate from one real pack (e.g. commit pack)</td></tr>
+<tr><td>P2</td><td>Override JSONL ↔ Web Annotation mapping + reason_code v0</td></tr>
+<tr><td>P3</td><td>Validator CLI + gold diff</td></tr>
+<tr><td>P4</td><td>Blog essay + optional thin product (packager)</td></tr>
+</tbody></table></div>
+<hr/>
+<h2 id="7-greenfield-claim-blog-investor-safe-wording">7. Greenfield claim (blog/investor safe wording)</h2>
+<blockquote>We are not inventing data versioning. We are defining the missing <strong>unit of work</strong> for enterprise judgment: a portable <strong>analysis package</strong> that treats planner overrides and truths like labels, with input snapshots and method versions, so ops token capital can compound outside any single suite.</blockquote>
+<hr/>
+<h2 id="8-decisions">8. Decisions</h2>
+<h3>Already locked (do not re-litigate unless you reopen)</h3>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Decision</th><th>Choice</th></tr></thead><tbody>
+<tr><td>L1</td><td>Purpose</td><td>Formal <strong>agent–human planner contract</strong>, not optional research packaging</td></tr>
+<tr><td>L2</td><td>Properties</td><td>Portable, deterministic core, extensible, process-universal fit</td></tr>
+<tr><td>L3</td><td>Architecture</td><td><strong>Compose standards</strong>; invent thin domain vocab only</td></tr>
+<tr><td>L4</td><td>Greenfield claim</td><td>Intersection is open (planner pack as labels+snapshots+guideline+QA); pieces exist</td></tr>
+<tr><td>L5</td><td>Suites (Kinaxis/IBP/etc.)</td><td>Emitters / systems of record - <strong>not</strong> the portable standard</td></tr>
+<tr><td>L6</td><td>Research phase</td><td><strong>Enough</strong> - next is design validation + build, not more landscape scans</td></tr>
+<tr><td>L7</td><td>Normative doc</td><td><code>ANALYSIS-PACKAGE-STANDARD.md</code> <strong>ap/0.2</strong></td></tr>
+</tbody></table></div>
+<h3>Open decisions (need captain)</h3>
+<p>Each row: options, tradeoff, <strong>Hermes recommendation</strong>.</p>
+<h4>D1 - Root envelope format</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td><strong>A. RO-Crate profile</strong></td><td>First-class profiles, PROV-native, Workflow Run ecosystem, long-term interop</td><td>JSON-LD learning curve; “research” brand</td></tr>
+<tr><td><strong>B. Frictionless Data Package</strong></td><td>Simple JSON, Table Schema native, fast for tabular packs</td><td>Weaker provenance/annotation story; bolt on PROV/labels yourself</td></tr>
+<tr><td><strong>C. Hybrid</strong></td><td>Frictionless for v0 authoring; map to RO-Crate for publish</td><td>Two serializers to maintain</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: A (RO-Crate profile)</strong> for the formal contract story, with a <strong>YAML convenience manifest</strong> that compiles to <code>ro-crate-metadata.json</code> so agents/planners never hand-write JSON-LD.</p>
+<h4>D2 - First pack-type profile (vertical)</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Why pick it</th></tr></thead><tbody>
+<tr><td><strong>A. Supplier / commodity commit–forecast pack</strong></td><td>You have lived vignette + six-file pattern; strongest proof</td></tr>
+<tr><td><strong>B. Exception / aging pack</strong></td><td>Smaller; faster pilot</td></tr>
+<tr><td><strong>C. FP&amp;A flash</strong></td><td>Tests universality beyond SC; less personal source material now</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: A</strong> - prove the contract on the process you know; add B as second profile to stress “universal fit.”</p>
+<h4>D3 - Public vs internal standard</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td><strong>A. Internal only until 1–2 real packs</strong></td><td>Faster iteration; no premature API promises</td><td>Weaker external credibility</td></tr>
+<tr><td><strong>B. Public GitHub profile (TM-Elden) early</strong></td><td>Forces clarity; blog/investor story</td><td>Change management / issues</td></tr>
+<tr><td><strong>C. Public blog essay now, schema repo later</strong></td><td>Narrative without freezing bits</td><td>Split brain</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: C then A→B</strong> - essay can cite the model; freeze profile in public repo after one real pack validates MUST fields.</p>
+<h4>D4 - Label serialization</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Pros</th><th>Cons</th></tr></thead><tbody>
+<tr><td><strong>A. Web Annotation JSON-LD jsonl</strong></td><td>Standard selectors/bodies; interop</td><td>Heavier</td></tr>
+<tr><td><strong>B. Thin ap override jsonl</strong> (current draft) + optional WA export</td><td>Easy for agents/Excel export</td><td>Custom until mapped</td></tr>
+<tr><td><strong>C. Both</strong> (B canonical authoring, A export)</td><td>Best of both</td><td>Mapping tests</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: C</strong> - agents write simple jsonl; validator can emit Web Annotation view.</p>
+<h4>D5 - Determinism policy for model-assisted steps</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><strong>A. Strict</strong></td><td>Models may draft only; accepted outputs must be engine- or human-label-backed</td></tr>
+<tr><td><strong>B. Declared non-deterministic engines</strong> allowed with flag + extra QA</td></tr>
+<tr><td><strong>C. Allow model as engine if temperature 0 and pinned prompt hash</strong></td><td>Soft determinism</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: A as default for ap/0.2</strong> (matches “chat is not MRP”); allow B only behind pack-type opt-in.</p>
+<h4>D6 - Completeness gate enforcement</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Where gate runs</th></tr></thead><tbody>
+<tr><td><strong>A. Agent-side only</strong> (refuse “final” in harness)</td><td>Fast; depends on every harness</td></tr>
+<tr><td><strong>B. CI/validator CLI on package dir</strong></td><td>Portable; harness-agnostic</td></tr>
+<tr><td><strong>C. Both</strong></td><td>Defense in depth</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: C</strong> - CLI is source of truth; agents call same checks.</p>
+<h4>D7 - Training eligibility default</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Default</th></tr></thead><tbody>
+<tr><td><strong>A. opt-in</strong> (<code>training_eligibility: false</code> unless set)</td><td>Safer for enterprise</td></tr>
+<tr><td><strong>B. opt-out</strong></td><td>More token capital by default; riskier</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: A</strong></p>
+<h4>D8 - Next build milestone</h4>
+<div class="table-wrap"><table><thead><tr><th>Option</th><th>Deliverable</th></tr></thead><tbody>
+<tr><td><strong>A. Profile stub + JSON Schema + empty crate</strong></td><td>Spec skeleton</td></tr>
+<tr><td><strong>B. One real filled package from your process</strong></td><td>Validation</td></tr>
+<tr><td><strong>C. A+B together</strong></td><td>Best learning</td></tr>
+</tbody></table></div>
+<p><strong>Recommend: C</strong> - stub without a real pack will lie; pack without schema won’t gate agents.</p>
+<hr/>
+<h3>Decision log template (fill when you choose)</h3>
+<pre><code>D1 root:     A / B / C
+D2 pack type: A / B / C
+D3 publicity: A / B / C
+D4 labels:   A / B / C
+D5 model:    A / B / C
+D6 gate:     A / B / C
+D7 train:    A / B
+D8 build:    A / B / C
+date:</code></pre>
+<p>Reply with a line like <code>D1A D2A D3C D4C D5A D6C D7A D8C</code> to freeze and start build.</p>
+<hr/>
+<h2 id="9-primary-links-bookmark-set">9. Primary links (bookmark set)</h2>
+<p><strong>Packaging &amp; workflows</strong></p>
+<ul>
+<li>https://www.researchobject.org/ro-crate/</li>
+<li>https://www.researchobject.org/ro-crate/profiles</li>
+<li>https://about.workflowhub.eu/Workflow-RO-Crate/</li>
+<li>https://www.researchobject.org/workflow-run-crate/</li>
+<li>https://frictionlessdata.io/</li>
+<li>https://specs.frictionlessdata.io/</li>
+</ul>
+<p><strong>Provenance &amp; annotation</strong></p>
+<ul>
+<li>https://www.w3.org/TR/prov-dm/</li>
+<li>https://www.w3.org/TR/annotation-model/</li>
+<li>https://openlineage.io/</li>
+</ul>
+<p><strong>ML dataset metadata</strong></p>
+<ul>
+<li>https://mlcommons.org/working-groups/data/croissant/</li>
+<li>https://arxiv.org/abs/1803.09010 (Datasheets for Datasets)</li>
+<li>https://huggingface.co/docs/hub/en/datasets-cards</li>
+</ul>
+<p><strong>Closest product analog</strong></p>
+<ul>
+<li>https://www.quilt.bio/</li>
+<li>https://github.com/quiltdata/quilt</li>
+</ul>
+<p><strong>Our drafts</strong></p>
+<ul>
+<li><code>meta/ANALYSIS-PACKAGE-STANDARD.md</code></li>
+<li><code>meta/templates/analysis-package-manifest.example.yaml</code></li>
+<li><code>meta/research/2026-08-16-analysis-package-landscape.md</code> (earlier product scan)</li>
+</ul>
+<hr/>
+<h2 id="10-research-process-note">10. Research process note</h2>
+<p>Two background research agents completed:</p>
+<div class="table-wrap"><table><thead><tr><th>Agent</th><th>Deliverable</th></tr></thead><tbody>
+<tr><td>Landscape <code>deleg_452a2655</code></td><td><code>meta/research/2026-08-16-analysis-package-landscape-full.md</code></td></tr>
+<tr><td>Standards foundation <code>deleg_03159111</code></td><td><code>meta/research/2026-08-16-analysis-package-standards-foundation.md</code></td></tr>
+</tbody></table></div>
+<p>Both agree with this synthesis: <strong>compose RO-Crate profile + PROV + Table/JSON Schema + Web Annotation + optional OpenLineage</strong>; invent thin <code>ap:</code> vocab only. Hosted HTML is the captain summary; full agent catalogs are markdown on the same static path.</p>
+<footer>
+Source: meta/research/2026-08-16-analysis-package-findings.md<br/>
+Full landscape: <a href="/static/blog/analysis-package-landscape-full.md">analysis-package-landscape-full.md</a> ·
+Standards: <a href="/static/blog/analysis-package-standards-foundation.md">analysis-package-standards-foundation.md</a>
+</footer>
+</div></body></html>

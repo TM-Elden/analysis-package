@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Analysis Package Standard — Locked decisions + example</title>
+  <style>
+    :root {
+      --bg:#0c0d10; --bg2:#12141a; --card:#161922; --text:#e8eaef; --muted:#9aa3b5; --faint:#6b7385;
+      --line:rgba(255,255,255,.08); --accent:#7eb6ff; --warm:#ffb86b; --good:#7ddea3; --max:50rem;
+      --sans:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      --serif:"Iowan Old Style",Palatino,Georgia,serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:var(--sans);background:radial-gradient(1000px 500px at 10% -10%,rgba(126,182,255,.12),transparent 55%),var(--bg);color:var(--text);line-height:1.65;font-size:1.05rem}
+    .wrap{width:min(100% - 2rem,var(--max));margin:0 auto;padding:2.5rem 0 4rem}
+    header.site{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:1rem;margin-bottom:1.5rem;font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+    header.site strong{color:var(--muted)}
+    h1{font-family:var(--serif);font-size:clamp(1.85rem,4vw,2.45rem);line-height:1.15;margin:0 0 1rem}
+    h2{font-family:var(--serif);font-size:1.35rem;margin:2.3rem 0 .8rem}
+    h3{font-size:1.05rem;color:var(--accent);margin:1.5rem 0 .5rem}
+    p,li{color:var(--text)} .muted{color:var(--muted)}
+    a{color:var(--accent)}
+    .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.25rem .7rem;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;margin:0 .35rem .5rem 0}
+    .pill.g{background:rgba(125,222,163,.12);color:var(--good)}
+    .pill.w{background:rgba(255,184,107,.12);color:var(--warm)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.15rem;margin:1rem 0}
+    table{width:100%;border-collapse:collapse;font-size:.88rem;margin:1rem 0}
+    th,td{border:1px solid var(--line);padding:.45rem .55rem;text-align:left;vertical-align:top}
+    th{background:var(--bg2);color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+    pre,code{font-family:var(--mono)}
+    pre{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:1rem;overflow:auto;font-size:.78rem;line-height:1.45}
+    .tree{color:var(--muted)}
+    .tree b{color:var(--text)}
+    footer{margin-top:2.5rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--faint);font-size:.8rem}
+    .flow{display:grid;gap:.5rem;margin:1rem 0}
+    .flow div{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:.65rem .85rem;font-size:.92rem}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <strong>AI Supply Chain · Spec</strong>
+    <span>ap/0.2 · example v1</span>
+  </header>
+
+  <p>
+    <span class="pill g">Decisions locked</span>
+    <span class="pill w">D1A–D8C</span>
+  </p>
+  <h1>What the standard is (with example)</h1>
+  <p class="muted">
+    You agreed to all Hermes recommendations. This page states the resulting contract and walks a
+    concrete <strong>commodity commit / forecast</strong> package shaped like BBU/PSU planning.
+  </p>
+
+  <h2>1. The standard in one paragraph</h2>
+  <div class="card">
+    Every planning agent that pair-works with a human planner must complete each cycle as an
+    <strong>Analysis Package</strong>: pinned inputs, versioned method, deterministic engines for math,
+    human deltas as labeled overrides/judgments/truths, declared outputs, and a machine QA gate.
+    Portable directory (RO-Crate profile under the hood; YAML convenience manifest for humans/agents).
+    Extensible via pack-type profiles - not one global BOM religion.
+  </div>
+
+  <h2>2. Locked decisions</h2>
+  <table>
+    <thead><tr><th>ID</th><th>Choice</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>D1A</td><td>RO-Crate profile</td><td>YAML <code>MANIFEST.yaml</code> authors; compiles to crate metadata</td></tr>
+      <tr><td>D2A</td><td>Commodity commit pack</td><td>First vertical profile</td></tr>
+      <tr><td>D3C</td><td>Essay now / repo later</td><td>Public schema after real packs</td></tr>
+      <tr><td>D4C</td><td>Thin jsonl + WA export</td><td>Simple labels; standard annotation view optional</td></tr>
+      <tr><td>D5A</td><td>Strict models</td><td>Model drafts only; engines/humans own accepted math</td></tr>
+      <tr><td>D6C</td><td>CLI + agent gate</td><td>Same completeness checks both places</td></tr>
+      <tr><td>D7A</td><td>Training opt-in</td><td>Default <code>training_eligibility: false</code></td></tr>
+      <tr><td>D8C</td><td>Stub + example</td><td>This example pack is the illustration</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Runtime flow (agent + human)</h2>
+  <div class="flow">
+    <div>1. Open/create package for the cycle</div>
+    <div>2. Pin inputs (snapshot_id + hash or external_ref escape hatch)</div>
+    <div>3. Run deterministic engines via <code>method.entrypoint</code></div>
+    <div>4. Write human/accepted deltas to <code>labels/*.jsonl</code> (never silent cell paint)</div>
+    <div>5. Emit outputs listed in <code>output_contract</code> only</div>
+    <div>6. <code>ap-gate check .</code> must pass before approved / “final”</div>
+  </div>
+
+  <h2>4. Example package tree</h2>
+  <p class="muted">On disk under the blog repo:</p>
+  <pre class="tree">examples/ap-example-commodity-commit-v1/
+├── <b>MANIFEST.yaml</b>          # contract instance (who/what/when/I/O/engines/QA)
+├── <b>GUIDELINE.md</b>           # method card @ guideline_version
+├── inputs/                 # pinned snapshots (csv demos)
+│   ├── rack_demand.csv
+│   ├── bom_bbu_psu.csv
+│   ├── supplier_splits.csv
+│   ├── onhand_pos.csv
+│   └── independent_demand.csv
+├── code/
+│   └── run_commit_pack.py  # deterministic entrypoint (stub)
+├── outputs/
+│   ├── supplier_forecast.csv
+│   ├── exceptions.csv
+│   ├── RUN_SUMMARY.md
+│   └── schemas/...
+├── labels/
+│   ├── overrides.jsonl     # hard deltas + reason_code
+│   ├── judgments.jsonl     # soft bucket-2
+│   └── truths_applied.jsonl
+└── qa/
+    └── checks.json         # gate results</pre>
+
+  <h2>5. What “fit any process” looks like here</h2>
+  <table>
+    <thead><tr><th>Process piece</th><th>In the example</th></tr></thead>
+    <tbody>
+      <tr><td>Outputs</td><td>supplier forecast + exceptions + summary → named consumers</td></tr>
+      <tr><td>Inputs</td><td>demand, BOM, splits, inventory/PO, independent demand; LTA as external_ref</td></tr>
+      <tr><td>Engines</td><td>bom_explode, allocate_suppliers, net_inventory (all deterministic: true)</td></tr>
+      <tr><td>Human labels</td><td>price-hold override, linearity flag, NPI bridge; judgments; truths (sole-source, EOL)</td></tr>
+      <tr><td>Agent role</td><td>pair agent recorded; drafts only (D5A)</td></tr>
+      <tr><td>Gate</td><td>qa.status approved + six checks in checks.json</td></tr>
+    </tbody>
+  </table>
+
+  <h2>6. Sample override (the “label”)</h2>
+  <pre>{
+  "override_id": "ovr_001",
+  "field_path": "supplier_forecast.ACME.BBU-100.week_36_qty",
+  "before": 1200,
+  "after": 900,
+  "reason_code": "HOLD_FOR_PRICE_NEGOTIATION",
+  "bucket": 3,
+  "evidence_refs": ["inputs/supplier_splits.csv", "contracts://.../LTA-..."],
+  "author": "planner.example",
+  "ts": "2025-09-12T21:40:00Z"
+}</pre>
+  <p class="muted">If it is not in labels/ and not produced by a declared deterministic engine from pinned inputs, it does not exist for audit or training.</p>
+
+  <h2>7. Manifest excerpts (identity + contract)</h2>
+  <pre>standard_version: "ap/0.2"
+profile: "commodity_commit_forecast/0.1"
+package_id: "pkg_01hqexample000000000000001"
+title: "Weekly commodity commit pack - BBU and PSU shelf (example)"
+as_of: "2025-09-12T18:00:00Z"
+
+output_contract:
+  - name: supplier_forecast
+    consumer: sourcing_managers
+    path: outputs/supplier_forecast.csv
+  - name: exception_list
+    consumer: planning_lead
+    path: outputs/exceptions.csv
+
+training_eligibility: false   # D7A opt-in default
+
+model_run:
+  assisted: true
+  role: "draft_override_suggestions_only"   # D5A</pre>
+
+  <h2>8. Paths</h2>
+  <ul>
+    <li>Normative: <code>meta/ANALYSIS-PACKAGE-STANDARD.md</code> (ap/0.2)</li>
+    <li>Decisions: <code>meta/ANALYSIS-PACKAGE-DECISIONS.md</code></li>
+    <li>Example pack: <code>examples/ap-example-commodity-commit-v1/</code></li>
+    <li>Research: <a href="/static/blog/analysis-package-findings-v2.html">findings v2</a></li>
+  </ul>
+
+  <h2>9. What is still stub (not fake-complete)</h2>
+  <ul>
+    <li><code>run_commit_pack.py</code> is a stub (documents contract; does not compute full explode)</li>
+    <li>SHA256 values are placeholders</li>
+    <li>RO-Crate JSON-LD compile step not implemented yet (YAML is the authoring form)</li>
+    <li><code>ap-gate</code> CLI not built yet - checks.json shows the intended gate result shape</li>
+  </ul>
+
+  <footer>
+    Synthetic example for illustration. Not live production data.
+  </footer>
+</div>
+</body>
+</html>

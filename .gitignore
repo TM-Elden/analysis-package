@@ -1,0 +1,13 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+.env
+*.egg-info/
+.DS_Store
+.idea/
+.vscode/
+*.tar.gz
+.ap-gate-cache/

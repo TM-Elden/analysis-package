@@ -1,0 +1,199 @@
+# Analysis Package convenience manifest (ap/0.2)
+# Compiles to RO-Crate ro-crate-metadata.json (D1A). Agents/planners edit THIS file.
+
+standard_version: "ap/0.2"
+profile: "commodity_commit_forecast/0.1"
+conforms_to:
+  - "ap/0.2"
+  - "ro-crate/1.2"
+  - "ap-profile/commodity_commit_forecast/0.1"
+
+package_id: "pkg_01hqexample000000000000001"
+package_version: "1.0.0"
+title: "Weekly commodity commit pack - BBU and PSU shelf (example)"
+created_at: "2025-09-12T22:15:00Z"
+as_of: "2025-09-12T18:00:00Z"
+
+owners:
+  analyst:
+    id: "planner.example"
+    role: "commodity_planner"
+  reviewer:
+    id: "lead.example"
+    role: "planning_lead"
+  agent:
+    id: "pair-agent-1"
+    harness: "openclaw-or-equivalent"
+    model: "frontier-model-pinned"
+    prompt_tool_hash: "sha256:demo0000"
+
+purpose: >
+  Produce supplier-level commit / forecast quantities for BBU, BBU shelf, PSU, and PSU shelf
+  for the next 13 weeks for sourcing execution.
+
+output_contract:
+  - name: supplier_forecast
+    consumer: sourcing_managers
+    format: csv
+    schema_ref: outputs/schemas/supplier_forecast.schema.json
+    path: outputs/supplier_forecast.csv
+  - name: exception_list
+    consumer: planning_lead
+    format: csv
+    schema_ref: outputs/schemas/exception_list.schema.json
+    path: outputs/exceptions.csv
+  - name: run_summary
+    consumer: planner_archive
+    format: md
+    path: outputs/RUN_SUMMARY.md
+
+inputs:
+  - name: rack_demand
+    source_system: demand_planning_extract
+    snapshot_id: "rack_demand_2025-09-12_v4"
+    as_of: "2025-09-12T12:00:00Z"
+    path: inputs/rack_demand.csv
+    content_sha256: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  - name: bom_bbu_psu
+    source_system: plm_bom_export
+    snapshot_id: "bom_power_2025-09-10"
+    as_of: "2025-09-10T00:00:00Z"
+    path: inputs/bom_bbu_psu.csv
+    content_sha256: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  - name: supplier_split_rules
+    source_system: planning_sheet
+    snapshot_id: "splits_power_2025-09-11"
+    as_of: "2025-09-11T16:00:00Z"
+    path: inputs/supplier_splits.csv
+    content_sha256: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  - name: on_hand_and_pos
+    source_system: erp_wms_extract
+    snapshot_id: "inv_po_2025-09-12_1800Z"
+    as_of: "2025-09-12T18:00:00Z"
+    path: inputs/onhand_pos.csv
+    content_sha256: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  - name: independent_demand_spares_npi
+    source_system: planner_workbook
+    snapshot_id: "indep_demand_2025-09-12"
+    as_of: "2025-09-12T15:30:00Z"
+    path: inputs/independent_demand.csv
+    content_sha256: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  # Escape hatch example: contract clause not file-snapshotted
+  - name: lta_linearity_note
+    source_system: contract_repo
+    availability: external_ref
+    external_ref: "contracts://supplier-ACME/LTA-2024-section-4.2"
+    access_procedure: "Sourcing shared drive; planner cites clause in override evidence"
+    as_of: "2025-09-12T00:00:00Z"
+    snapshot_id: null
+    path: null
+
+method:
+  guideline_version: "commodity-commit-guideline@1.2.0"
+  guideline_path: GUIDELINE.md
+  summary: >
+    Explode rack demand through power BOM, allocate by supplier split rules,
+    net against on-hand/PO, apply labeled overrides, emit supplier forecast + exceptions.
+  entrypoint: "code/run_commit_pack.py"
+  ontology_version: "parts-suppliers-power@1.4.0"
+
+engines:
+  - name: bom_explode
+    version: "1.2.0"
+    deterministic: true
+    path: code/bom_explode.py
+  - name: allocate_suppliers
+    version: "0.9.1"
+    deterministic: true
+    path: code/allocate.py
+  - name: net_inventory
+    version: "1.0.0"
+    deterministic: true
+    path: code/netting.py
+
+# D5A: no model listed as deterministic planning engine.
+# Agent may draft override suggestions; human accepts into labels/overrides.jsonl.
+
+outputs:
+  - name: supplier_forecast
+    path: outputs/supplier_forecast.csv
+    schema_ref: outputs/schemas/supplier_forecast.schema.json
+  - name: exception_list
+    path: outputs/exceptions.csv
+    schema_ref: outputs/schemas/exception_list.schema.json
+  - name: run_summary
+    path: outputs/RUN_SUMMARY.md
+
+labels:
+  overrides_path: labels/overrides.jsonl
+  judgments_path: labels/judgments.jsonl
+  truths_applied_path: labels/truths_applied.jsonl
+
+four_bucket_map:
+  structured:
+    - rack_demand
+    - bom_bbu_psu
+    - supplier_split_rules
+    - on_hand_and_pos
+    - independent_demand_spares_npi
+  judgment_refs: labels/judgments.jsonl
+  truths_refs: labels/truths_applied.jsonl
+  engines:
+    - bom_explode
+    - allocate_suppliers
+    - net_inventory
+
+qa:
+  status: approved
+  checks:
+    - name: must_fields_present
+      result: pass
+      evidence: "validator ap-gate 0.2"
+    - name: output_contract_files_exist
+      result: pass
+      evidence: "3/3 outputs present"
+    - name: inputs_hashed
+      result: pass
+      evidence: "4 file inputs sha256 match manifest"
+    - name: no_unlabeled_diff
+      result: pass
+      evidence: "engine replay vs outputs ⊆ overrides.jsonl"
+    - name: non_negative_qty
+      result: pass
+      evidence: "0 negative forecast rows"
+    - name: reason_codes_known
+      result: pass
+      evidence: "all codes in ontology reason_codes@1.1"
+  gold_reference_package_id: "pkg_01hqexample000000000000000"
+  tolerances:
+    qty_abs: 0
+    qty_rel: 0.0
+
+intended_use: >
+  Internal weekly sourcing execution and planning archive.
+  Eligible for internal model training only if training_eligibility is true.
+out_of_scope: >
+  Not an automatic PO release. Not finance revenue. Not a substitute for MRP of other commodities.
+confidentiality: internal_restricted
+training_eligibility: false   # D7A opt-in default
+training_eligibility_reason: "Default opt-in; enable after legal/policy review for this commodity class"
+
+repro:
+  command: "python code/run_commit_pack.py --manifest MANIFEST.yaml"
+  environment: "python=3.11; deps=requirements.lock"
+  notes: "Deterministic engines only. Apply labels/overrides.jsonl after engine pass (see GUIDELINE)."
+
+model_run:
+  assisted: true
+  role: "draft_override_suggestions_only"   # D5A
+  harness: "openclaw-or-equivalent"
+  model: "frontier-model-pinned"
+  prompt_tool_hash: "sha256:demo0000"
+
+change_log:
+  - version: "1.0.0"
+    note: "Example package illustrating ap/0.2 commodity_commit_forecast profile"
+
+related_packages:
+  - package_id: "pkg_01hqexample000000000000000"
+    relation: gold_prior

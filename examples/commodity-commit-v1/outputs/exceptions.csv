@@ -1,0 +1,4 @@
+exception_id,severity,part,week,code,detail
+ex_001,ACME,BBU-100,2025-W36,HOLD_FOR_PRICE_NEGOTIATION,Override ovr_001 reduced qty 1200->900
+ex_002,BETA,PSU-50,2025-W38,LTA_LINEARITY_CAP,Linearity constraint flagged ovr_002
+ex_003,ACME,BBU-SHELF-1,2025-W37,NPI_BRIDGE_MANUAL,Override ovr_003
