@@ -42,32 +42,38 @@
   .deck-nav .wm{
     flex:0 0 auto;
     display:inline-flex;
-    align-items:flex-end;
+    align-items:baseline;
     gap:0;
     text-decoration:none;
     color:var(--bone);
     line-height:1;
-    height:28px;
+    height:auto;
   }
   .deck-nav .wm .fm{
     position:relative;
-    width:14px;
-    height:28px;
+    display:inline-block;
+    width:0.48em;
+    font-size:22px;
+    height:1em;
     flex:0 0 auto;
+    vertical-align:baseline;
   }
   .deck-nav .wm .fm svg{
     position:absolute;
-    left:0;bottom:0;
-    width:14px;height:28px;
+    left:0;
+    /* match brand-final: instrument rises above and weight sits on baseline */
+    top:-0.72em;
+    width:0.56em;
+    height:calc(0.56em * 232 / 150);
     overflow:visible;
   }
   .deck-nav .wm .tx{
     font-family:'Newsreader',Georgia,serif;
     font-weight:300;
     font-size:22px;
-    letter-spacing:-0.015em;
+    letter-spacing:-0.02em;
     line-height:1;
-    padding-bottom:1px;
+    margin-left:-0.06em; /* pull a under the F arms */
   }
   .deck-nav .links{
     flex:1 1 auto;
@@ -173,33 +179,36 @@
   .title-slide .wm-hero{
     position:relative;
     display:inline-flex;
-    align-items:flex-end;
+    align-items:baseline;
     margin:16px 0 36px;
     color:var(--bone);
     line-height:1;
+    font-size:clamp(64px,14vw,120px); /* shared em for F + athm */
   }
   .title-slide .wm-hero .fm{
     position:relative;
-    width:0.55em;
-    font-size:clamp(64px,14vw,120px);
-    height:1.55em;
+    display:inline-block;
+    width:0.48em;
+    height:1em;
     flex:0 0 auto;
+    font-size:1em;
+    vertical-align:baseline;
   }
   .title-slide .wm-hero .fm svg{
     position:absolute;
     left:0;
-    top:0;
-    width:100%;
-    height:100%;
+    top:-0.76em; /* brand-final lockup */
+    width:0.58em;
+    height:calc(0.58em * 232 / 150);
     overflow:visible;
   }
   .title-slide .wm-hero .tx{
     font-family:'Newsreader',Georgia,serif;
     font-weight:300;
-    font-size:clamp(64px,14vw,120px);
-    letter-spacing:-0.015em;
+    font-size:1em;
+    letter-spacing:-0.02em;
     line-height:1;
-    padding-bottom:0.02em;
+    margin-left:-0.05em; /* F arms nearly meet a */
   }
   .title-slide .kicker{
     margin-top:8px;
