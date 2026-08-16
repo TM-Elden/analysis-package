@@ -59,6 +59,7 @@ research/                 Prior art and source materials
 | [brand/fathm-brand-final.html](brand/fathm-brand-final.html) | **Brand system final (canonical)** |
 | [docs/PATH-INTERNAL-META.md](docs/PATH-INTERNAL-META.md) | **Primary path: Meta internal (less risk/reward)** |
 | [docs/PITCH-INTERNAL-META.md](docs/PITCH-INTERNAL-META.md) | Internal pilot pitch |
+| [docs/PITCH-MANAGER-SSD.md](docs/PITCH-MANAGER-SSD.md) | **Manager pitch · SSD forecast pilot** |
 | [docs/PITCH-YC.md](docs/PITCH-YC.md) | YC / external spine (stretch) |
 | [docs/PITCH-YC-READINESS.md](docs/PITCH-YC-READINESS.md) | Readiness rubric scores |
 | [docs/html/fathm-pitch-yc.html](docs/html/fathm-pitch-yc.html) | YC 11-slide deck (stretch) |

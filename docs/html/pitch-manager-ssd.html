@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>fathm — manager pitch SSD</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&family=IBM+Plex+Mono&family=Newsreader:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#07090D;--bone:#E8E0D5;--brass:#E8B36A;--drift:#93856F;--line:rgba(147,133,111,.22)}
+body{background:var(--ink);color:var(--bone);font-family:Archivo,sans-serif;line-height:1.55;padding:40px 6vw 80px;max-width:720px;margin:0 auto}
+h1,h2,h3{font-family:Newsreader,Georgia,serif;font-weight:300;letter-spacing:-.01em}
+h1{font-size:1.75rem;margin:0 0 8px}
+h2{font-size:1.25rem;margin:2rem 0 .6rem;color:var(--bone)}
+h3{font-size:1.05rem;margin:1.25rem 0 .4rem}
+p,li{color:var(--drift);font-size:15px}
+strong{color:var(--bone)}
+a{color:var(--brass)}
+hr{border:none;border-top:1px solid var(--line);margin:2rem 0}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+th{font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--drift)}
+td{color:var(--drift)}
+code,pre{font-family:IBM Plex Mono,monospace;font-size:12px}
+pre{background:#0A0E16;border:1px solid var(--line);padding:14px;border-radius:8px;overflow:auto;color:var(--bone);white-space:pre-wrap}
+.eyebrow{font-family:IBM Plex Mono,monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--brass);margin-bottom:12px}
+blockquote{border-left:3px solid var(--brass);margin:1rem 0;padding:.2rem 0 .2rem 1rem;font-family:Newsreader,Georgia,serif;font-size:1.15rem;color:var(--bone)}
+</style></head><body>
+<div class="eyebrow">internal · manager pilot · commodity ssd</div>
+<h1>Manager pitch - commodity SSD forecast → fathm (internal)</h1>
+
+<p>**Audience:** direct manager + optional stakeholders (e.g. Curran, Ashwini, Gaia)  </p>
+<p>**Length:** ~90 seconds spoken · one page written  </p>
+<p>**Path:** Meta internal pilot (not startup pitch)  </p>
+<p>**Status:** Manager-ready draft 2026-08-16  </p>
+
+<hr>
+
+<h2>Verbal script (~90 seconds)</h2>
+
+<p>Through owning commodity **SSDs**, I automated the full forecast generation loop by talking to a chatbot.</p>
+
+<p>I gave it my **upstream** sources.  </p>
+<p>I taught it the **in-between** logic.  </p>
+<p>I told it how to build every **downstream** report.</p>
+
+<p>That works. It’s also the problem.</p>
+
+<p>If the draft lives in a chat, we don’t get **lineage**, **data-quality checks**, **standardization**, or **governance** - and we can’t honestly say an AI-native leader can ask any question of our analysis and trust the answer.</p>
+
+<p>We want two things that look like they conflict:</p>
+
+<p>1. **Move fast with agents** on real, nonstandard planning work.  </p>
+<p>2. **Traceability and an AI-native corpus** so someone like Curran, Ashwini, or Gaia can query the team’s work - not a pile of threads and sheets.</p>
+
+<p>**fathm** is how we square that.</p>
+
+<p>Every time a bot (or human) finishes a cycle, the unit of publish isn’t the chat - it’s an **analysis package**: pinned inputs, method, outputs, human overrides with credit, and a gate before it counts as published. On top of that, a **chart room** so leadership can ask the corpus and get answers with provenance.</p>
+
+<p>**Two beats, one pilot:**</p>
+
+<li>**Beat A** - Agent is the primary draft surface for the SSD forecast (we already proved it’s possible).  </li>
+<li>**Beat B** - Nothing in-scope is “done” until it’s a gated package we can query later.</li>
+
+<p>**Ask:** 90 days on this workflow. Success = agent-born drafts by default, 100% of in-scope publishes are packages with queryable lineage, and you (or a named sponsor) actually ask the chart room weekly. Expand, hand off, or kill at day 90.</p>
+
+<p>I’m not asking for an org-wide platform or a headcount story. I’m asking to channel the clawbot reality we already have into something we can govern.</p>
+
+<hr>
+
+<h2>One-pager (send ahead or leave behind)</h2>
+
+<h3>Title</h3>
+<p>**From chatbot forecast to governed analysis - SSD pilot (90 days)**</p>
+
+<h3>What I already did</h3>
+<p>On **commodity SSDs**, end-to-end forecast generation runs through a chatbot:</p>
+<li>Upstream data sources → provided to the agent  </li>
+<li>In-between logic → encoded in conversation / instructions  </li>
+<li>Downstream reports → agent builds to spec  </li>
+
+<p>**Result:** the process is automatable by talking to a bot. Adoption of clawbot-style tools is real but mixed - this shows the high end of what’s possible.</p>
+
+<h3>The tension</h3>
+<p>Org goals include:</p>
+<li>**Traceability / lineage** of reporting  </li>
+<li>**AI-native** posture - leaders (e.g. Curran, Ashwini, Gaia) can ask any question of our analysis  </li>
+
+<p>Chat-native work fights those goals:</p>
+<p>| We need | Chat-only draft gives us |</p>
+<p>|---------|---------------------------|</p>
+<p>| Lineage | Broken or manual |</p>
+<p>| DQ checks | Ad hoc |</p>
+<p>| Standardization | Per-person prompts |</p>
+<p>| Governance | After-the-fact |</p>
+<p>| Query across the team’s work | Threads + drive archaeology |</p>
+
+<p>**Question:** How do we get lineage, quality gates, queryability, standardization, and governance across **nonstandard** planning processes - without killing agent speed?</p>
+
+<h3>Enter fathm</h3>
+<p>**fathm** = understand every analysis fully, down to its source.</p>
+
+<p>For this pilot it means:</p>
+
+<p>1. **Analysis package** - the publish unit (inputs + as-of, method, outputs, human judgment/overrides with credit, QA)  </p>
+<p>2. **Gate** - doesn’t count as published until complete  </p>
+<p>3. **Chart room** - managers/leaders query validated packages with citations  </p>
+
+<p>Agents stay the **draft surface**. Packages are how drafts become **institutional**.</p>
+
+<h3>Two-beat pilot (same 90 days)</h3>
+
+<p>| Beat | What | Success signal |</p>
+<p>|------|------|----------------|</p>
+<p>| **A · Surface** | Agent is default draft path for SSD forecast loop | Most cycles start in approved agent surface, not shadow one-offs |</p>
+<p>| **B · Scale** | Every in-scope publish is a gated package | 100% packages with queryable lineage; sponsor queries weekly |</p>
+
+<p>Beat A without B = faster unauditable sludge.  </p>
+<p>Beat B without A = process with no traffic.</p>
+
+<h3>Explicitly out of scope</h3>
+<li>Org-wide mandate day one  </li>
+<li>Replacing ERP/planning suites  </li>
+<li>Headcount-reduction narrative  </li>
+<li>Training public models on internal content  </li>
+<li>Boiling the ocean on day one standards  </li>
+
+<h3>Ask</h3>
+<p>| Need | Why |</p>
+<p>|------|-----|</p>
+<p>| Manager sponsorship | Air cover + chart-room user |</p>
+<p>| SSD forecast as pilot workflow | Already proven agent-automatable |</p>
+<p>| 90 days | Habit + kill criteria |</p>
+<p>| Access to current data/report path | Meet the real process |</p>
+
+<h3>Decision at day 90</h3>
+<p>**Expand** to adjacent commodities/workflows · **Hand off** to a platform owner · **Stop**.</p>
+
+<h3>One line</h3>
+<blockquote>We already showed the forecast can be generated by talking to a bot. fathm makes that safe to scale - lineage, gates, and a corpus leaders can actually ask.</blockquote>
+
+<hr>
+
+<h2>Tight email version (short)</h2>
+
+<p>Subject: Pilot idea - agent-drafted SSD forecast + governed packages (90 days)</p>
+
+<p>I’ve automated commodity SSD forecast generation end-to-end through a chatbot (upstream sources, logic, downstream reports). It works - and it surfaces a gap: if the work lives in chat, we don’t get lineage, DQ, standardization, or a corpus leaders can query.</p>
+
+<p>I’d like 90 days to pilot **fathm** on this workflow: keep the agent as the draft surface, but require every publish to be a gated **analysis package** with queryable provenance (chart room for you / Curran / Ashwini / Gaia-style questions).</p>
+
+<p>Success: agent-default drafts, 100% in-scope packages, weekly sponsor query. Expand / handoff / kill at day 90. Not an org-wide platform ask.</p>
+
+<p>Happy to walk through in 25 minutes.</p>
+
+<hr>
+
+<h2>Delivery notes (for Tom)</h2>
+
+<li>Lead with **SSD proof** (you did the thing) - not brand mythology  </li>
+<li>Say **fathm** once; if name distracts, “analysis package pilot” is fine  </li>
+<li>Name leaders only if appropriate in your org culture; else “leadership can query”  </li>
+<li>Bring one ugly artifact: chat → final report with no lineage link  </li>
+<li>Offer kill criteria unprompted - builds trust  </li>
+<li>Clawbot: “channel mixed adoption,” not “everyone must use X”  </li>
+
+<h2>Optional objection handles</h2>
+
+<p>| Pushback | Reply |</p>
+<p>|----------|--------|</p>
+<p>| “Just use our catalog / DQ tool” | Wrong grain - those are tables/pipelines; this is the **analysis publish** unit bots create. |</p>
+<p>| “Agents aren’t ready” | Mixed adoption is already here; SSD loop shows the upside. We’re governing reality. |</p>
+<p>| “More process slows us” | Gate is the minimum to call it published; draft stays as fast as chat. |</p>
+<p>| “Are you building a startup?” | Internal pilot to make our team AI-native and auditable. |</p>
+<p>| “Planners will hate it” | Overrides keep **credit**; less rebuild next cycle. |</p>
+</body></html>
