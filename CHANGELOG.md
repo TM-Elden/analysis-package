@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased - phase 3 (in progress): C14 redaction + C4 retrieval index
+## Unreleased - phase 3 (in progress): C14 redaction, C4 retrieval index, C4 manager bot
 
-Implements the redaction-before-index and search-index halves of §20a's adopted Phase 3 slice
-(`docs/DESIGN-FATHM-SYSTEM.md` section 20a). Neither the manager-bot backend (`POST /chat/manager`)
-nor the console lands here - those consume `ap_index.search`/`get_chunk` as a library later. Full
-architecture notes live in `AGENTS.md`'s "Phase 3" section; not repeated here.
+Implements the redaction-before-index, search-index, and manager-bot-backend slices of §20a's
+adopted Phase 3 slice (`docs/DESIGN-FATHM-SYSTEM.md` section 20a). The manager console and planner
+chat surfaces (both consumers of `POST /chat/manager`) land later. Full architecture notes live in
+`AGENTS.md`'s "Phase 3" section; not repeated here.
 
 - New: `src/ap_redact/` - `redact_package(package_dir, manifest, ...)` pipeline: `package dir ->
   (list[Chunk], RedactionReport)`. Person identifiers (`author` on label rows,
@@ -29,6 +29,29 @@ architecture notes live in `AGENTS.md`'s "Phase 3" section; not repeated here.
 - 16 new tests covering person-identifier scrubbing (structured + free-text, word-boundary not
   substring), secret fail-closed behavior, the redaction report sidecar, and FTS5 search/filtering/
   reindex-on-status-change.
+- New: `POST /chat/manager` (`src/ap_manager_bot/` + `src/ap_api/chat_routes.py`) - the C4 manager
+  bot. A tool-using loop (`search_packages`/`get_package_summary`/`get_gate_report`, ending only via
+  a `provide_answer` tool), not embed-and-stuff RAG. Caller identity is resolved to a
+  confidentiality filter *before* every retrieval and re-checked per chunk *after* (`scoping.py`);
+  every citation on a `provide_answer` call is checked against what was actually retrieved this
+  conversation and dropped if it doesn't resolve - an answer left with zero valid citations
+  downgrades to a refusal rather than shipping partially-grounded content. LLM egress is the
+  Anthropic Messages API over plain `httpx` (`llm_client.py::AnthropicHTTPClient`, no SDK), per the
+  captain-approved egress posture (`fathm-phase3-readiness-decision-llm-egress-posture`,
+  2026-08-16): redacted, in-scope package content may leave the premises to the model provider at
+  query time under its no-training terms, as a documented inference-time exception to TRUST.md.
+- New: `tests/_manager_bot_corpus.py` - an 8-package synthetic eval corpus (varied supplier/part/
+  override content, one `internal_restricted` package for the scoping tests), published and
+  approved through the real `ap_review.ReviewWorkflow`. `test_manager_bot_eval.py` is the C4
+  acceptance eval set (15 questions, each checked for citation correctness against the known-correct
+  package, plus an explicit no-match refusal case); `test_manager_bot_scoping.py` covers the
+  confidentiality double-check and the citation contract (hallucinated citations, empty retrieval).
+  Both use `tests/_manager_bot_fake_llm.py::ScriptedLLMClient` (a deterministic `LLMClient` test
+  double) instead of a live model call, so the harness is fully tested without network access or an
+  API key; `test_manager_bot_llm_client.py` separately covers `AnthropicHTTPClient`'s own
+  request/response shaping against `httpx.MockTransport`.
+- `httpx` moved from the `dev` extra to a core dependency (`pyproject.toml`) - `AnthropicHTTPClient`
+  needs it at runtime, not just in tests.
 
 ## Unreleased - phase 3: real C11 authentication/authorization
 
