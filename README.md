@@ -57,7 +57,10 @@ research/                 Prior art and source materials
 |-----|---------|
 | [docs/BRAND.md](docs/BRAND.md) | fathm brand lock + tokens |
 | [brand/fathm-brand-final.html](brand/fathm-brand-final.html) | **Brand system final (canonical)** |
-| [docs/html/fathm-pitch.html](docs/html/fathm-pitch.html) | **Pitch deck HTML** |
+| [docs/PITCH-YC.md](docs/PITCH-YC.md) | **YC / seed spine + app blurbs** |
+| [docs/PITCH-YC-READINESS.md](docs/PITCH-YC-READINESS.md) | Readiness rubric scores |
+| [docs/html/fathm-pitch-yc.html](docs/html/fathm-pitch-yc.html) | **YC 11-slide deck** |
+| [docs/html/fathm-pitch.html](docs/html/fathm-pitch.html) | Longer internal pitch |
 | [docs/DESIGN-FATHM-SYSTEM.md](docs/DESIGN-FATHM-SYSTEM.md) | **firstmate build authority (full system)** |
 | [docs/DESIGN-FATHM-MVP.md](docs/DESIGN-FATHM-MVP.md) | Historical L1-only draft (superseded for scope) |
 | [docs/FIRSTMATE-KICKOFF.md](docs/FIRSTMATE-KICKOFF.md) | Short kickoff card |

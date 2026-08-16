@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fathm — YC pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Newsreader:ital,opsz,wght@0,6..72,200..500;1,6..72,200..500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#07090D; --ink2:#0A0E16; --slate:#121826; --brass:#E8B36A;
+    --drift:#93856F; --bone:#E8E0D5; --line:rgba(147,133,111,.22);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--bone);font-family:'Archivo',sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .slide{
+    min-height:100vh;min-height:100dvh;
+    padding:48px 6vw 64px;
+    border-bottom:1px solid var(--line);
+    display:flex;flex-direction:column;justify-content:center;
+    max-width:920px;margin:0 auto;
+  }
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--brass);margin-bottom:16px}
+  .def{font-family:'Newsreader',Georgia,serif;font-weight:300;font-size:clamp(26px,4vw,40px);line-height:1.25;max-width:20ch}
+  .def em{color:var(--brass);font-style:italic;font-size:.78em}
+  h2{font-family:'Newsreader',Georgia,serif;font-weight:300;font-size:clamp(24px,3.4vw,36px);line-height:1.2;letter-spacing:-.01em;max-width:22ch;margin-bottom:14px}
+  .lede{color:var(--drift);font-size:clamp(15px,1.5vw,17px);max-width:54ch;margin-top:12px}
+  .lede strong{color:var(--bone);font-weight:600}
+  .say{margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--drift);letter-spacing:.04em;max-width:60ch;border-left:2px solid rgba(232,179,106,.4);padding-left:12px}
+  ul.clean{margin-top:22px;list-style:none;display:grid;gap:10px;max-width:560px}
+  ul.clean li{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:rgba(18,24,38,.45);font-size:15px}
+  ul.clean li b{color:var(--brass);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;display:block;margin-bottom:4px;font-weight:500}
+  .two{display:grid;gap:14px;margin-top:22px}
+  @media(min-width:720px){.two{grid-template-columns:1fr 1fr}}
+  .card{border:1px solid var(--line);border-radius:10px;padding:18px 18px;background:rgba(18,24,38,.45)}
+  .card h3{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin-bottom:8px;font-weight:500}
+  .card p,.card li{color:var(--drift);font-size:14px}
+  .card ul{margin:0;padding-left:1.1rem}
+  .card li{margin:5px 0}
+  .card strong{color:var(--bone)}
+  table.cmp{width:100%;border-collapse:collapse;margin-top:20px;font-size:13px}
+  table.cmp th,table.cmp td{border:1px solid var(--line);padding:10px 12px;text-align:left}
+  table.cmp th{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--drift);font-weight:500}
+  table.cmp td{color:var(--drift)}
+  table.cmp td:last-child,table.cmp th:last-child{color:var(--bone);background:rgba(232,179,106,.06)}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;align-items:center}
+  .flow span{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);padding:8px 12px;border-radius:999px;color:var(--bone)}
+  .flow i{color:var(--brass);font-style:normal;font-family:'IBM Plex Mono',monospace}
+  .wm{display:inline-flex;align-items:center;gap:0;margin:8px 0 28px;font-size:clamp(56px,12vw,96px);line-height:1;color:var(--bone)}
+  .wm .fm{display:block;width:.42em;height:1.05em;margin-right:.02em}
+  .wm .fm svg{display:block;width:100%;height:100%}
+  .wm .tx{font-family:'Newsreader',Georgia,serif;font-weight:300;letter-spacing:-.02em}
+  .kicker{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--drift);margin-top:14px}
+  .quote{font-family:'Newsreader',Georgia,serif;font-weight:300;font-size:clamp(20px,2.8vw,28px);line-height:1.35;max-width:28ch;border-left:3px solid var(--brass);padding-left:16px;margin-top:8px}
+  .ask{margin-top:24px;border:1px solid rgba(232,179,106,.35);border-radius:12px;padding:24px;background:linear-gradient(145deg,rgba(232,179,106,.08),rgba(18,24,38,.35));max-width:560px}
+  .ask .big{font-family:'Newsreader',Georgia,serif;font-weight:300;font-size:clamp(22px,3vw,30px);margin-bottom:10px}
+  .foot{margin-top:36px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--drift)}
+  .pill{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);border:1px solid rgba(232,179,106,.35);padding:4px 10px;border-radius:999px;margin-bottom:12px}
+  @media print{.slide{min-height:auto;page-break-after:always;padding:36px}}
+</style>
+</head>
+<body>
+
+<!-- 1 -->
+<section class="slide" id="s1">
+  <div class="eyebrow">fathm · yc / seed</div>
+  <div class="wm" aria-label="fathm">
+    <span class="fm" aria-hidden="true"><svg viewBox="0 0 140 220" fill="none" preserveAspectRatio="xMidYMid meet">
+      <line x1="28" y1="8" x2="28" y2="175" stroke="#E8B36A" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="22" x2="118" y2="22" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="82" x2="92" y2="82" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="28" cy="192" r="20" fill="#E8B36A"/>
+    </svg></span>
+    <span class="tx">athm</span>
+  </div>
+  <p class="def">fathm <em>(v.)</em> - to understand something fully, down to its source.</p>
+  <p class="lede" style="margin-top:20px;color:var(--bone);max-width:40ch"><strong>Provenance for AI-driven analysis</strong> - finance teams publish, gate, and query every package down to its source.</p>
+  <p class="kicker">not a meeting notetaker · not an erp · analysis packages + chart room</p>
+  <p class="foot">Tom Moore · founder</p>
+  <p class="say">Say: understand every analysis fully, down to its source.</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" id="s2">
+  <div class="eyebrow">01 · problem</div>
+  <h2>Finance is drowning in bots.</h2>
+  <p class="lede">Management cannot see or trust what those bots publish. Nobody can trace a conclusion to data, method, and human judgment - and the analyst may not be human.</p>
+  <ul class="clean">
+    <li><b>Bot sprawl</b> Agents draft flash, forecast, and ops notes faster than review can keep up.</li>
+    <li><b>Un-auditable publish</b> The artifact is a doc or sheet - not a package with provenance.</li>
+    <li><b>Spreadsheet archaeology</b> Next week starts from buried files, not a prior sounding.</li>
+  </ul>
+  <p class="say">Say: bots are live; trust and trace are not.</p>
+</section>
+
+<!-- 3 -->
+<section class="slide" id="s3">
+  <div class="eyebrow">02 · solution</div>
+  <h2>Every publish is a complete sounding.</h2>
+  <p class="lede">An <strong>Analysis Package</strong> is the unit of work - then a gate, then a chart room.</p>
+  <ul class="clean">
+    <li><b>Package</b> Pinned inputs, method, engines, human overrides with credit.</li>
+    <li><b>Gate</b> Structural CI before it counts as published.</li>
+    <li><b>Chart room</b> Managers query the team's validated corpus with citations.</li>
+  </ul>
+  <p class="lede">Not another planning monolith. The publish contract - and the room to question it.</p>
+  <p class="say">Say: package, gate, chart room.</p>
+</section>
+
+<!-- 4 -->
+<section class="slide" id="s4">
+  <div class="eyebrow">03 · why now</div>
+  <h2>Three unlocks landed together.</h2>
+  <ul class="clean">
+    <li><b>01 · Bots are already live</b> Finance teams already run agent sprawl. The liability is here.</li>
+    <li><b>02 · CI on the publish unit</b> Structure can finally attach to the analysis package - not only warehouse tables.</li>
+    <li><b>03 · LLMs after structure</b> Corpus Q&amp;A and reports work when packages are real - not on chat sludge.</li>
+  </ul>
+  <p class="say">Say: agents first, structure second, intelligence third.</p>
+</section>
+
+<!-- 5 -->
+<section class="slide" id="s5">
+  <div class="eyebrow">04 · insight</div>
+  <p class="pill">why this shape</p>
+  <p class="quote">Real plans need massive unstructured data and judgment. They will never look like a clean structured pipeline or a traditional planning tool alone.</p>
+  <p class="lede" style="margin-top:22px">That judgment is the product surface - labels, truths, overrides - with credit. Not an afterthought bolted on a warehouse.</p>
+  <p class="say">Say: judgment is load-bearing; we make it the unit of record.</p>
+</section>
+
+<!-- 6 -->
+<section class="slide" id="s6">
+  <div class="eyebrow">05 · competition</div>
+  <h2>Bottoms-up beats the monolith.</h2>
+  <p class="lede"><strong>Real threat:</strong> a giant ERP ships top-down "provenance" and crowds the budget.</p>
+  <p class="lede">Market already chose tailored modules over monolith planning - <strong>Anaplan preferred vs Oracle planning</strong>. fathm is that shape for AI-era publish + query.</p>
+  <table class="cmp">
+    <thead><tr><th></th><th>ERP feature</th><th>Chat / docs</th><th>Catalog</th><th>fathm</th></tr></thead>
+    <tbody>
+      <tr><td>Unit</td><td>suite object</td><td>threads</td><td>tables</td><td>package</td></tr>
+      <tr><td>Bot gate</td><td>slow</td><td>none</td><td>weak</td><td>core</td></tr>
+      <tr><td>Mgr query</td><td>partial</td><td>mess</td><td>wrong grain</td><td>chart room</td></tr>
+      <tr><td>Planner credit</td><td>buried</td><td>no</td><td>n/a</td><td>yes</td></tr>
+    </tbody>
+  </table>
+  <p class="say">Say: Anaplan lesson - focused layer wins early.</p>
+</section>
+
+<!-- 7 -->
+<section class="slide" id="s7">
+  <div class="eyebrow">06 · product</div>
+  <h2>One loop. Three beats.</h2>
+  <p class="lede">Interview demo target:</p>
+  <ul class="clean">
+    <li><b>Publish</b> Package through the gate - pass or fix.</li>
+    <li><b>Query</b> Manager asks the corpus / builds a report with citations.</li>
+    <li><b>Govern</b> Standard revision proposed - human HITL approves.</li>
+  </ul>
+  <div class="flow">
+    <span>standard</span><i>→</i><span>gate</span><i>→</i><span>store</span><i>→</i><span>chart room</span><i>→</i><span>planner</span><i>→</i><span>hitl</span>
+  </div>
+  <p class="say">Say: publish, ask, approve.</p>
+</section>
+
+<!-- 8 -->
+<section class="slide" id="s8">
+  <div class="eyebrow">07 · gtm</div>
+  <h2>Finance first. Both sides of the desk.</h2>
+  <div class="two">
+    <div class="card">
+      <h3>ICP</h3>
+      <p>Finance team with <strong>bot proliferation</strong>, weak management visibility, needs easy adoption.</p>
+    </div>
+    <div class="card">
+      <h3>Year one</h3>
+      <p><strong>Gate + chart room</strong> together. Query is the felt magic. Provenance % is the proof metric.</p>
+    </div>
+    <div class="card">
+      <h3>Managers</h3>
+      <ul>
+        <li>See what bots published</li>
+        <li>Query with citations</li>
+        <li>Govern the standard</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Planners</h3>
+      <ul>
+        <li>Credit on overrides</li>
+        <li>Less archaeology</li>
+        <li>Not training their replacement</li>
+      </ul>
+    </div>
+  </div>
+  <p class="lede" style="margin-top:18px"><strong>Objection:</strong> "Why train AI to replace me?" - Soundings make your judgment the unit of record. Helpful AI must cite you. No cross-customer content training.</p>
+  <p class="say">Say: if only managers win, planners sandbag.</p>
+</section>
+
+<!-- 9 -->
+<section class="slide" id="s9">
+  <div class="eyebrow">08 · model</div>
+  <h2>SaaS on the publish path.</h2>
+  <div class="two">
+    <div class="card">
+      <h3>Primary</h3>
+      <p>Subscription: Standard tooling + CI gate + chart room.</p>
+    </div>
+    <div class="card">
+      <h3>Later</h3>
+      <p>Planner / standard-evolution tier as corpus compounds.</p>
+    </div>
+    <div class="card">
+      <h3>Pricing thesis</h3>
+      <p>Benchmark Anaplan/Kinaxis-class module ACV, then ~2× AI premium for gate + query. Validate in design partner - not a frozen price card.</p>
+    </div>
+    <div class="card">
+      <h3>Not the pitch</h3>
+      <p>Headcount replacement. Services as the business. Meeting-note adjacency.</p>
+    </div>
+  </div>
+  <p class="say">Say: software revenue on gate + room; services only to land.</p>
+</section>
+
+<!-- 10 -->
+<section class="slide" id="s10">
+  <div class="eyebrow">09 · team + status</div>
+  <h2>Founder-market fit is the edge.</h2>
+  <div class="two">
+    <div class="card">
+      <h3>Tom Moore · solo founder</h3>
+      <ul>
+        <li><strong>USCG Boatswain's Mate ~10y</strong> - soundings, go/no-go under uncertainty</li>
+        <li><strong>Supply-chain planner</strong> - lived spreadsheet hell and missing traceability</li>
+        <li><strong>Engineer + AI builder</strong> - ships the system</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Traction (honest)</h3>
+      <ul>
+        <li>Spec-stage: ap/0.2, example pack, system design, brand</li>
+        <li>Pre-revenue · no fake LOIs</li>
+        <li><strong>KPI:</strong> % packs with full queryable provenance → 100% in pilot</li>
+        <li><strong>Felt win:</strong> managers live in corpus Q&amp;A</li>
+      </ul>
+    </div>
+  </div>
+  <p class="lede">Solo is a risk we own: depth first; design partner validates; first hire ships the UI loop.</p>
+  <p class="say">Say: boatswain, planner, builder - same problem three times.</p>
+</section>
+
+<!-- 11 -->
+<section class="slide" id="s11">
+  <div class="eyebrow">10 · the ask</div>
+  <div class="ask">
+    <p class="big">Help us reach the bottom.</p>
+    <p class="lede" style="margin:0;color:var(--drift)"><strong style="color:var(--bone)">Now:</strong> one finance design partner - full publish → query → standard HITL loop.</p>
+    <p class="lede" style="margin-top:12px;color:var(--drift)"><strong style="color:var(--bone)">YC:</strong> stretch goal to mature the company - not the only path.</p>
+    <p class="lede" style="margin-top:12px;color:var(--drift)"><strong style="color:var(--bone)">Seed:</strong> amount TBD with founder - ~18 months to ship the loop, land 2–3 partners, prove provenance KPI + live query, hire first eng.</p>
+  </div>
+  <p class="foot" style="margin-top:28px">fathm · to understand something fully, down to its source.</p>
+  <p class="say">Say: design partner now; capital when the loop is real.</p>
+</section>
+
+</body>
+</html>
