@@ -68,6 +68,15 @@ class ProfileRegistry:
     def is_seeded(self, name: str) -> bool:
         return self._pointer_path(name).is_file()
 
+    def names(self) -> list[str]:
+        """Every profile name that has been touched (seeded or bumped) in this registry,
+        sorted. Used by `GET /standard/versions` (ap_api) to enumerate what to report - a
+        directory only counts once it has a `_pointer.json` (i.e. `is_seeded`), so a
+        half-written or otherwise stray subdirectory is never reported."""
+        if not self.root.is_dir():
+            return []
+        return sorted(p.name for p in self.root.iterdir() if p.is_dir() and self.is_seeded(p.name))
+
     def current_version(self, name: str) -> str | None:
         pointer = self._pointer_path(name)
         if not pointer.is_file():

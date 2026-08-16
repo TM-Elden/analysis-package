@@ -443,11 +443,11 @@ not the capture mechanism.
 Implements the proposal storage/workflow/API foundation Phase 4's evolution loop sits on -
 `data/fathm-phase4-readiness/report.md` §5.4 in the firstmate repo is the design authority; C6/C7
 are `docs/DESIGN-FATHM-SYSTEM.md` sections 10/11. The drafting bot that populates real `diff_json`
-content (§5.3) is a separate, later task - this slice is storage + state machine + JSON API only.
-The apply substrate (versioned profile registry + gate resolution seam + dry-run, §5.5/5.6) is
-built - see "Standard registry, gate seam, dry-run" below - but wiring it to a proposal decision
-(the actual apply-on-approve trigger, and `ProposalPolicy.require_dry_run_for_declarative`
-enforcement) is still a later task.
+content (§5.3) is a separate, later task - this slice is storage + state machine + JSON API. The
+apply substrate (versioned profile registry + gate resolution seam + dry-run, §5.5/5.6, see
+"Standard registry, gate seam, dry-run" below) is wired to the decision itself - see "Apply-on-approve
+mechanism" below for the transactional contract, the config-vs-code split, and the
+dry-run-mandatory invariant.
 
 - **`src/ap_proposals/`** (`db.py` + `store.py` + `workflow.py` + `models.py` + `kinds.py` +
   `policy.py`) is a **sibling SQLite database** at `<store_root>/proposals.sqlite3` - not new tables
@@ -462,11 +462,12 @@ enforcement) is still a later task.
   `TRANSITIONS`). Approve-with-edits is `approved` with `edited_diff_json` populated, not a fifth
   state - `ProposalStore.set_status`'s `edited_diff` param writes it *beside* `diff_json`, never
   over it, so the original proposed diff always survives a human edit. There is no `applied` state:
-  `ProposalStore.set_status` accepts `edited_diff`/`applied_version` in the **same transaction** as
-  the decision (`COALESCE`-guarded UPDATE) - this is the extension point the later apply-mechanism
-  task wires into, so "approved but silently unapplied" cannot exist by construction once that task
-  lands. `ProposalPolicy.require_dry_run_for_declarative` is a documented-but-unenforced flag for
-  that same later task (the dry-run engine doesn't exist yet, so nothing can honestly require it).
+  `ProposalStore.set_status` accepts `edited_diff`/`applied_version`/`spec_artifact_path` in the
+  **same transaction** as the decision (`COALESCE`-guarded UPDATE) - `ProposalWorkflow.decide`
+  performs the apply step (registry write or spec export) *before* ever calling `set_status`, so a
+  failed apply never reaches it and "approved but silently unapplied" cannot exist by construction.
+  `ProposalPolicy.require_dry_run_for_declarative` (default on) is enforced in `decide` - see
+  "Apply-on-approve mechanism" below.
 - **Policy/mechanism split** mirrors `ap_review.ReviewWorkflow`/`ap_store.PackageStore` exactly:
   `ProposalWorkflow` (`ap_proposals/workflow.py`) owns policy (`standard_approver` role required to
   decide, admin bypass; reject requires a non-empty `decision_reason`; an `edited_diff` is only
@@ -483,13 +484,15 @@ enforcement) is still a later task.
   minimal/stub shape - the real shapes belong to the drafting bot and apply-mechanism tasks, not
   this one.
 - **API** (`src/ap_api/proposal_routes.py`, mounted in `ap_api/app.py`): `GET /proposals`,
-  `POST /proposals`, `POST /proposals/{id}/decision` - JSON, same auth discipline as the package
-  routes (`identity_from_request`, no anonymous access; reads unrestricted by role, single-tenant).
+  `POST /proposals`, `POST /proposals/{id}/decision`, `POST /proposals/{id}/dry-run`,
+  `GET /proposals/{id}/spec` - JSON, same auth discipline as the package routes
+  (`identity_from_request`, no anonymous access; reads unrestricted by role, single-tenant).
   Role enforcement for decisions lives in `ProposalWorkflow.decide` (raised `ProposalPolicyError` ->
-  403), not a route-level `require_any_role` dependency - mirroring how `POST /packages/{id}/review`
-  lets `ReviewWorkflow` own the role matrix instead of double-gating at the route.
-  `ap_console` will read `ProposalStore` directly once a console tab exists, same module-boundary
-  pattern as the P3.5 review queue - no console UI is built by this slice.
+  403; a registry-apply failure raises `ProposalApplyError` -> 502), not a route-level
+  `require_any_role` dependency - mirroring how `POST /packages/{id}/review` lets `ReviewWorkflow`
+  own the role matrix instead of double-gating at the route. `POST .../dry-run` is intentionally
+  not role-gated (see "Apply-on-approve mechanism" below). `ap_console` reads `ProposalStore`
+  directly for its own Standard tab, same module-boundary pattern as the P3.5 review queue.
 - **Console "Standard" tab** (P4 first cut, `src/ap_console/routes.py` `/standard*` routes +
   `templates/standard_*.html` / `_proposal_*.html` / `_dry_run_panel.html`): reads `ProposalStore`
   and calls `ProposalWorkflow.decide` directly, same module-boundary and
@@ -580,10 +583,66 @@ gate-resolution seam + dry-run only, all usable standalone today.
   republished under the proposal" framing) rather than a version nothing currently resolves to. The
   function is pure over the store + a throwaway scratch registry (`tempfile.TemporaryDirectory`,
   cleaned up before returning) - it never writes to the real registry and has no `ap_proposals`
-  dependency; `DryRunResult.to_dict()` is the JSON-serializable shape a later task attaches to a
-  proposal's `dry_run_json`. Diffing is per-package (`blocks_overall_pass()` flip -> newly-failing/
-  newly-passing) and per-check (`CheckOutcome.result` string changed -> a `CheckMovement`, even when
-  the package's overall pass/fail didn't move) - see `test_planner_bot_dry_run.py`.
+  dependency (that wiring lives in `ap_proposals/apply.py::run_dry_run`, not here);
+  `DryRunResult.to_dict()` is the JSON-serializable shape stored in a proposal's `dry_run_json` -
+  see "Apply-on-approve mechanism" below. Diffing is per-package (`blocks_overall_pass()` flip ->
+  newly-failing/newly-passing) and per-check (`CheckOutcome.result` string changed -> a
+  `CheckMovement`, even when the package's overall pass/fail didn't move) - see
+  `test_planner_bot_dry_run.py`.
+
+## Phase 4 (in progress): apply-on-approve mechanism + `GET /standard/versions` (C7 wiring)
+
+Connects the already-built pieces above - `ap_proposals` (storage/workflow) and the registry/dry-run
+apply substrate - the last piece §5.4/5.5/5.6 needed. `src/ap_proposals/apply.py` is the pure
+wiring module (`ProposalWorkflow.decide` in `workflow.py` is the only caller); it reuses
+`ProfileRegistry` and `ap_planner_bot.dry_run.dry_run` unchanged, no gate/registry logic
+reimplemented here. See `tests/test_proposal_apply.py` for the acceptance-level tests below.
+
+- **Transactional apply-on-approve, declarative kinds only** (`profile_change`, `reason_code_add`):
+  `ProposalWorkflow.decide` calls `ap_proposals.apply.apply_declarative` *before* it ever calls
+  `ProposalStore.set_status`. `apply_declarative` seeds the profile on first touch
+  (`ProfileRegistry.ensure_seeded`, idempotent), computes the changed-files patch from the
+  proposal's effective diff (`compute_changed_files` - `profile_change` writes its `file`/`after`
+  directly; `reason_code_add` reads the current `reason_codes.json` read-only and appends the new
+  code), bumps the minor version, and flips the pointer (`ProfileRegistry.bump_version`, itself
+  atomic via write-to-temp-then-`os.replace` - see the registry section above). There is no shared
+  SQL/filesystem transaction (two different storage backends can't share one) - the transactional
+  contract is enforced by **ordering**: if `apply_declarative` raises (wrapped as
+  `ProposalApplyError`, a `ProposalStoreError` subclass), `decide` returns/raises before
+  `set_status` is ever called, so the proposal is left exactly as it was (`pending_hitl`) by
+  construction, not by cleanup - see `test_registry_write_failure_leaves_proposal_pending_hitl`.
+  `applied_version` is written in the *same* `set_status` call as the decision, alongside
+  `edited_diff`/`spec_artifact_path` (all `COALESCE`-guarded, see the state-machine bullet above).
+- **Spec export for code kinds** (`standard_change`, `check_add`, `ap_proposals.apply.export_spec`):
+  approval writes a markdown artifact (summary, rationale, the diff as approved, and the diff's
+  optional `patch` field verbatim if present) to
+  `<store_root>/proposal_specs/<proposal_id>.md`, and records that path (relative to `store_root`,
+  posix-style) on the proposal as `spec_artifact_path`. No registry write, no code ever
+  auto-applied - retrieval is `GET /proposals/{id}/spec` (`ap_api/proposal_routes.py`), which 404s
+  if the proposal has no spec (declarative kinds and anything not yet approved). This is the
+  concrete "human takes it into a normal PR" artifact §5.5 asks for, not a stub.
+- **Dry-run is mandatory-at-decision, not decorative** (§5.6, `ProposalPolicy.
+  require_dry_run_for_declarative`, default on): `decide` refuses to approve a declarative-kind
+  proposal whose `dry_run_json` column is still `None`, raising `ProposalPolicyError` before any
+  apply attempt. `ProposalWorkflow.record_dry_run(proposal_id, package_store)` is the "require it
+  recorded first" half of that contract - it calls `ap_proposals.apply.run_dry_run` (thin wrapper
+  over `ap_planner_bot.dry_run.dry_run`) and persists the result via
+  `ProposalStore.record_dry_run` (a plain column update, deliberately **not** a status transition -
+  no audit row, callable any number of times, each call overwriting the prior result). Exposed as
+  `POST /proposals/{id}/dry-run` (deliberately not role-gated - running one changes nothing
+  decision-relevant by itself; `decide` still independently policy-checks). Code kinds skip this
+  entirely and `record_dry_run` refuses them outright (`ProposalPolicyError`) - you cannot dry-run
+  a check that doesn't exist yet, so there is nothing to fake here, unlike the console dry-run
+  panel's honest-stub echo (see the Console "Standard" tab bullet above, still a separate,
+  unwired UI concern).
+- **`GET /standard/versions`** (`src/ap_api/standard_routes.py`): supported `standard_version`s
+  (`ap_gate.versions.supported_versions`, unrelated to profile versions) plus, per profile
+  registry name (`ProfileRegistry.names()`, new - every name with a `_pointer.json`), its current
+  version and full changelog (`ProfileRegistry.changelog`). Reads a `ProfileRegistry` rooted at
+  `ProposalStore.root` (the shared store_root) directly - no proposal data involved, just the
+  registry's own state - so this reflects a registry write from any source (a proposal approval,
+  or a direct `ProfileRegistry` call in a script/test), not only proposal-driven ones. This is the
+  pull surface a future notify/agent-docs task points agents at (§5.8).
 
 ## Phase 4 (in progress): C6 proposal-drafting service + sweep entry point (`fathm-p4-sweep`)
 

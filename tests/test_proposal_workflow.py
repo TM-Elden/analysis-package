@@ -7,8 +7,15 @@ import pytest
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_proposals.kinds import ProposalValidationError
+from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ListFilter, ProposalStore, ProposalStoreError
 from ap_proposals.workflow import ProposalPolicyError, ProposalWorkflow
+
+#: These tests exercise decision policy (roles, reject-reason, edited-diff shape, transitions) -
+#: not the apply mechanism (see test_proposal_apply.py for that) - so they disable the
+#: dry-run-required knob to keep approving a profile_change proposal a one-call affair. The
+#: registry write itself (apply_declarative) still runs for real against a tmp-path store_root.
+_NO_DRY_RUN_REQUIRED = ProposalPolicy(require_dry_run_for_declarative=False)
 
 
 def _identity(actor_id: str, role: Role) -> Identity:
@@ -26,7 +33,7 @@ def _profile_change_diff(code: str = "SUPPLIER_CHANGE") -> dict:
 
 def _created(tmp_path, kind: str = "profile_change", diff: dict | None = None):
     store = ProposalStore(tmp_path / "store")
-    wf = ProposalWorkflow(store=store)
+    wf = ProposalWorkflow(store=store, policy=_NO_DRY_RUN_REQUIRED)
     record = wf.create(
         kind=kind,
         summary="Add SUPPLIER_CHANGE reason code",
@@ -240,7 +247,7 @@ def test_audit_trail_records_create_and_decision(tmp_path):
 
 def test_list_filters_by_status_and_kind(tmp_path):
     store = ProposalStore(tmp_path / "store")
-    wf = ProposalWorkflow(store=store)
+    wf = ProposalWorkflow(store=store, policy=_NO_DRY_RUN_REQUIRED)
     p1 = wf.create(
         kind="profile_change",
         summary="a",

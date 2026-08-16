@@ -16,7 +16,14 @@ shapes ... designed for a UI consumer, not just curl"):
                                       section for the tool-loop/scoping/citation architecture)
     GET  /proposals                - list/filter C6/C7 Standard-change proposals
     POST /proposals                - create a proposal (see ap_api/proposal_routes.py)
-    POST /proposals/{id}/decision  - approve/reject/withdraw a proposal
+    POST /proposals/{id}/decision  - approve/reject/withdraw a proposal (apply-on-approve for
+                                      declarative kinds, spec export for code kinds - see
+                                      ap_proposals.apply and CLAUDE.md's apply-mechanism section)
+    POST /proposals/{id}/dry-run   - run+record a dry-run, required before approving a
+                                      declarative-kind proposal
+    GET  /proposals/{id}/spec      - retrieve a code-kind approval's exported spec artifact
+    GET  /standard/versions        - supported standard_versions + per-profile registry versions
+                                      and changelogs (see ap_api/standard_routes.py)
 
 Local-first scope note: this phase-2 slice runs on the same machine/filesystem as its callers (Pi,
 CI runner, agent harness) - `package_dir` in /packages/validate and /packages is a path the *server*
@@ -50,6 +57,7 @@ from ap_api.auth_routes import router as auth_router
 from ap_api.chat_routes import router as chat_router
 from ap_api.deps import get_store, get_workflow, identity_from_request, require_any_role
 from ap_api.proposal_routes import router as proposal_router
+from ap_api.standard_routes import router as standard_router
 from ap_api.schemas import (
     AuditEntryOut,
     ListResponse,
@@ -77,6 +85,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(proposal_router)  # C6/C7 proposal API - see ap_api/proposal_routes.py
+app.include_router(standard_router)  # GET /standard/versions - see ap_api/standard_routes.py
 include_console(app)  # ap_console: the server-rendered HTML console, mounted under /console - see
 # CLAUDE.md's "Phase 3 manager console" section for the ap_console/ap_api module boundary.
 

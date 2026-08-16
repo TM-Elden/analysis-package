@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS proposals (
     edited_diff_json TEXT,
     dry_run_json TEXT,
     applied_version TEXT,
-    applied_at TEXT
+    applied_at TEXT,
+    spec_artifact_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS proposal_audit (

@@ -102,8 +102,9 @@ class ProposalStore:
                 """INSERT INTO proposals (
                     proposal_id, created_at, kind, summary, rationale, diff_json, evidence_json,
                     status, created_by_id, created_by_roles, decided_by_id, decided_at,
-                    decision_reason, edited_diff_json, dry_run_json, applied_version, applied_at
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL)""",
+                    decision_reason, edited_diff_json, dry_run_json, applied_version, applied_at,
+                    spec_artifact_path
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL)""",
                 (
                     proposal_id,
                     now,
@@ -167,15 +168,21 @@ class ProposalStore:
         reason: str | None = None,
         edited_diff: dict[str, Any] | None = None,
         applied_version: str | None = None,
+        spec_artifact_path: str | None = None,
     ) -> ProposalRecord:
         """Compare-and-swap status update + audit row, mirroring `PackageStore.set_status`.
 
-        `edited_diff` (approve-with-edits) and `applied_version` are written in this same
-        transaction as the decision - the extension point a later apply-mechanism task needs to
-        make "approved with the registry write applied" one atomic outcome, per the C7 contract
-        that an approval can never be silently unapplied. This method enforces no decision policy
-        itself (roles, reject-requires-reason) - that is `ap_proposals.workflow.ProposalWorkflow`'s
-        job, which calls this only after its policy checks pass.
+        `edited_diff` (approve-with-edits), `applied_version` (declarative-kind apply, see
+        `ap_proposals.apply.apply_declarative`), and `spec_artifact_path` (code-kind apply, see
+        `ap_proposals.apply.export_spec`) are written in this same transaction as the decision -
+        the extension point the apply-mechanism task (`ap_proposals.workflow.ProposalWorkflow.decide`)
+        uses to make "approved with the apply step applied" one atomic outcome, per the C7 contract
+        that an approval can never be silently unapplied: the caller performs the apply step
+        (registry write or spec export) *before* calling this method, and only calls it at all if
+        that step succeeded - so a failed apply never reaches this UPDATE and the proposal simply
+        stays in its prior status. This method enforces no decision policy itself (roles,
+        reject-requires-reason) - that is `ap_proposals.workflow.ProposalWorkflow`'s job, which
+        calls this only after its policy checks (and any apply step) pass.
         """
         decided_at = _utcnow() if to_status in ("approved", "rejected") else None
         with self._lock, self.conn:
@@ -187,7 +194,8 @@ class ProposalStore:
                        decision_reason=COALESCE(?, decision_reason),
                        edited_diff_json=COALESCE(?, edited_diff_json),
                        applied_version=COALESCE(?, applied_version),
-                       applied_at=COALESCE(?, applied_at)
+                       applied_at=COALESCE(?, applied_at),
+                       spec_artifact_path=COALESCE(?, spec_artifact_path)
                    WHERE proposal_id=? AND status=?""",
                 (
                     to_status,
@@ -197,6 +205,7 @@ class ProposalStore:
                     json.dumps(edited_diff) if edited_diff is not None else None,
                     applied_version,
                     _utcnow() if applied_version else None,
+                    spec_artifact_path,
                     proposal_id,
                     from_status,
                 ),
@@ -210,6 +219,21 @@ class ProposalStore:
                     "concurrent decision or stale caller state"
                 )
             self._insert_audit(proposal_id, from_status, to_status, actor, reason)
+            return self._row_to_record(self._get_row(proposal_id))
+
+    def record_dry_run(self, proposal_id: str, dry_run_json: dict[str, Any]) -> ProposalRecord:
+        """Persist a dry-run result on a still-`pending_hitl` proposal (§5.6: "mandatory-at-
+        decision, not decorative" - `ProposalWorkflow.decide` refuses to approve a declarative-kind
+        proposal until this has been called at least once). Not a status transition - no audit row,
+        no actor/reason bookkeeping, callable any number of times (each call overwrites the prior
+        result with the latest run)."""
+        with self._lock, self.conn:
+            cur = self.conn.execute(
+                "UPDATE proposals SET dry_run_json=? WHERE proposal_id=?",
+                (json.dumps(dry_run_json), proposal_id),
+            )
+            if cur.rowcount == 0:
+                raise ProposalStoreError(f"no such proposal: {proposal_id}")
             return self._row_to_record(self._get_row(proposal_id))
 
     def audit_trail(self, proposal_id: str) -> list[ProposalAuditEntry]:
@@ -273,4 +297,5 @@ class ProposalStore:
             dry_run_json=row["dry_run_json"],
             applied_version=row["applied_version"],
             applied_at=row["applied_at"],
+            spec_artifact_path=row["spec_artifact_path"],
         )
