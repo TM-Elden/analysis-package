@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}fathm{% endblock %} — chart room</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Newsreader:ital,opsz,wght@0,6..72,200..500;1,6..72,200..500&display=swap" rel="stylesheet">
 <script src="/console/static/htmx.min.js"></script>
 <style>
   :root{
-    --ink:#07090D; --slate:#121826; --brass:#E8B36A; --drift:#93856F;
-    --bone:#F4EFE6; --line:rgba(147,133,111,.25); --rust:#B65C4A; --ok:#6fe3a0;
+    --ink:#07090D; --ink2:#0A0E16; --slate:#121826; --brass:#E8B36A; --brass-dim:#B98C4F;
+    --drift:#93856F; --bone:#E8E0D5; --line:rgba(147,133,111,.22); --rust:#B65C4A; --ok:#6fe3a0;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--ink);color:var(--bone);font-family:'Archivo',sans-serif;line-height:1.5}
@@ -20,8 +20,12 @@
     display:flex;align-items:center;justify-content:space-between;
     padding:16px 6vw;border-bottom:1px solid var(--line);background:rgba(18,24,38,.5)
   }
-  .wordmark{font-weight:680;font-variation-settings:"wdth" 84;font-size:22px;display:flex;align-items:baseline}
-  .wordmark .sunk{transform:translateY(.19em);color:var(--brass)}
+  /* the mark: F is a sounding line (see brand/fathm-brand-final.html "The mark (final)") */
+  .wordmark{display:flex;align-items:baseline;font-size:22px}
+  .wordmark .fmark{position:relative;width:.53em;font-size:inherit}
+  .wordmark .fmark svg{position:absolute;left:0;top:-.74em;width:.58em;overflow:visible}
+  .wordmark .rest{font-family:'Reckless Neue','Reckless',Newsreader,serif;font-weight:300;
+    font-variation-settings:'opsz' 72;font-size:inherit;line-height:1;letter-spacing:-0.015em;color:var(--bone)}
   nav.crumbs a{margin-right:18px;text-decoration:none;color:var(--drift);font-size:13px;
     letter-spacing:.04em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
   nav.crumbs a:hover, nav.crumbs a.active{color:var(--bone)}
@@ -79,7 +83,17 @@
 <body>
 {% if identity %}
 <header class="chrome">
-  <a href="/console/packages" style="text-decoration:none"><div class="wordmark">f<span class="sunk">a</span>thm</div></a>
+  <a href="/console/packages" style="text-decoration:none">
+    <div class="wordmark" role="img" aria-label="fathm">
+      <span class="fmark"><svg viewBox="0 0 150 232">
+        <line x1="20" y1="10" x2="20" y2="182" stroke="#E8B36A" stroke-width="15" stroke-linecap="round"/>
+        <line x1="20" y1="25" x2="116" y2="25" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
+        <line x1="20" y1="86" x2="88" y2="86" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
+        <circle cx="20" cy="182" r="19" fill="#E8B36A"/>
+      </svg></span>
+      <span class="rest">athm</span>
+    </div>
+  </a>
   <nav class="crumbs">
     <a href="/console/packages" class="{% block nav_packages %}{% endblock %}">Packages</a>
     <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
