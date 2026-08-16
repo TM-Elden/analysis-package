@@ -50,7 +50,9 @@
       return;
     }
     const params = new URLSearchParams(window.location.search);
-    window.location = params.get("next") || "/console/packages";
+    const next = params.get("next");
+    const safeNext = next && /^\/(?!\/|\\)/.test(next) ? next : "/console/packages";
+    window.location = safeNext;
   });
 </script>
 {% endblock %}
