@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import shutil
 
-import pytest
-
 from ap_gate.load_manifest import load_manifest
 from ap_redact.field_paths import DEFAULT_SCRUB_FIELD_PATHS, resolve_scrub_set
 from ap_redact.redact import redact_package
@@ -115,6 +113,33 @@ def test_authorized_human_can_still_read_raw_package_from_store(tmp_path):
     raw_text = (extracted / "code" / "leaked_creds.py").read_text(encoding="utf-8")
     assert "AKIAABCDEFGHIJKLMNOP" in raw_text  # still there for an authorized human, unredacted
     store.close()
+
+
+def test_mention_scrub_is_word_boundary_not_substring(tmp_path):
+    """A free-text token that merely *contains* the analyst id as a substring (e.g. a longer
+    system/model name) is business content and must survive verbatim - only a whole-word mention
+    of the id is a person-identifier mention. A naive `str.replace` would mangle the longer token
+    too; the word-boundary regex must not."""
+    pkg_dir = _copy_example(tmp_path)
+    manifest = load_manifest(pkg_dir)
+    analyst_id = manifest["owners"]["analyst"]["id"]  # "planner.example"
+
+    run_summary = pkg_dir / "outputs" / "RUN_SUMMARY.md"
+    run_summary.write_text(
+        run_summary.read_text(encoding="utf-8") + f"\n- **Engine build:** {analyst_id}2-forecast-engine\n",
+        encoding="utf-8",
+    )
+
+    chunks, report = redact_package(
+        pkg_dir, manifest, package_id=manifest["package_id"], package_version=manifest["package_version"]
+    )
+    assert not report.blocked
+    blob = "\n".join(c.text for c in chunks)
+
+    # The longer token that merely embeds the id as a substring is preserved untouched...
+    assert f"{analyst_id}2-forecast-engine" in blob
+    # ...while the standalone "**Analyst:** planner.example" mention is still redacted.
+    assert "**Analyst:** [REDACTED_PERSON]" in blob
 
 
 def test_redaction_report_sidecar_round_trip(tmp_path):
