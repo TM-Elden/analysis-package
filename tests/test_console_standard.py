@@ -193,6 +193,25 @@ def test_reject_requires_reason_enforced_server_side(client_and_store):
     assert store.get(record.proposal_id).status == "pending_hitl"
 
 
+def test_decision_error_banner_is_not_duplicated_into_dry_run_panel(client_and_store):
+    """The decision route re-renders `_proposal_detail_body.html`, which `{% include %}`s
+    `_dry_run_panel.html` with shared Jinja context. Both partials used to guard their flash div on
+    the same `error` variable, so a decision error (e.g. reject-without-reason) rendered twice - once
+    as the real decision-error banner, once leaking into the unrelated dry-run panel. The dry-run
+    panel's own error state is keyed off a distinct `dry_run_error` var it never receives here."""
+    client, store, _auth = client_and_store
+    record = _create_proposal(store)
+    csrf = _login(client, "cap.tan", "pw-cap")
+
+    r = client.post(
+        f"/console/standard/proposals/{record.proposal_id}/decision",
+        data={"to_status": "rejected"},
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+    assert r.text.count('class="flash"') == 1
+
+
 def test_reject_with_reason_changes_real_store_status(client_and_store):
     client, store, _auth = client_and_store
     record = _create_proposal(store)
