@@ -15,6 +15,7 @@ from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
 from ap_index.index_store import IndexStore
+from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore
 from ap_proposals.workflow import ProposalWorkflow
 from ap_store.store import PackageStore
@@ -36,6 +37,13 @@ def client_and_store(tmp_path):
     # No real ANTHROPIC_API_KEY in tests - the sweep button's llm_client dependency is overridden
     # with the same harness-exercising fake test_planner_bot_service.py uses, not a real API call.
     app.dependency_overrides[deps.get_llm_client] = lambda: ScriptedDraftingLLMClient()
+    # This suite exercises the console decision flow (roles, CSRF, flash rendering) - not the C7
+    # apply mechanism (see test_proposal_apply.py for that) - so it disables the
+    # dry-run-required knob to keep a plain approve a one-call affair. The registry write itself
+    # (apply_declarative) still runs for real, against this tmp_path store_root.
+    app.dependency_overrides[deps.get_proposal_workflow] = lambda: ProposalWorkflow(
+        store=proposal_store, policy=ProposalPolicy(require_dry_run_for_declarative=False)
+    )
 
     auth_store.create_user("sweep.bot", display_name="Sweep", roles=frozenset({Role.ANALYST}), password="pw-sweep")
     auth_store.create_user(
@@ -171,7 +179,10 @@ def test_dry_run_button_shows_not_available_state_not_a_fake_result(client_and_s
     r = client.post(f"/console/standard/proposals/{record.proposal_id}/dry-run", headers={"X-Csrf": csrf})
     assert r.status_code == 200
     assert "not yet available" in r.text.lower()
-    assert "fathm-p4-registry-dryrun" in r.text
+    # The registry dry-run engine (fathm-p4-registry-dryrun) landed and is reachable via
+    # POST /proposals/{id}/dry-run - this console button just isn't wired to call it yet, so the
+    # panel should say that honestly rather than claim the engine itself doesn't exist.
+    assert "doesn't trigger a run yet" in r.text
 
 
 def test_approve_decision_changes_real_store_status(client_and_store):

@@ -165,6 +165,25 @@ class ProposalListResponse(BaseModel):
     page_size: int
 
 
+class ProfileVersionsOut(BaseModel):
+    """One entry per registry-tracked profile in the `GET /standard/versions` response."""
+
+    name: str
+    current_version: str | None
+    changelog: list[dict[str, Any]] = Field(
+        description="Oldest-first list of {version, previous, note, actor, ts} bump records"
+    )
+
+
+class StandardVersionsOut(BaseModel):
+    """`GET /standard/versions`: the pull surface a future notify/agent-docs task points agents
+    at (§5.5). `standard_versions` is the Standard's own supported-version list
+    (`ap_gate.versions.supported_versions`, unrelated to per-profile registry versions below)."""
+
+    standard_versions: list[str]
+    profiles: list[ProfileVersionsOut]
+
+
 def proposal_record_to_out(record: ProposalRecord) -> ProposalOut:
     return ProposalOut(
         proposal_id=record.proposal_id,

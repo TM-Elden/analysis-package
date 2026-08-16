@@ -9,15 +9,27 @@ import ap_api.deps as deps
 from ap_api.app import app
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
+from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore
+from ap_proposals.workflow import ProposalWorkflow
+from ap_store.store import PackageStore
 
 
 @pytest.fixture()
 def client_and_store(tmp_path):
     proposal_store = ProposalStore(tmp_path / "store")
+    package_store = PackageStore(tmp_path / "store")
     auth_store = AuthStore(tmp_path / "auth.sqlite3")
     app.dependency_overrides[deps.get_proposal_store] = lambda: proposal_store
+    app.dependency_overrides[deps.get_store] = lambda: package_store
     app.dependency_overrides[deps.get_auth_store] = lambda: auth_store
+    # These tests exercise the API contract (auth, roles, CSRF, request/response shapes), not the
+    # apply mechanism (see test_proposal_apply.py for that) - disable the dry-run-required knob so
+    # a plain approve stays a one-call affair. The registry write itself (apply_declarative) still
+    # runs for real, against this tmp_path store_root.
+    app.dependency_overrides[deps.get_proposal_workflow] = lambda: ProposalWorkflow(
+        store=proposal_store, policy=ProposalPolicy(require_dry_run_for_declarative=False)
+    )
 
     auth_store.create_user("sweep.bot", display_name="Sweep", roles=frozenset({Role.ANALYST}), password="pw-sweep")
     auth_store.create_user(
@@ -31,6 +43,7 @@ def client_and_store(tmp_path):
     finally:
         app.dependency_overrides.clear()
         proposal_store.close()
+        package_store.close()
         auth_store.close()
 
 

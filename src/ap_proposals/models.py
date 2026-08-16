@@ -26,6 +26,11 @@ class ProposalRecord:
     dry_run_json: str | None
     applied_version: str | None
     applied_at: str | None
+    #: For code-kind approvals (standard_change, check_add): path, relative to the store root, of
+    #: the exported markdown spec artifact (see ap_proposals.apply.export_spec). None for
+    #: declarative kinds (those apply to the registry instead - see applied_version/applied_at)
+    #: and for any proposal not yet approved.
+    spec_artifact_path: str | None = None
 
     def diff(self) -> dict[str, Any]:
         return json.loads(self.diff_json)

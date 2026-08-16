@@ -59,6 +59,13 @@ DIFF_SCHEMAS: dict[str, dict[str, Any]] = {
 
 KINDS: frozenset[str] = frozenset(DIFF_SCHEMAS)
 
+#: The C7 apply-mechanism split (design report section 5.5, see ap_proposals.apply): declarative
+#: kinds touch profile JSON and get a real, transactional registry write on approve; code kinds
+#: touch schema files / versions.py / check implementations / STANDARD.md prose and can only ever
+#: get a human-reviewable spec export - no mechanism can auto-apply Python.
+DECLARATIVE_KINDS: frozenset[str] = frozenset({"profile_change", "reason_code_add"})
+CODE_KINDS: frozenset[str] = frozenset({"standard_change", "check_add"})
+
 
 class ProposalValidationError(Exception):
     """Raised when `kind` is unknown or `diff_json` fails that kind's schema. `field_messages` is

@@ -40,6 +40,22 @@ class ProfileRegistryError(Exception):
     attempt to overwrite an already-written (immutable) version directory."""
 
 
+def _validate_registry_component(value: str, what: str) -> str:
+    """Reject a profile name / version / filename that could escape the registry root via a
+    path separator, a `..`/`.` segment, or an absolute-path override - the same class of bug
+    `ap_gate.checks.pathsafe.resolve_contained` closes for manifest-declared paths
+    (`Path.__truediv__` follows `..` and treats an absolute right-hand side as an override).
+    These values ultimately come from proposal `diff_json` (`ap_proposals.apply`), which is
+    planner/agent-submitted content - never join one into a filesystem path unvalidated."""
+    if not isinstance(value, str) or not value or value in (".", "..") or "\x00" in value:
+        raise ProfileRegistryError(f"invalid {what}: {value!r}")
+    if "/" in value or "\\" in value:
+        raise ProfileRegistryError(f"invalid {what} (must not contain a path separator): {value!r}")
+    if Path(value).is_absolute():
+        raise ProfileRegistryError(f"invalid {what} (must not be an absolute path): {value!r}")
+    return value
+
+
 def _version_sort_key(version: str) -> tuple[int, ...]:
     """'0.10' sorts after '0.9' - numeric per-segment comparison, not lexicographic."""
     parts = []
@@ -57,6 +73,7 @@ class ProfileRegistry:
         self.root = self.store_root / "standard_registry" / "profiles"
 
     def _name_dir(self, name: str) -> Path:
+        _validate_registry_component(name, "profile name")
         return self.root / name
 
     def _pointer_path(self, name: str) -> Path:
@@ -67,6 +84,15 @@ class ProfileRegistry:
 
     def is_seeded(self, name: str) -> bool:
         return self._pointer_path(name).is_file()
+
+    def names(self) -> list[str]:
+        """Every profile name that has been touched (seeded or bumped) in this registry,
+        sorted. Used by `GET /standard/versions` (ap_api) to enumerate what to report - a
+        directory only counts once it has a `_pointer.json` (i.e. `is_seeded`), so a
+        half-written or otherwise stray subdirectory is never reported."""
+        if not self.root.is_dir():
+            return []
+        return sorted(p.name for p in self.root.iterdir() if p.is_dir() and self.is_seeded(p.name))
 
     def current_version(self, name: str) -> str | None:
         pointer = self._pointer_path(name)
@@ -138,8 +164,8 @@ class ProfileRegistry:
 
         This is one atomic sequence with the pointer flip as its linearization point: readers
         see either the old or the new version, never a partially-written one (see the module
-        docstring). The actual trigger for calling this - a proposal being approved - is a
-        later task's job; this is the write/bump/read API it will call.
+        docstring). The trigger for calling this - a declarative-kind proposal being approved -
+        is `ap_proposals.apply.apply_declarative`.
         """
         if self.current_version(name) is None:
             self.ensure_seeded(name)
@@ -177,6 +203,9 @@ class ProfileRegistry:
 
     def _write_version_dir(self, name: str, version: str, files: dict[str, Any]) -> None:
         name_dir = self._name_dir(name)
+        _validate_registry_component(version, "version")
+        for filename in files:
+            _validate_registry_component(filename, "filename")
         name_dir.mkdir(parents=True, exist_ok=True)
         final_dir = name_dir / version
         if final_dir.exists():

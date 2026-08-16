@@ -9,8 +9,9 @@ reimplement gate-rerun logic.
 
 Pure over the store + a throwaway scratch registry: never writes to the real
 `<store_root>/standard_registry`, and has no `ap_proposals` dependency - attaching a result to
-a proposal record is a later task's wiring, not this module's job. Cost is the same as one
-extra full corpus scan (seconds at pilot scale, per `ap_planner_bot.scan`'s own measured cost).
+a proposal record is `ap_proposals.apply.run_dry_run`'s wiring, not this module's job. Cost is
+the same as one extra full corpus scan (seconds at pilot scale, per `ap_planner_bot.scan`'s own
+measured cost).
 """
 
 from __future__ import annotations
@@ -61,7 +62,8 @@ class DryRunResult:
     check_movements: tuple[CheckMovement, ...]
 
     def to_dict(self) -> dict[str, Any]:
-        """JSON-serializable - shape a later task attaches to a proposal's `dry_run_json`."""
+        """JSON-serializable - the shape `ap_proposals.apply.run_dry_run` attaches to a
+        proposal's `dry_run_json`."""
         return {
             "profile_name": self.profile_name,
             "evaluated_version": self.evaluated_version,
