@@ -26,8 +26,8 @@ Spelling is intentional (no *o*). One-line origin: *fathom* the depths - we drop
 This repo is the **joint home** for:
 
 1. **The Standard** (`standard/`) - formal interchange contract for human planners + planning agents  
-2. **The Product** (`product/`, `docs/PITCH.md`) - fathm: Standard + L1 CI wedge, then Team Model / Planner Model  
-3. **Research** (`research/`) - landscape, standards foundation, source pitch  
+2. **The Product** (`product/`, `brand/PITCH.md`) - fathm: Standard + L1 CI wedge, then Team Model / Planner Model  
+3. **Research** (`research/`) - landscape, standards foundation  
 
 Status: **early draft**. Pilot scope is Standard + L1 structural CI for one pack type - not the full platform.
 
@@ -49,28 +49,29 @@ standard/ap-0.2/          Normative Standard (ap/0.2)
 profiles/                 Pack-type profiles (first: commodity commit forecast)
 examples/                 Concrete packages
 product/                  Product layers (CI L1/L2, trust, roadmap)
-docs/                     Pitch, architecture, decisions, brand, HTML guides
-research/                 Prior art and source materials
+docs/                     Architecture, decisions, design, HTML guides (technical/design only)
+brand/                    Brand + marketing: pitch, brand lock, decks, naming/trademark research
+research/                 Prior art and standards research
 ```
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/BRAND.md](docs/BRAND.md) | fathm brand lock + tokens |
+| [brand/BRAND.md](brand/BRAND.md) | fathm brand lock + tokens |
 | [brand/fathm-brand-final.html](brand/fathm-brand-final.html) | **Brand system final (canonical)** |
-| [docs/PATH-INTERNAL-META.md](docs/PATH-INTERNAL-META.md) | **Primary path: Meta internal (less risk/reward)** |
-| [docs/PITCH-INTERNAL-META.md](docs/PITCH-INTERNAL-META.md) | Internal pilot pitch |
+| [brand/PATH-INTERNAL-META.md](brand/PATH-INTERNAL-META.md) | **Primary path: Meta internal (less risk/reward)** |
+| [brand/PITCH-INTERNAL-META.md](brand/PITCH-INTERNAL-META.md) | Internal pilot pitch |
 | [docs/PITCH-MANAGER-SSD.md](docs/PITCH-MANAGER-SSD.md) | Manager pitch · SSD forecast pilot (source) |
 | [docs/html/fathm-manager-ssd.html](docs/html/fathm-manager-ssd.html) | **Manager brief HTML (present)** |
-| [docs/PITCH-YC.md](docs/PITCH-YC.md) | YC / external spine (stretch) |
-| [docs/PITCH-YC-READINESS.md](docs/PITCH-YC-READINESS.md) | Readiness rubric scores |
-| [docs/html/fathm-pitch-yc.html](docs/html/fathm-pitch-yc.html) | YC 11-slide deck (stretch) |
-| [docs/html/fathm-pitch.html](docs/html/fathm-pitch.html) | Longer product pitch |
+| [brand/PITCH-YC.md](brand/PITCH-YC.md) | YC / external spine (stretch) |
+| [brand/PITCH-YC-READINESS.md](brand/PITCH-YC-READINESS.md) | Readiness rubric scores |
+| [brand/fathm-pitch-yc.html](brand/fathm-pitch-yc.html) | YC 11-slide deck (stretch) |
+| [brand/fathm-pitch.html](brand/fathm-pitch.html) | Longer product pitch |
 | [docs/DESIGN-FATHM-SYSTEM.md](docs/DESIGN-FATHM-SYSTEM.md) | **firstmate build authority (full system)** |
 | [docs/DESIGN-FATHM-MVP.md](docs/DESIGN-FATHM-MVP.md) | Historical L1-only draft (superseded for scope) |
 | [docs/FIRSTMATE-KICKOFF.md](docs/FIRSTMATE-KICKOFF.md) | Short kickoff card |
 | [standard/ap-0.2/STANDARD.md](standard/ap-0.2/STANDARD.md) | Normative contract |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Product + Standard join; L1/L2 CI |
-| [docs/PITCH.md](docs/PITCH.md) | Pitch narrative (fathm) |
+| [brand/PITCH.md](brand/PITCH.md) | Pitch narrative (fathm) |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Frozen decisions |
 | [docs/html/spec-guide.html](docs/html/spec-guide.html) | Polished HTML spec guide |
 | [examples/commodity-commit-v1/](examples/commodity-commit-v1/) | Example package |

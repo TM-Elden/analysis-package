@@ -138,5 +138,5 @@ Capital follows proof. Not opening a funding conversation until the pilot shows 
 | joint repo v1 | Analysis Package (product + format collapsed) |
 | **locked** | **fathm** (product) + **Analysis Package** (format) |
 
-**HTML deck (branded):** [`docs/html/fathm-pitch.html`](html/fathm-pitch.html)  
-Source PDF retained at `research/pitch-v2-source.pdf`. Brand: `docs/BRAND.md` + `brand/fathm-brand-final.html`.
+**HTML deck (branded):** [`brand/fathm-pitch.html`](fathm-pitch.html)  
+Source PDF retained at `brand/research/pitch-v2-source.pdf`. Brand: `brand/BRAND.md` + `brand/fathm-brand-final.html`.

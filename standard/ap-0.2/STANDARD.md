@@ -1,8 +1,8 @@
 # Analysis Package Standard (draft v0.2)
 
 > **Canonical home:** `fathm` repo · `standard/ap-0.2/`.  
-> **Product brand:** **fathm** - understand fully, down to its source (`docs/BRAND.md`).  
-> Product pitch and architecture: `docs/PITCH.md`, `docs/ARCHITECTURE.md`.
+> **Product brand:** **fathm** - understand fully, down to its source (`brand/BRAND.md`).  
+> Product pitch and architecture: `brand/PITCH.md`, `docs/ARCHITECTURE.md`.
 
 ## Status and intent
 

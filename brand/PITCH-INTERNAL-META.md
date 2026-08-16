@@ -2,7 +2,7 @@
 
 **Audience:** Meta manager / pilot team lead / partner eng  
 **Posture:** Less risk, less reward - build as internal tool first  
-**Public company narrative:** secondary (`docs/PITCH-YC.md`)
+**Public company narrative:** secondary (`brand/PITCH-YC.md`)
 
 ---
 
