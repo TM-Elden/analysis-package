@@ -9,7 +9,8 @@ This is not a style preference, it is the load-bearing mitigation the phase-4 pl
 still-open `fathm-plan-review-decision-planner-incentive-stance` hold (report section 7): a bot
 whose input is "repeated overrides" is one `GROUP BY author` away from a planner league table.
 `scan.py`'s `OverrideRow` structurally cannot carry `author` (it's dropped at parse time), so the
-enforcement point is really there - but `test_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings`
+enforcement point is really there - but
+`test_planner_bot_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings`
 still asserts no `Finding.detail` key or value contains an author/owner identifier, so a future
 detector can't reintroduce one by reading the manifest's `owners` block directly.
 

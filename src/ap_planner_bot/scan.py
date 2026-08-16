@@ -14,8 +14,8 @@ proposal dry-run (a later chunk) without caching.
 parsed `labels/overrides.jsonl` row - `author`, `ts`, `before`, `after`, `evidence_refs`,
 `agent_draft` are dropped at parse time. A detector literally cannot key off an author it was
 never handed. See `detectors.py`'s module docstring for the rest of the invariant and
-`test_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings` for the enforcement
-test.
+`test_planner_bot_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings` for the
+enforcement test.
 """
 
 from __future__ import annotations
