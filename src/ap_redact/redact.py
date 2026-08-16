@@ -9,6 +9,7 @@ content is C9 tenancy + C11 role scope, not redaction. `confidentiality` is carr
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,11 +27,11 @@ def _collect_identifier_values(manifest: dict[str, Any], scrub_paths: frozenset[
     values: list[str] = []
     if "manifest.owners.analyst.id" in scrub_paths:
         v = (owners.get("analyst") or {}).get("id")
-        if isinstance(v, str) and v:
+        if isinstance(v, str) and len(v) > 2:
             values.append(v)
     if "manifest.owners.reviewer.id" in scrub_paths:
         v = (owners.get("reviewer") or {}).get("id")
-        if isinstance(v, str) and v:
+        if isinstance(v, str) and len(v) > 2:
             values.append(v)
     if "manifest.owners.agent" in scrub_paths:
         for v in (owners.get("agent") or {}).values():
@@ -41,7 +42,7 @@ def _collect_identifier_values(manifest: dict[str, Any], scrub_paths: frozenset[
 
 def _scrub_mentions(text: str, identifier_values: list[str]) -> str:
     for value in identifier_values:
-        text = text.replace(value, "[REDACTED_PERSON]")
+        text = re.sub(rf"\b{re.escape(value)}\b", "[REDACTED_PERSON]", text)
     return text
 
 
