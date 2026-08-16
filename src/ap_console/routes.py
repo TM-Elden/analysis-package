@@ -329,10 +329,11 @@ def standard_changelog(
     identity: Annotated[Identity, Depends(get_console_identity)],
     store: Annotated[ProposalStore, Depends(get_proposal_store)],
 ) -> HTMLResponse:
-    """Interim version-history view: `GET /standard/versions` (a later task's real changelog
-    surface, once the versioned profile registry exists) doesn't exist yet, so this renders every
-    decided proposal (approved/rejected/withdrawn) as the closest honest substitute - decisions the
-    proposal audit trail can already show today, not a fabricated version list."""
+    """Proposal-decision-history view: renders every decided proposal (approved/rejected/
+    withdrawn) from the proposal audit trail. Distinct from `GET /standard/versions`
+    (`ap_api/standard_routes.py`), which reports the registry's own version/changelog state
+    directly - this page is proposal-centric (why a decision was made), that route is
+    registry-centric (what the current rules are); neither substitutes for the other."""
     result = store.list(ProposalListFilter(page=1, page_size=200))
     decided = [r for r in result.items if r.status != "pending_hitl"]
     decided.sort(key=lambda r: r.decided_at or "", reverse=True)
@@ -420,11 +421,13 @@ def standard_dry_run(
     store: Annotated[ProposalStore, Depends(get_proposal_store)],
 ) -> HTMLResponse:
     """"Run dry-run" button target. Renders whatever `dry_run_json` already exists on the proposal
-    record (the real field `ap_proposals` stores it under) rather than computing anything itself -
-    the dry-run engine (`fathm-p4-registry-dryrun`) is a separate, not-yet-built task. Today that
-    field is always null, so this honestly reports "not yet available" instead of faking a result;
-    once that engine lands and starts populating `dry_run_json` (e.g. via a proposal-store write
-    this route triggers), this same rendering path picks up real results with no template changes."""
+    record (the real field `ap_proposals` stores it under) rather than computing anything itself.
+    The dry-run engine and its API trigger (`ProposalWorkflow.record_dry_run`,
+    `POST /proposals/{id}/dry-run`) exist and populate this field for real - but this button isn't
+    wired to call it, so `dry_run_json` here reflects whatever the API route (or a direct
+    `record_dry_run` call) has already recorded, never what this button itself computes. Wiring
+    this button to trigger a run is a separate, still-open UI task; this same rendering path picks
+    up real results with no template changes once it lands."""
     error = None
     try:
         verify_console_csrf(request)

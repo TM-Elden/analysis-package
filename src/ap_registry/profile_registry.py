@@ -164,8 +164,8 @@ class ProfileRegistry:
 
         This is one atomic sequence with the pointer flip as its linearization point: readers
         see either the old or the new version, never a partially-written one (see the module
-        docstring). The actual trigger for calling this - a proposal being approved - is a
-        later task's job; this is the write/bump/read API it will call.
+        docstring). The trigger for calling this - a declarative-kind proposal being approved -
+        is `ap_proposals.apply.apply_declarative`.
         """
         if self.current_version(name) is None:
             self.ensure_seeded(name)

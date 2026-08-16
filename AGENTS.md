@@ -506,14 +506,15 @@ dry-run-mandatory invariant.
   `POST /console/standard/proposals/{id}/decision`, which parses the edit textarea's JSON itself
   and re-renders `_proposal_detail_body.html` in place. `POST /console/standard/sweep` (the "Run
   planner sweep" button) now runs the real `ap_planner_bot` scan/detect/draft pipeline in-request
-  (`fathm-p4-sweep` - see the dedicated section below); the dry-run panel
-  (`_dry_run_panel.html`, driven by `POST .../dry-run`) is still a deliberately-honest stub that
-  only ever echoes the proposal's existing `dry_run_json` - always null today since apply-on-approve
-  wiring (a later task) doesn't set it - and says so rather than fabricating a result; that route
-  already calls the real data path, so landing that task is a data change, not a UI rewrite. `GET
-  /console/standard/changelog` is an explicit interim substitute for the real
-  `GET /standard/versions` surface (also a later task): it lists every non-`pending_hitl` proposal
-  from `ProposalStore.list`, not a computed version history.
+  (`fathm-p4-sweep` - see the dedicated section below). The dry-run panel
+  (`_dry_run_panel.html`, driven by `POST .../dry-run`) only ever echoes the proposal's existing
+  `dry_run_json` rather than triggering a run itself - the dry-run engine and its API trigger
+  (`POST /proposals/{id}/dry-run`) exist now (see "Apply-on-approve mechanism" below), but wiring
+  this console button to call `ProposalWorkflow.record_dry_run` is still a separate, unwired UI
+  task; until then `dry_run_json` only gets populated by calling the API route directly. `GET
+  /console/standard/changelog` remains a proposal-decision-history view (every non-`pending_hitl`
+  proposal from `ProposalStore.list`), distinct from - not a substitute for - the now-real `GET
+  /standard/versions` (registry versions + changelogs; see "Apply-on-approve mechanism" below).
 
 ## Phase 4 (in progress): standard registry, gate resolution seam, dry-run (C7 apply substrate)
 
