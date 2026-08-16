@@ -291,10 +291,13 @@ still later work.
   from `ap_api.app`'s own `POST /packages/{id}/review` - same underlying `ReviewWorkflow.transition`
   call, just reached via a form post instead of JSON) which re-renders
   `templates/_review_queue_table.html` in place (htmx `outerHTML` swap, mirroring the packages-list
-  partial pattern) - a decided package simply drops out of the list. `ReviewPolicyError` (self-
-  review, gate-before-review failure, missing reject reason, wrong role) is caught in the route and
-  rendered as an inline `.flash` message on the still-open queue, never a raw 500/403 - `ap_review`'s
-  policy itself is untouched, this is purely a UI layer over it. The package detail page
+  partial pattern) - a decided package simply drops out of the list. Because `get_console_identity`
+  only resolves the session and never checks CSRF (unlike `ap_api.deps.identity_from_request`), the
+  route calls `ap_console.deps.verify_console_csrf` itself before transitioning. `ConsoleCsrfInvalid`,
+  `ReviewPolicyError` (self-review, gate-before-review failure, missing reject reason, wrong role),
+  and `StoreError` are all caught in the route and rendered as an inline `.flash` message on the
+  still-open queue, never a raw 500/403 - `ap_review`'s policy itself is untouched, this is purely a
+  UI layer over it. The package detail page
   (`package_detail.html`) renders `PackageStore.audit_trail(...)` as a timeline - reads the same
   audit rows `GET /packages/{id}/audit` returns, no separate audit computation.
 
