@@ -147,6 +147,14 @@ document.body.addEventListener('htmx:sseBeforeMessage', function (evt) {
     if (pending) pending.remove();
     return; // let htmx's default beforeend swap append the (already-escaped) token
   }
+  if (native.type === 'done') {
+    // The vendored sse.js has no working sse-close - close the EventSource here instead, or the
+    // browser's native reconnect-on-stream-end behavior re-issues this same question forever.
+    // native.target is the EventSource that dispatched this MessageEvent, per the DOM spec.
+    evt.preventDefault();
+    if (native.target && typeof native.target.close === 'function') native.target.close();
+    return;
+  }
   if (native.type !== 'citations') return;
   evt.preventDefault();
   var container = evt.target.querySelector('.chat-citations');
