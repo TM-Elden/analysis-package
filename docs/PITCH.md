@@ -123,4 +123,4 @@ Capital follows proof. Not opening a funding conversation until the pilot shows 
 | **locked** | **fathm** (product) + **Analysis Package** (format) |
 
 **HTML deck (branded):** [`docs/html/fathm-pitch.html`](html/fathm-pitch.html)  
-Source PDF retained at `research/pitch-v2-source.pdf`. Brand: `docs/BRAND.md` + `brand/fathm-brand-system-v1.html`.
+Source PDF retained at `research/pitch-v2-source.pdf`. Brand: `docs/BRAND.md` + `brand/fathm-brand-final.html`.

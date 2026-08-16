@@ -17,3 +17,5 @@ Format/standard name remains **Analysis Package (ap)**.
 
 Also locked: L1–L7 formal agent–planner contract, compose standards, ap/0.2.  
 Brand detail: `docs/BRAND.md`.
+
+| D0b | Brand visual | **final** | F-as-sounding-line lockup; see `brand/fathm-brand-final.html` |

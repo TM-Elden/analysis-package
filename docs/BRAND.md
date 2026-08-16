@@ -1,7 +1,8 @@
 # Brand - fathm
 
 **Locked:** 2026-08-16  
-**Visual system:** v1 - see `brand/fathm-brand-system-v1.html` (canonical)
+**Visual system:** **final** - `brand/fathm-brand-final.html` (canonical)  
+**Historical:** `brand/historical/fathm-brand-system-v1.html` (sunk-a era; do not use for new work)
 
 ## Definition
 
@@ -11,60 +12,70 @@
 
 | Item | Value |
 |------|--------|
-| Product / company working name | **fathm** (always lowercase in wordmark) |
-| Format / standard name | **Analysis Package** (`ap`, versioned e.g. `ap/0.2`) |
-| Metaphor | **the chart room** - where packages can be questioned at once |
-| Tagline / definition | to understand something fully, down to its source |
-| Support line | Powered by the Analysis Package standard |
-| Spelling | Intentional: *fathm* not *fathom* |
-| GitHub repo (technical) | `TM-Elden/fathm` until a fathm org/domain is chosen |
+| Product / company | **fathm** |
+| Format / standard | **Analysis Package** (`ap`, e.g. `ap/0.2`) |
+| Metaphor | **chart room** · **sounding line** |
+| Tagline | to understand something fully, down to its source |
+| Support line | the provenance standard for ai-driven analysis |
+| Mark idea | **The letter is the instrument** - F is a sounding line |
+| Repo | https://github.com/TM-Elden/fathm |
 
-## Visual system (v1 summary)
+## The mark (final)
 
-Full production page: [`brand/fathm-brand-system-v1.html`](../brand/fathm-brand-system-v1.html)
+One object. Crop it = icon. Set it before **athm** = wordmark. Nothing else to keep consistent.
 
-### Logo
-- **Wordmark:** lowercase Archivo, wght ~680, wdth ~84  
-- **Sunk vowel:** the **a** drops `translateY(0.19em)` in **Brass** `#E8B36A`  
-- **Clearspace:** height of the "f" on all sides  
-- **Min wordmark height:** 24px; below that use **sounding-line** mark only  
-- **Never:** gradients, outlines, all-caps, un-sinking the vowel, wordmark + sounding-line side-by-side in body  
+### Construction rules
 
-### Sounding-line mark (secondary)
-Vertical brass line, three bone ticks, brass depth circle.  
-Use: favicon, app icon, avatar, slide corners, loading.  
-SVG reference lives in the brand system HTML.
+| ID | Rule |
+|----|------|
+| **R·01** | **The arms are type.** Top arm at cap height, second at x-height - bone - so they shake hands with the letters that follow. |
+| **R·02** | **The line is the instrument.** Brass always. Enters above the word and exits below it - only element that crosses the baseline. |
+| **R·03** | **The weight is the payoff.** Round brass lead ~1.3× stroke. Settles below the baseline: the measurement, taken. |
+| **R·04** | **Flat forever.** No gradients, glows, or shadows on the mark itself. Depth belongs to the environment, not the object. |
 
-### Color tokens
+### Wordmark composition
+- SVG **F / sounding-line** + serif **athm** (Reckless Neue Light preferred; Newsreader fallback)
+- Always lowercase body letters
+- Never: sunk brass "a" (retired), all-caps wordmark, side-by-side second mark in body, gradients on the F
+
+### Icon / avatar
+Crop the F mark alone (ink ground + brass/bone strokes, or brass ground + ink strokes for small tiles).
+
+### Motion (optional)
+Hero "sounding" drop/settle is allowed; respect `prefers-reduced-motion`.
+
+## Color tokens (final)
 
 | Token | Hex | Use |
 |-------|-----|-----|
 | Ink | `#07090D` | page background |
+| Ink 2 | `#0A0E16` | elevated ink / blueprint panels |
 | Slate | `#121826` | cards, panels |
-| Brass | `#E8B36A` | accent, CTA, sunk vowel (~10% max of page) |
-| Driftwood | `#93856F` | secondary text |
-| Bone | `#F4EFE6` | primary text; light-mode ground |
-| Signal Rust | `#B65C4A` | errors / destructive only |
+| Brass | `#E8B36A` | instrument line, weight, accent |
+| Brass dim | `#B98C4F` | brass on light (bone) surfaces |
+| Driftwood | `#93856F` | secondary text, captions |
+| Bone | `#E8E0D5` | primary text / light ground (final; was `#F4EFE6` in v1) |
+| Line | `rgba(147,133,111,.22)` | hairlines |
 
-### Type
+Brass budget: still ~10% of a page max for accent - instrument is brass by nature.
+
+## Type
 
 | Role | Face | Job |
 |------|------|-----|
-| Display / voice | **Newsreader** | definition device, serif voice |
-| UI / body | **Archivo** | headers, nav, body (wdth 84-92 headers) |
+| Display / voice | **Reckless Neue** Light (fallback **Newsreader**) opsz 72 | definitions, lockup "athm", headlines |
+| UI / body | **Archivo** | UI, body, nav |
 | Utility / data | **IBM Plex Mono** | eyebrows, labels, timestamps, provenance |
 
-All free on Google Fonts.
-
-### Copy: the definition device
+## Copy: the definition device
 
 ```
 [term] (n./v.) - [plain definition, <=14 words, no jargon].
 ```
 
-Rules: lowercase term · serif · part-of-speech brass italic · one entry per surface · definition must be true of the product.
+Rules: lowercase term · serif · part-of-speech brass italic · one entry per surface · must be true of the product.
 
-### Starter lexicon
+### Lexicon
 
 | Term | Definition |
 |------|------------|
@@ -74,35 +85,27 @@ Rules: lowercase term · serif · part-of-speech brass italic · one entry per s
 | the standard (n.) | one structure for every analysis. enforced, not suggested. |
 | chart room (n.) | where all your data packages can be questioned at once. |
 
-### Surface templates
-See brand HTML: site hero, feature block, pitch deck, social, cold email.
-
-House writing outside brand pieces: prefer plain hyphen `-` over em dash in engineering docs (operator craft). Brand system HTML may keep its own typographic rules.
+### Surfaces (see final HTML)
+- Hero lockup + definition + mono kicker  
+- Deck title slide  
+- App icon tiles  
+- Business card (mark corner)  
+- Launch post (definition first, news plain, link last - no emoji/hashtags)
 
 ## Do / don't
 
 **Do**
-- Use **fathm** for product, pitch, design-partner conversation  
-- Use **Analysis Package** for the portable unit, schema, profiles, gate  
-- Say "publish an Analysis Package" / "fathm CI" / "chart room" for the product surface  
-- Reproduce wordmark from live type + sunk-a spec (not a raster unless exported later)
+- Reproduce F from SVG geometry in brand-final  
+- Use Reckless/Newsreader for voice lines  
+- Say Analysis Package for the format; fathm for the product  
 
 **Don't**
-- Rename the standard to "fathm package" in normative MUST text  
-- Present *fathm* as a typo of *fathom*  
-- Overuse brass  
-- Hashtags / emoji / exclamation-heavy launch copy (restraint is the brand)
+- Ship the v1 sunk-a wordmark on new surfaces  
+- Put two marks on one surface  
+- Style the instrument with gradients  
 
-## One-liner
+## Engineering docs
+Prefer plain hyphen `-` in markdown/specs. Brand HTML may use its own punctuation.
 
-> **fathm** *(v.)* - to understand something fully, down to its source.
-
-## Domain / handle (open)
-
-Track: fathm.ai / fathm.com / socials / GH org. Not blocking build.
-
-## Next brand production (optional)
-
-- SVG wordmark + sounding-line exports  
-- Landing page in this system  
-- Pitch deck per Template C  
+## Domain (open)
+fathm.ai / org handles - track separately.

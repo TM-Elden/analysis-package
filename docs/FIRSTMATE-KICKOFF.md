@@ -22,7 +22,7 @@ Complete product = acceptance list in DESIGN-FATHM-SYSTEM.md §18.
 ## Brand
 - Product: **fathm** (always lowercase wordmark; sunk brass "a")
 - Format: **Analysis Package (ap)**
-- Visual system: `brand/fathm-brand-system-v1.html`
+- Visual system: `brand/fathm-brand-final.html` (F = sounding-line instrument)
 - Metaphor: **chart room**
 - CLI/library preference: `ap-gate` for validation
 

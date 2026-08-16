@@ -124,7 +124,7 @@ firstmate decides order and packaging. Hermes does not mandate phases.
 
 ## 4. Read order (context)
 
-1. `docs/BRAND.md` + `brand/fathm-brand-system-v1.html`  
+1. `docs/BRAND.md` + `brand/fathm-brand-final.html`  
 2. `README.md`  
 3. `docs/ARCHITECTURE.md`  
 4. `standard/ap-0.2/STANDARD.md`  
