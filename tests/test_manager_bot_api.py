@@ -11,8 +11,6 @@ import ap_api.deps as deps
 from ap_api.app import app
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
-from ap_index.index_store import IndexStore
-from ap_store.store import PackageStore
 
 from _manager_bot_corpus import build_corpus
 from _manager_bot_fake_llm import ScriptedLLMClient
