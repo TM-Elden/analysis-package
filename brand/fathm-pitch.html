@@ -28,18 +28,66 @@
 
   .deck-nav{
     position:fixed;top:0;left:0;right:0;z-index:40;
-    display:flex;gap:8px;align-items:center;justify-content:space-between;
-    padding:12px 4vw;background:rgba(7,9,13,.88);backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line);font-size:11px;
+    height:56px;
+    display:flex;gap:16px;align-items:center;justify-content:space-between;
+    padding:0 4vw;
+    background:rgba(7,9,13,.94);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);
+    font-size:11px;
   }
-  .deck-nav .wm{font-weight:680;font-variation-settings:"wdth" 84;letter-spacing:.02em;font-size:15px}
-  .deck-nav .wm .sunk{color:var(--brass);display:inline-block;transform:translateY(.14em)}
-  .deck-nav .links{display:flex;flex-wrap:wrap;gap:6px 10px;justify-content:flex-end}
-  .deck-nav a{color:var(--drift);text-decoration:none;font-family:'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
-  .deck-nav a:hover{color:var(--brass)}
+  .deck-nav .wm{
+    flex:0 0 auto;
+    font-family:'Archivo',system-ui,sans-serif;
+    font-weight:700;
+    font-variation-settings:"wdth" 84,"wght" 680;
+    letter-spacing:0.02em;
+    font-size:18px;
+    line-height:1;
+    display:inline-flex;
+    align-items:baseline;
+    color:var(--bone);
+    text-decoration:none;
+  }
+  .deck-nav .wm .sunk{
+    color:var(--brass);
+    display:inline-block;
+    transform:translateY(0.12em);
+    font-weight:700;
+  }
+  .deck-nav .links{
+    flex:1 1 auto;
+    min-width:0;
+    display:flex;
+    flex-wrap:nowrap;
+    gap:4px 12px;
+    justify-content:flex-end;
+    align-items:center;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    mask-image:linear-gradient(90deg,transparent,#000 8px,#000 calc(100% - 12px),transparent);
+  }
+  .deck-nav .links::-webkit-scrollbar{display:none}
+  .deck-nav .links a{
+    flex:0 0 auto;
+    color:var(--drift);
+    text-decoration:none;
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:10px;
+    padding:6px 0;
+    white-space:nowrap;
+  }
+  .deck-nav .links a:hover,.deck-nav .links a:focus-visible{color:var(--brass)}
 
   .slide{
-    min-height:100vh;padding:88px 6vw 72px;
+    min-height:100vh;
+    min-height:100dvh;
+    padding:calc(56px + 40px) 6vw 72px;
     border-bottom:1px solid var(--line);
     display:flex;flex-direction:column;justify-content:center;
     max-width:1100px;margin:0 auto;
@@ -107,11 +155,34 @@
 
   .title-slide{align-items:flex-start;justify-content:center}
   .title-slide .wm-hero{
-    font-weight:680;font-variation-settings:"wdth" 84;letter-spacing:.01em;
-    font-size:clamp(56px,12vw,104px);line-height:1;margin:8px 0 28px;
+    font-family:'Archivo',system-ui,sans-serif;
+    font-weight:700;
+    font-variation-settings:"wdth" 84,"wght" 680;
+    letter-spacing:0.01em;
+    font-size:clamp(52px,11vw,96px);
+    line-height:1.15;
+    margin:12px 0 32px;
+    display:inline-flex;
+    align-items:baseline;
+    color:var(--bone);
+    /* room for sunk vowel so nothing clips */
+    padding-bottom:0.22em;
+    overflow:visible;
   }
-  .title-slide .wm-hero .sunk{color:var(--brass);display:inline-block;transform:translateY(.19em)}
-  .foot-note{margin-top:auto;padding-top:40px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--drift);letter-spacing:.08em}
+  .title-slide .wm-hero .sunk{
+    color:var(--brass);
+    display:inline-block;
+    transform:translateY(0.19em);
+    font-weight:700;
+  }
+  .foot-note{margin-top:auto;padding-top:40px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:var(--drift);letter-spacing:.08em}
+
+  @media (max-width:640px){
+    .deck-nav .links a:nth-child(n+7){display:none} /* keep nav one line on phones */
+    .layer{grid-template-columns:40px 1fr; }
+    .layer .when{grid-column:2; margin-top:-8px}
+    .pain li{grid-template-columns:1fr}
+  }
 
   @media print{
     .deck-nav{display:none}
@@ -122,7 +193,7 @@
 <body>
 
 <nav class="deck-nav" aria-label="Slides">
-  <div class="wm">f<span class="sunk">a</span>thm</div>
+  <a class="wm" href="#s1" aria-label="fathm home">f<span class="sunk">a</span>thm</a>
   <div class="links">
     <a href="#s1">title</a>
     <a href="#s2">problem</a>
