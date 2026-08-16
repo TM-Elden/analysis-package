@@ -74,6 +74,26 @@ def test_full_lifecycle_create_then_withdraw(tmp_path):
     store.close()
 
 
+def test_edited_diff_rejected_on_withdraw(tmp_path):
+    """edited_diff is only meaningful on an approve decision - this must hold for every decision
+    path, not just approve/reject. A withdraw carrying a (possibly malformed) edited_diff must be
+    rejected before it can reach the store, otherwise an unvalidated, schema-unchecked diff would
+    be persisted on a withdrawn proposal."""
+    store, wf, record = _created(tmp_path)
+    with pytest.raises(ProposalPolicyError, match="only meaningful on an approve"):
+        wf.decide(
+            record.proposal_id,
+            to_status="withdrawn",
+            actor=_identity("sweep.bot", Role.ANALYST),
+            edited_diff={"not": "a valid diff shape at all"},
+        )
+    # the transition must not have gone through - proposal is still pending, nothing persisted.
+    reloaded = store.get(record.proposal_id)
+    assert reloaded.status == "pending_hitl"
+    assert reloaded.edited_diff() is None
+    store.close()
+
+
 def test_reject_requires_reason(tmp_path):
     store, wf, record = _created(tmp_path)
     with pytest.raises(ProposalPolicyError, match="decision_reason"):
