@@ -42,29 +42,25 @@
   .deck-nav .wm{
     flex:0 0 auto;
     display:inline-flex;
-    align-items:baseline;
+    align-items:center;
     gap:0;
     text-decoration:none;
     color:var(--bone);
     line-height:1;
-    height:auto;
+    height:28px;
   }
   .deck-nav .wm .fm{
     position:relative;
-    display:inline-block;
-    width:0.48em;
-    font-size:22px;
-    height:1em;
+    display:block;
+    width:13px;
+    height:22px;
     flex:0 0 auto;
-    vertical-align:baseline;
+    margin-right:1px;
   }
   .deck-nav .wm .fm svg{
-    position:absolute;
-    left:0;
-    /* match brand-final: instrument rises above and weight sits on baseline */
-    top:-0.72em;
-    width:0.56em;
-    height:calc(0.56em * 232 / 150);
+    display:block;
+    width:100%;
+    height:100%;
     overflow:visible;
   }
   .deck-nav .wm .tx{
@@ -73,7 +69,7 @@
     font-size:22px;
     letter-spacing:-0.02em;
     line-height:1;
-    margin-left:-0.06em; /* pull a under the F arms */
+    margin-left:0;
   }
   .deck-nav .links{
     flex:1 1 auto;
@@ -179,27 +175,26 @@
   .title-slide .wm-hero{
     position:relative;
     display:inline-flex;
-    align-items:baseline;
+    align-items:center; /* optical middle of F with athm */
+    gap:0;
     margin:16px 0 36px;
     color:var(--bone);
     line-height:1;
-    font-size:clamp(64px,14vw,120px); /* shared em for F + athm */
+    font-size:clamp(64px,14vw,120px);
   }
   .title-slide .wm-hero .fm{
     position:relative;
-    display:inline-block;
-    width:0.48em;
-    height:1em;
+    display:block;
+    /* F letter box ≈ text height; slight extra for weight below */
+    width:0.42em;
+    height:1.05em;
     flex:0 0 auto;
-    font-size:1em;
-    vertical-align:baseline;
+    margin-right:0.02em;
   }
   .title-slide .wm-hero .fm svg{
-    position:absolute;
-    left:0;
-    top:-0.76em; /* brand-final lockup */
-    width:0.58em;
-    height:calc(0.58em * 232 / 150);
+    display:block;
+    width:100%;
+    height:100%;
     overflow:visible;
   }
   .title-slide .wm-hero .tx{
@@ -208,7 +203,7 @@
     font-size:1em;
     letter-spacing:-0.02em;
     line-height:1;
-    margin-left:-0.05em; /* F arms nearly meet a */
+    margin-left:0;
   }
   .title-slide .kicker{
     margin-top:8px;
@@ -237,11 +232,11 @@
 
 <nav class="deck-nav" aria-label="Slides">
   <a class="wm" href="#s1" aria-label="fathm home">
-    <span class="fm" aria-hidden="true"><svg viewBox="0 0 150 232" fill="none">
-      <line x1="20" y1="10" x2="20" y2="182" stroke="#E8B36A" stroke-width="15" stroke-linecap="round"/>
-      <line x1="20" y1="25" x2="116" y2="25" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
-      <line x1="20" y1="86" x2="88" y2="86" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
-      <circle cx="20" cy="182" r="19" fill="#E8B36A"/>
+    <span class="fm" aria-hidden="true"><svg viewBox="0 0 140 220" fill="none" preserveAspectRatio="xMidYMid meet">
+      <line x1="28" y1="8" x2="28" y2="175" stroke="#E8B36A" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="22" x2="118" y2="22" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="82" x2="92" y2="82" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="28" cy="192" r="20" fill="#E8B36A"/>
     </svg></span>
     <span class="tx">athm</span>
   </a>
@@ -266,11 +261,11 @@
   <div class="lamp" aria-hidden="true"></div>
   <div class="eyebrow">pitch · internal</div>
   <div class="wm-hero" aria-label="fathm">
-    <span class="fm" aria-hidden="true"><svg viewBox="0 0 150 232" fill="none">
-      <line x1="20" y1="10" x2="20" y2="182" stroke="#E8B36A" stroke-width="15" stroke-linecap="round"/>
-      <line x1="20" y1="25" x2="116" y2="25" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
-      <line x1="20" y1="86" x2="88" y2="86" stroke="#E8E0D5" stroke-width="15" stroke-linecap="round"/>
-      <circle cx="20" cy="182" r="19" fill="#E8B36A"/>
+    <span class="fm" aria-hidden="true"><svg viewBox="0 0 140 220" fill="none" preserveAspectRatio="xMidYMid meet">
+      <line x1="28" y1="8" x2="28" y2="175" stroke="#E8B36A" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="22" x2="118" y2="22" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <line x1="28" y1="82" x2="92" y2="82" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="28" cy="192" r="20" fill="#E8B36A"/>
     </svg></span>
     <span class="tx">athm</span>
   </div>
