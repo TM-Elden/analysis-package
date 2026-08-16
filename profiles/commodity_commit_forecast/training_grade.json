@@ -1,0 +1,8 @@
+{
+  "profile": "commodity_commit_forecast",
+  "profile_version": "0.1",
+  "source": "profiles/commodity_commit_forecast/README.md",
+  "description": "Absent by default (permissive core). A tenant that wants export-quality training data for this profile creates/edits this file to opt in - see labels_row_shape (reason_text) and agent_draft_present (agent_draft) in src/ap_gate/checks/labels.py. This reference profile ships the file present but both flags OFF so the gold-pack example stays representative of core (non-training-grade) usage; flip to true to see the stricter behavior.",
+  "require_reason_text": false,
+  "require_agent_draft": false
+}

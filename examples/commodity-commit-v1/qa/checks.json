@@ -1,6 +1,6 @@
 {
   "validator": "ap-gate/0.2.0",
-  "checks_run_at": "2026-08-16T13:21:14Z",
+  "checks_run_at": "2026-08-16T17:18:18Z",
   "package_id": "pkg_01hqexample000000000000001",
   "overall": "pass",
   "results": [
@@ -59,6 +59,12 @@
       "waived": false
     },
     {
+      "check_id": "labels_row_shape",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
       "check_id": "reason_codes_known",
       "result": "pass",
       "severity": "required",
@@ -74,6 +80,12 @@
       "check_id": "training_eligibility_present",
       "result": "pass",
       "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "agent_draft_present",
+      "result": "fail",
+      "severity": "advisory",
       "waived": false
     },
     {
@@ -127,6 +139,10 @@
       "message": "3 label file(s) parse cleanly"
     },
     {
+      "check_id": "labels_row_shape",
+      "message": "3 override row(s) match the normative schema"
+    },
+    {
       "check_id": "reason_codes_known",
       "message": "all override reason codes valid for profile 'commodity_commit_forecast'"
     },
@@ -137,6 +153,13 @@
     {
       "check_id": "training_eligibility_present",
       "message": "training_eligibility is False"
+    },
+    {
+      "check_id": "agent_draft_present",
+      "message": "1/3 override row(s) missing agent_draft while model_run.role='draft_override_suggestions_only' declares agent participation: ovr_003\n  Capture the agent's draft reason_code/reason_text on the row before the human override lands, so it isn't discarded - see the agent_draft sub-object in override-row.schema.json.",
+      "paths": [
+        "labels/overrides.jsonl"
+      ]
     },
     {
       "check_id": "no_unlabeled_diff",

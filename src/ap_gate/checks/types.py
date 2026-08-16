@@ -58,5 +58,15 @@ class CheckOutcome:
         return cls(check_id=check_id, result=RESULT_FAIL, message=message, paths=paths or [])
 
     @classmethod
+    def advisory_fail(cls, check_id: str, message: str, paths: list[str] | None = None) -> "CheckOutcome":
+        """A fail that flags but never blocks overall pass (severity advisory - see blocks_overall_pass).
+
+        For checks like `agent_draft_present` where a profile may later escalate the same
+        condition to `required` via `CheckOutcome.fail` instead - the check function decides
+        which classmethod to call based on the profile's opt-in flag, not this dataclass.
+        """
+        return cls(check_id=check_id, result=RESULT_FAIL, severity=SEVERITY_ADVISORY, message=message, paths=paths or [])
+
+    @classmethod
     def skip(cls, check_id: str, message: str = "") -> "CheckOutcome":
         return cls(check_id=check_id, result=RESULT_SKIP, message=message)

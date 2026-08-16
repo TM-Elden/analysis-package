@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fathm.dev/ap/0.2/schemas/override-row.schema.json",
+  "title": "Override label row (ap/0.2 normative shape)",
+  "description": "MUST-field schema for every JSON object line in labels/overrides.jsonl (STANDARD.md 'Override label row' section). Enforced by the ap-gate check labels_row_shape. Open-world by design like manifest.schema.json: unknown fields are always allowed. reason_text and evidence_refs are declared here but NOT required in core - a 'training-grade' profile opts into requiring reason_text (see profiles/<name>/training_grade.json, src/ap_gate/profiles.py). agent_draft is optional and opt-in (P4): a package with model_run.role set is advised, not required, to carry it on every row, via the agent_draft_present check; a training-grade profile may escalate that to required too.",
+  "type": "object",
+  "required": ["override_id", "field_path", "before", "after", "reason_code", "author", "ts"],
+  "properties": {
+    "override_id": { "type": "string", "minLength": 1 },
+    "field_path": { "type": "string", "minLength": 1 },
+    "before": {},
+    "after": {},
+    "reason_code": { "type": "string", "minLength": 1 },
+    "reason_text": { "type": "string" },
+    "bucket": { "type": "integer" },
+    "evidence_refs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Whole-file/URI refs, optionally with a '#rows=col:val[,col:val...]' fragment (P3, STANDARD.md) pointing at a specific slice. SHOULD only - fragment-less whole-file refs remain valid."
+    },
+    "author": { "type": "string", "minLength": 1 },
+    "ts": { "type": "string", "minLength": 1 },
+    "agent_draft": {
+      "type": "object",
+      "description": "Optional (P4): the pair agent's draft suggestion before the human's accepted override landed in this row. Opt-in, covered by the same training_eligibility policy as the rest of the package.",
+      "required": ["reason_code"],
+      "properties": {
+        "reason_code": { "type": "string", "minLength": 1 },
+        "reason_text": { "type": "string" }
+      }
+    }
+  }
+}

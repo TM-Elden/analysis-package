@@ -197,17 +197,41 @@ analysis_packages/<package_id>_<title_slug>_v<version>/
 ```json
 {
   "override_id": "...",
-  "field_path": "supplier_forecast.ACME.week_36_qty",
+  "field_path": "supplier_forecast.ACME.BBU-100.week_36_qty",
   "before": 1000,
   "after": 700,
   "reason_code": "HOLD_FOR_PRICE_NEGOTIATION",
   "reason_text": "optional",
   "bucket": 3,
-  "evidence_refs": ["inputs/..."],
+  "evidence_refs": ["inputs/supplier_splits.csv#rows=part:BBU-100"],
   "author": "planner_or_agent_id",
-  "ts": "2026-08-16T16:40:00Z"
+  "ts": "2026-08-16T16:40:00Z",
+  "agent_draft": {
+    "reason_code": "HOLD_FOR_PRICE_NEGOTIATION",
+    "reason_text": "optional - the pair agent's draft suggestion before the human's final edit"
+  }
 }
 ```
+
+Enforced by the gate's `labels_row_shape` check against `standard/ap-0.2/schemas/override-row.schema.json`
+(v0.2.2 addition): `override_id`, `field_path`, `before`, `after`, `reason_code`, `author`, and `ts` are
+required; `reason_text` and `evidence_refs` stay optional in core - a "training-grade" profile MAY
+require `reason_text` (see `profiles/<name>/training_grade.json`). `field_path`'s segment grammar
+(e.g. the `supplier_forecast.<supplier>.<part>.week_<n>_qty` shape above) is declared per profile in
+`profiles/<name>/field_path_grammar.json`, resolved by `ap_gate.field_path.resolve_field_path` - this
+makes `field_path` mechanically resolvable to output-schema key columns instead of free text.
+
+`evidence_refs` entries MAY carry an optional `#rows=<column>:<value>[,<column>:<value>...]` fragment
+pointing at a specific slice of the referenced input file instead of the whole file (e.g.
+`inputs/supplier_splits.csv#rows=part:BBU-100`) - SHOULD, never MUST; a plain whole-file ref (no
+fragment) and external refs (`contracts://...`) remain valid unchanged. Parsed by
+`ap_gate.evidence_refs.parse_evidence_ref`.
+
+`agent_draft` (optional, v0.2.2 addition) captures the pair agent's draft `reason_code`/`reason_text`
+before the human's accepted override landed in this row - opt-in, covered by the same
+`training_eligibility` policy as the rest of the package. The gate's `agent_draft_present` check flags
+(advisory by default; a training-grade profile MAY escalate to required) an override row missing
+`agent_draft` when the package declares agent participation (`model_run.role`, C8).
 
 If it is not in `labels/` or produced by a declared deterministic engine from pinned inputs, **it does not exist** for audit or training.
 
@@ -261,7 +285,20 @@ Breaking changes only on major `ap/N`. Editorial reconciliation passes that clar
 
 ### Changelog
 
-**v0.2.1** (this pass) - editorial reconciliation, no MUST field removed or narrowed:
+**v0.2.2** (this pass) - training-export additions, additive/SHOULD only, no MUST field removed or narrowed:
+1. Added a normative `override-row.schema.json` for every `labels/overrides.jsonl` row, enforced by
+   the new `labels_row_shape` gate check; `reason_text` stays optional in core, required only via a
+   profile's `training_grade.json` opt-in.
+2. Added a per-profile `field_path_grammar.json` declaring how `field_path` segments map to
+   output-schema key columns, resolved by `ap_gate.field_path.resolve_field_path`.
+3. Allowed an optional `#rows=<column>:<value>[,...]` fragment on `evidence_refs` entries, pointing at
+   a slice of an input file instead of the whole file - SHOULD, never MUST.
+4. Added an optional `agent_draft: {reason_code, reason_text}` sub-object to the override row,
+   capturing the pair agent's draft before the human's accepted edit; the new `agent_draft_present`
+   gate check flags (advisory by default) a missing one when `model_run.role` shows agent
+   participation. Same `training_grade.json` opt-in escalates it to required.
+
+**v0.2.1** - editorial reconciliation, no MUST field removed or narrowed:
 1. Added `profile` to the MUST table (it was required by the L1 implementation plan and by `reason_codes_known`, but missing from this table).
 2. Renamed the `profile: strict` extensibility switch to `validation_mode: strict` - it collided with the `profile` field, which carries a profile identifier, not a validation mode.
 3. Renamed `labels.overrides` / `labels.judgments` / `labels.truths_applied` to `labels.overrides_path` / `labels.judgments_path` / `labels.truths_applied_path`, matching the reference example and the L1 plan.

@@ -25,11 +25,15 @@ Block or flag publish when an Analysis Package fails machine-checkable completen
 | `engines_pinned` | required | Every engine has `name`, `version`, `deterministic`; if `path` is set, that file exists |
 | `labels_paths` | required | `labels.overrides_path` / `judgments_path` / `truths_applied_path` all point to existing files (may be empty) |
 | `labels_jsonl_parse` | required | Every non-empty line in each label file parses as a JSON object |
+| `labels_row_shape` | required | Every `labels/overrides.jsonl` row matches `standard/ap-0.2/schemas/override-row.schema.json` (`override_id`/`field_path`/`before`/`after`/`reason_code`/`author`/`ts` required; `reason_text` required too only if the profile's `training_grade.json` opts in). Skips if `labels.overrides_path` is unset or missing (`labels_paths` already reports that). |
 | `reason_codes_known` | required | Every override's `reason_code` is in the profile's allow-list (`profiles/<name>/reason_codes.json`); `OTHER` requires `reason_text`. Skips if the profile has no registered allow-list. |
 | `qa_status_enum` | required | `qa.status` is one of `draft` / `in_review` / `approved` / `rejected` |
 | `training_eligibility_present` | required | `training_eligibility` is present and boolean |
+| `agent_draft_present` | **advisory** (required if the profile's `training_grade.json` sets `require_agent_draft`) | Every `labels/overrides.jsonl` row carries `agent_draft` when `model_run.role` shows agent participation. Advisory `fail` never blocks `overall` (see `blocks_overall_pass`). Skips if `model_run.role` is unset or `labels.overrides_path` is unset/missing. |
 | `qa_approved_implies_pass` | required | If `qa.status == approved`, no other required check (except `no_unlabeled_diff`) failed. Evaluates the gate's own freshly computed results, never the manifest's `qa.checks[]` historical record. Skips when status isn't `approved`. |
 | `no_unlabeled_diff` | required | **Stubbed - always `skip`.** Engine replay (output delta vs. `labels/overrides.jsonl`) needs real deterministic engine implementations; phase 2 (see `AGENTS.md`) didn't add these, so this stays future work with no phase assigned yet. |
+
+Severity: `required` failures block `overall: fail`; `advisory` failures (currently only `agent_draft_present`) surface in the report and CLI output but never block `overall` - see `CheckOutcome.blocks_overall_pass`. A profile MAY escalate an advisory check to `required` per-tenant via its `training_grade.json` opt-in.
 
 Waivers: `qa.waivers[]` entries `{check_id, reason, author}` turn a failing check into `result: pass, waived: true`. Waiver `author` is never surfaced in gate output (report evidence or results) - see the report shape below.
 
