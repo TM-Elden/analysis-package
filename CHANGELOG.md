@@ -55,6 +55,26 @@ Replaces the phase-2 `X-Ap-Actor-Id`/`X-Ap-Actor-Roles` header placeholder with 
   bearer auth, and the login/logout flow. `examples/commodity-commit-v1` still passes
   `ap-gate check` unchanged.
 
+## Unreleased - `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
+
+Concretizes C8's "Tool/API defs agents can call" acceptance item and builds the capture mechanism
+for P4's `agent_draft` field (design authority: `data/fathm-contract-enforcement-research/report.md`
+section 6). See `AGENTS.md`'s "`fathm-ap` MCP server + `fathm-planning` skill" section for
+architecture notes; not repeated here.
+
+- New: `src/ap_mcp/` - a stdlib + `jsonschema`-only JSON-RPC-2.0-over-stdio MCP server (console
+  script `fathm-ap-mcp`) exposing four tools: `package_create`, `package_check`,
+  `package_finalize` (thin wrappers over `ap_agent_tools`/`ap_store`) and `override_record`, the
+  P4 capture tool - its schema requires `draft_reason_text`, so a call cannot structurally omit
+  the agent's rationale. Server-side validation (`ap_mcp/errors.py`) checks every call against the
+  exact schema object advertised in `tools/list`, so enforcement cannot drift from what's
+  advertised.
+- New: `skills/fathm-planning/SKILL.md` - an agentskills.io-spec skill folder carrying the C8 six
+  MUSTs as operating instructions and the override workflow ("propose every override through
+  `override_record`, never write `labels/overrides.jsonl` by hand").
+- `examples/commodity-commit-v1` still passes `ap-gate check` unchanged; the pre-existing advisory
+  `agent_draft_present` fail on `ovr_003` is untouched and non-blocking.
+
 ## Unreleased - Standard training-export additions (P1-P4)
 
 Additive, `ap/0.2.x`-compatible (STANDARD.md v0.2.2, no MUST field removed or narrowed) additions
