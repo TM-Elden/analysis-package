@@ -3,7 +3,8 @@
 **Audience:** direct manager + optional stakeholders (e.g. Curran, Ashwini, Gaia)  
 **Length:** ~90 seconds spoken · one page written  
 **Path:** Meta internal pilot (not startup pitch)  
-**Status:** Manager-ready draft 2026-08-16  
+**Status:** Manager-ready · presentation HTML 2026-08-16  
+**HTML (present this):** [`docs/html/fathm-manager-ssd.html`](html/fathm-manager-ssd.html)
 
 ---
 

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fathm — SSD pilot · manager brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Newsreader:ital,opsz,wght@0,6..72,200..500;1,6..72,200..500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#07090D; --ink2:#0A0E16; --slate:#121826; --brass:#E8B36A; --brass-dim:#B98C4F;
+    --drift:#93856F; --bone:#E8E0D5; --line:rgba(147,133,111,.22);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--ink);color:var(--bone);
+    font-family:'Archivo',system-ui,sans-serif;line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:99;opacity:.04;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap{max-width:820px;margin:0 auto;padding:0 6vw 96px}
+
+  /* hero */
+  .hero{
+    min-height:92vh;display:flex;flex-direction:column;justify-content:center;
+    padding:72px 0 56px;position:relative;
+  }
+  .hero .lamp{
+    position:absolute;inset:-20% -10% auto -10%;height:70%;pointer-events:none;
+    background:radial-gradient(ellipse 70% 55% at 40% 40%, rgba(232,179,106,.08), transparent 65%);
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;
+    font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--brass);
+    margin-bottom:18px;position:relative;
+  }
+  .wm{
+    display:inline-flex;align-items:center;margin:8px 0 28px;
+    font-size:clamp(52px,11vw,88px);line-height:1;color:var(--bone);position:relative;
+  }
+  .wm .fm{display:block;width:.42em;height:1.05em;margin-right:.03em}
+  .wm .fm svg{display:block;width:100%;height:100%}
+  .wm .tx{font-family:'Newsreader',Georgia,serif;font-weight:300;letter-spacing:-.02em}
+  .hero h1{
+    font-family:'Newsreader',Georgia,serif;font-weight:300;
+    font-size:clamp(28px,4.2vw,42px);line-height:1.2;letter-spacing:-.015em;
+    max-width:18ch;position:relative;
+  }
+  .hero .sub{
+    margin-top:20px;color:var(--drift);font-size:clamp(15px,1.6vw,17px);
+    max-width:42ch;position:relative;
+  }
+  .meta-row{
+    margin-top:36px;display:flex;flex-wrap:wrap;gap:10px 18px;position:relative;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--drift);
+  }
+  .meta-row span b{color:var(--bone);font-weight:500}
+
+  section{
+    padding:56px 0;border-top:1px solid var(--line);position:relative;
+  }
+  .num{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--brass);margin-bottom:14px;
+  }
+  h2{
+    font-family:'Newsreader',Georgia,serif;font-weight:300;
+    font-size:clamp(24px,3.2vw,34px);line-height:1.2;letter-spacing:-.01em;
+    max-width:22ch;margin-bottom:16px;
+  }
+  h3{
+    font-family:'Newsreader',Georgia,serif;font-weight:300;
+    font-size:clamp(18px,2.2vw,22px);margin:28px 0 12px;letter-spacing:-.01em;
+  }
+  p{color:var(--drift);font-size:16px;max-width:62ch;margin-bottom:14px}
+  p strong,li strong{color:var(--bone);font-weight:600}
+  .lead{color:var(--bone);font-size:clamp(17px,2vw,19px);line-height:1.45;max-width:40ch}
+
+  .steps{list-style:none;margin:24px 0;display:grid;gap:12px;max-width:560px}
+  .steps li{
+    border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+    background:rgba(18,24,38,.5);display:grid;grid-template-columns:88px 1fr;gap:14px;align-items:start;
+  }
+  .steps .k{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--brass);padding-top:3px;
+  }
+  .steps .v{color:var(--bone);font-size:15px}
+
+  .callout{
+    margin:28px 0;padding:22px 24px;border-radius:12px;
+    border:1px solid rgba(232,179,106,.35);
+    background:linear-gradient(145deg,rgba(232,179,106,.09),rgba(18,24,38,.4));
+    max-width:640px;
+  }
+  .callout p{color:var(--bone);margin:0;font-family:'Newsreader',Georgia,serif;
+    font-weight:300;font-size:clamp(18px,2.3vw,22px);line-height:1.4}
+  .callout .tag{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--brass);display:block;margin-bottom:10px;
+  }
+
+  table{
+    width:100%;border-collapse:collapse;margin:20px 0 8px;font-size:14.5px;
+  }
+  th,td{border:1px solid var(--line);padding:12px 14px;text-align:left;vertical-align:top}
+  th{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--drift);font-weight:500;background:rgba(10,14,22,.6);
+  }
+  td{color:var(--drift)}
+  td strong{color:var(--bone)}
+  tr.hl td:last-child{color:var(--bone);background:rgba(232,179,106,.05)}
+
+  .two{display:grid;gap:14px;margin-top:20px}
+  @media(min-width:640px){.two{grid-template-columns:1fr 1fr}}
+  .card{
+    border:1px solid var(--line);border-radius:12px;padding:20px;
+    background:rgba(18,24,38,.48);
+  }
+  .card h4{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--brass);margin-bottom:10px;font-weight:500;
+  }
+  .card p,.card li{font-size:14.5px;margin:0}
+  .card ul{margin:0;padding-left:1.1rem;color:var(--drift)}
+  .card li{margin:6px 0}
+
+  .flow{
+    display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:22px 0;
+  }
+  .flow span{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;border:1px solid var(--line);padding:8px 12px;
+    border-radius:999px;color:var(--bone);
+  }
+  .flow i{color:var(--brass);font-style:normal;font-family:'IBM Plex Mono',monospace}
+
+  .ask-box{
+    margin-top:12px;padding:28px 26px;border-radius:14px;
+    border:1px solid rgba(232,179,106,.4);
+    background:linear-gradient(160deg,rgba(232,179,106,.1),rgba(10,14,22,.7));
+    max-width:640px;
+  }
+  .ask-box .big{
+    font-family:'Newsreader',Georgia,serif;font-weight:300;
+    font-size:clamp(22px,3vw,30px);line-height:1.25;margin-bottom:14px;color:var(--bone);
+  }
+
+  ul.plain{margin:12px 0 12px 1.15rem;color:var(--drift);max-width:56ch}
+  ul.plain li{margin:8px 0}
+
+  .script{
+    background:var(--ink2);border:1px solid var(--line);border-radius:12px;
+    padding:28px 26px;margin-top:12px;max-width:640px;
+  }
+  .script p{color:var(--bone);margin-bottom:16px;font-size:15.5px;line-height:1.55}
+  .script p.muted{color:var(--drift);font-size:14px}
+
+  .email{
+    font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.65;
+    color:var(--drift);background:var(--ink2);border:1px solid var(--line);
+    border-radius:12px;padding:22px 22px;white-space:pre-wrap;max-width:640px;
+  }
+  .email b{color:var(--bone);font-weight:500}
+
+  footer{
+    border-top:1px solid var(--line);padding:40px 0 20px;margin-top:24px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--drift);
+  }
+  footer .def{
+    font-family:'Newsreader',Georgia,serif;font-weight:300;font-size:18px;
+    letter-spacing:0;text-transform:none;color:var(--bone);margin-bottom:12px;
+    line-height:1.35;
+  }
+  footer .def em{color:var(--brass);font-style:italic;font-size:.85em}
+
+  .appendix{opacity:.92}
+  .appendix h2{max-width:28ch}
+  details.obj{
+    border:1px solid var(--line);border-radius:10px;margin:10px 0;padding:0;
+    background:rgba(18,24,38,.35);max-width:640px;
+  }
+  details.obj summary{
+    cursor:pointer;padding:14px 16px;color:var(--bone);font-size:14.5px;
+    list-style:none;
+  }
+  details.obj summary::-webkit-details-marker{display:none}
+  details.obj[open] summary{border-bottom:1px solid var(--line);color:var(--brass)}
+  details.obj p{padding:12px 16px 16px;margin:0;font-size:14.5px}
+
+  @media print{
+    body::before{display:none}
+    .hero{min-height:auto;padding:40px 0}
+    section{break-inside:avoid;padding:28px 0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ========== HERO ========== -->
+  <header class="hero">
+    <div class="lamp" aria-hidden="true"></div>
+    <p class="eyebrow">Internal pilot brief · manager presentation</p>
+    <div class="wm" aria-label="fathm">
+      <span class="fm" aria-hidden="true"><svg viewBox="0 0 140 220" fill="none" preserveAspectRatio="xMidYMid meet">
+        <line x1="28" y1="8" x2="28" y2="175" stroke="#E8B36A" stroke-width="16" stroke-linecap="round"/>
+        <line x1="28" y1="22" x2="118" y2="22" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+        <line x1="28" y1="82" x2="92" y2="82" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
+        <circle cx="28" cy="192" r="20" fill="#E8B36A"/>
+      </svg></span>
+      <span class="tx">athm</span>
+    </div>
+    <h1>From chatbot forecast to governed analysis.</h1>
+    <p class="sub">Commodity SSD pilot · 90 days. Channel agent speed into lineage, gates, and a corpus leadership can actually ask.</p>
+    <div class="meta-row">
+      <span><b>Workflow</b> SSD forecast</span>
+      <span><b>Path</b> Internal · not a platform mandate</span>
+      <span><b>Decision</b> Expand · hand off · stop</span>
+    </div>
+  </header>
+
+  <!-- ========== 01 PROOF ========== -->
+  <section id="proof">
+    <p class="num">01 · proof already in hand</p>
+    <h2>I automated the full SSD forecast by talking to a chatbot.</h2>
+    <p class="lead">Upstream, logic, downstream - end to end.</p>
+    <ul class="steps">
+      <li><span class="k">Upstream</span><span class="v">All source data given to the agent.</span></li>
+      <li><span class="k">In-between</span><span class="v">Forecast logic taught in conversation / instructions.</span></li>
+      <li><span class="k">Downstream</span><span class="v">Every report specified - the agent builds them.</span></li>
+    </ul>
+    <p>That works. Clawbot-style adoption is mixed across the team - this is the high end of what’s already possible on a real commodity.</p>
+  </section>
+
+  <!-- ========== 02 ALPHA ========== -->
+  <section id="alpha">
+    <p class="num">02 · the cost of waiting</p>
+    <h2>Every cycle we publish without capturing it, we throw the alpha away.</h2>
+    <div class="callout">
+      <span class="tag">For an AI-native room</span>
+      <p>Every day we wait, alpha walks out of the building and into the trash - we pay for the decision once, then throw away the metadata that made it.</p>
+    </div>
+    <p>The planner’s real product isn’t only the forecast tab. It’s the <strong>decision apparatus</strong>: which sources counted, what was overridden, why the hold, what truth got applied.</p>
+    <p>That evaporates into chat scrollback and tribal memory. We fund the judgment - then store almost none of it in a form agents or leaders can use again. <strong>Cash and data, both on fire.</strong></p>
+    <table>
+      <thead><tr><th>We burn</th><th>How</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Cash</strong></td><td>Same judgment re-earned next cycle; audit and rebuild tax</td></tr>
+        <tr><td><strong>Data</strong></td><td>Irreplaceable human deltas never land in a queryable corpus</td></tr>
+        <tr><td><strong>AI-native future</strong></td><td>Leaders can’t ask the team’s work; bots can’t learn <em>our</em> standards safely</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:18px;font-size:14.5px">For a skeptical operator: we’re already paying planners and bots. Without packages, we pay again next week for the same archaeology - and we still can’t answer where the number came from.</p>
+  </section>
+
+  <!-- ========== 03 TENSION ========== -->
+  <section id="tension">
+    <p class="num">03 · the tension</p>
+    <h2>Two goals that look like they conflict.</h2>
+    <div class="two">
+      <div class="card">
+        <h4>Move fast with agents</h4>
+        <p>Real, nonstandard planning work - draft at chat speed on the SSD loop we already proved.</p>
+      </div>
+      <div class="card">
+        <h4>AI-native + auditable</h4>
+        <p>Traceability / lineage. Leaders (e.g. Curran, Ashwini, Gaia) can ask any question of our analysis - and trust the answer.</p>
+      </div>
+    </div>
+    <h3>Chat-only drafts fight the second goal</h3>
+    <table>
+      <thead><tr><th>We need</th><th>Chat-only gives us</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td>Lineage</td><td>Broken or manual</td></tr>
+        <tr class="hl"><td>DQ checks</td><td>Ad hoc</td></tr>
+        <tr class="hl"><td>Standardization</td><td>Per-person prompts</td></tr>
+        <tr class="hl"><td>Governance</td><td>After-the-fact</td></tr>
+        <tr class="hl"><td>Query across the team</td><td>Threads + drive archaeology</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:16px"><strong>Question:</strong> How do we get lineage, quality gates, queryability, standardization, and governance across nonstandard processes - without killing agent speed?</p>
+  </section>
+
+  <!-- ========== 04 FATHM ========== -->
+  <section id="fathm">
+    <p class="num">04 · enter fathm</p>
+    <h2>Understand every analysis fully, down to its source.</h2>
+    <p>For this pilot, fathm is three things:</p>
+    <ul class="steps">
+      <li><span class="k">Package</span><span class="v">The publish unit - inputs + as-of, method, outputs, human overrides with credit, QA.</span></li>
+      <li><span class="k">Gate</span><span class="v">Doesn’t count as published until complete.</span></li>
+      <li><span class="k">Chart room</span><span class="v">Managers and leaders query validated packages with citations.</span></li>
+    </ul>
+    <p><strong>Agents stay the draft surface.</strong> Packages are how drafts become institutional.</p>
+    <div class="flow">
+      <span>Agent draft</span><i>→</i>
+      <span>Human judgment</span><i>→</i>
+      <span>Package</span><i>→</i>
+      <span>Gate</span><i>→</i>
+      <span>Chart room</span>
+    </div>
+  </section>
+
+  <!-- ========== 05 BEATS ========== -->
+  <section id="beats">
+    <p class="num">05 · two beats · one pilot</p>
+    <h2>Surface first. Then make it scalable.</h2>
+    <table>
+      <thead><tr><th>Beat</th><th>What</th><th>Success signal</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>A · Surface</strong></td>
+          <td>Agent is default draft path for the SSD forecast loop</td>
+          <td>Most cycles start in the approved agent surface - not shadow one-offs</td>
+        </tr>
+        <tr>
+          <td><strong>B · Scale</strong></td>
+          <td>Every in-scope publish is a gated package</td>
+          <td>100% packages with queryable lineage; sponsor queries weekly</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="two" style="margin-top:18px">
+      <div class="card">
+        <h4>A without B</h4>
+        <p>Faster unauditable sludge. Alpha still in the trash.</p>
+      </div>
+      <div class="card">
+        <h4>B without A</h4>
+        <p>Process with no traffic. Empty chart room.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 06 OUT ========== -->
+  <section id="out">
+    <p class="num">06 · explicitly out of scope</p>
+    <h2>What this is not.</h2>
+    <ul class="plain">
+      <li>Org-wide mandate on day one</li>
+      <li>Replacing ERP or planning suites</li>
+      <li>A headcount-reduction story</li>
+      <li>Training public models on internal content</li>
+      <li>Boiling the ocean on standards day one</li>
+    </ul>
+  </section>
+
+  <!-- ========== 07 ASK ========== -->
+  <section id="ask">
+    <p class="num">07 · the ask</p>
+    <h2>90 days. One workflow. Kill criteria included.</h2>
+    <div class="ask-box">
+      <p class="big">Sponsor the SSD forecast pilot.</p>
+      <p>Channel the clawbot reality we already have into something we can govern - not a company-wide platform rollout.</p>
+    </div>
+    <table style="margin-top:24px">
+      <thead><tr><th>Need</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Manager sponsorship</strong></td><td>Air cover + chart-room user</td></tr>
+        <tr><td><strong>SSD forecast as pilot</strong></td><td>Already proven agent-automatable</td></tr>
+        <tr><td><strong>90 days</strong></td><td>Habit + written kill criteria</td></tr>
+        <tr><td><strong>Access to current path</strong></td><td>Meet the real data and report flow</td></tr>
+      </tbody>
+    </table>
+    <h3>Success at day 90</h3>
+    <ul class="plain">
+      <li>Agent-born drafts by default on this workflow</li>
+      <li><strong>100%</strong> of in-scope publishes are packages with queryable lineage</li>
+      <li>Sponsor (you or named) uses the chart room <strong>weekly</strong></li>
+    </ul>
+    <h3>Decision</h3>
+    <div class="flow">
+      <span>Expand</span><i>/</i>
+      <span>Hand off</span><i>/</i>
+      <span>Stop</span>
+    </div>
+    <div class="callout" style="margin-top:28px">
+      <span class="tag">One line</span>
+      <p>We already showed the forecast can be generated by talking to a bot. fathm makes that safe to scale - and stops us from paying for judgment once, then throwing the decision apparatus in the trash.</p>
+    </div>
+  </section>
+
+  <!-- ========== 08 SCRIPT ========== -->
+  <section id="script">
+    <p class="num">08 · spoken · ~90 seconds</p>
+    <h2>If you only take one path into the room.</h2>
+    <div class="script">
+      <p>Through owning commodity SSDs, I automated the full forecast generation loop by talking to a chatbot.</p>
+      <p class="muted">Upstream sources - I gave them to the bot. In-between logic - I taught it. Downstream reports - I told it how to build them.</p>
+      <p>That works. It’s also the gap.</p>
+      <p>If the work lives in chat, we don’t get lineage, data-quality checks, standardization, or governance - and we can’t honestly say an AI-native leader can ask any question of our analysis and trust the answer.</p>
+      <p><strong>And every cycle we publish without capturing it, we throw the alpha away.</strong> The planner’s product is the decision apparatus - and we burn cash and data when that evaporates.</p>
+      <p>We want agent speed and a queryable, governed corpus. <strong>fathm</strong> squares that: analysis package, gate, chart room. Agents draft; packages institutionalize.</p>
+      <p><strong>Beat A</strong> - agent is default draft on SSD forecast. <strong>Beat B</strong> - nothing in-scope is done until it’s a gated package.</p>
+      <p>Ask: 90 days. Success = agent-default drafts, 100% packages with lineage, you query weekly. Expand, hand off, or kill. Not an org-wide platform. Not a headcount story.</p>
+    </div>
+  </section>
+
+  <!-- ========== 09 EMAIL ========== -->
+  <section id="email">
+    <p class="num">09 · send-ahead email</p>
+    <h2>Short version for calendar or Slack.</h2>
+    <div class="email"><b>Subject:</b> Pilot idea - agent-drafted SSD forecast + governed packages (90 days)
+
+I’ve automated commodity SSD forecast generation end-to-end through a chatbot (upstream sources, logic, downstream reports). It works - and it surfaces a gap: if the work lives in chat, we don’t get lineage, DQ, standardization, or a corpus leaders can query. Every publish without the decision apparatus is alpha we paid for and didn’t keep.
+
+I’d like 90 days to pilot fathm on this workflow: keep the agent as the draft surface, but require every publish to be a gated analysis package with queryable provenance (chart room for leadership questions).
+
+Success: agent-default drafts, 100% in-scope packages, weekly sponsor query. Expand / handoff / kill at day 90. Not an org-wide platform ask.
+
+Happy to walk through in 25 minutes - brief attached.</div>
+  </section>
+
+  <!-- ========== APPENDIX ========== -->
+  <section class="appendix" id="appendix">
+    <p class="num">Appendix · presenter only</p>
+    <h2>Delivery notes and objections.</h2>
+    <ul class="plain">
+      <li>Lead with <strong>SSD proof</strong> - not brand mythology</li>
+      <li>Say <strong>fathm</strong> once; if the name distracts, “analysis package pilot” is fine</li>
+      <li>Name leaders only if it fits culture; else “leadership can query”</li>
+      <li>Bring one ugly artifact: chat → final report with no lineage link</li>
+      <li>Offer kill criteria unprompted</li>
+      <li>Clawbot: “channel mixed adoption,” not “everyone must use X”</li>
+    </ul>
+    <h3>If they push back</h3>
+    <details class="obj"><summary>“Just use our catalog / DQ tool”</summary>
+      <p>Wrong grain - those are tables and pipelines. This is the <strong>analysis publish</strong> unit bots create.</p>
+    </details>
+    <details class="obj"><summary>“Agents aren’t ready”</summary>
+      <p>Mixed adoption is already here; the SSD loop shows the upside. We’re governing reality.</p>
+    </details>
+    <details class="obj"><summary>“More process slows us”</summary>
+      <p>Gate is the minimum to call it published. Draft stays as fast as chat.</p>
+    </details>
+    <details class="obj"><summary>“Are you building a startup at work?”</summary>
+      <p>Internal pilot so this team is AI-native and auditable. That’s the whole ask.</p>
+    </details>
+    <details class="obj"><summary>“Planners will hate it”</summary>
+      <p>Overrides keep <strong>credit</strong>; less rebuild next cycle. Judgment stays human.</p>
+    </details>
+  </section>
+
+  <footer>
+    <p class="def">fathm <em>(v.)</em> - to understand something fully, down to its source.</p>
+    <p>Internal · SSD forecast pilot · 90 days · expand / hand off / stop</p>
+  </footer>
+
+</div>
+</body>
+</html>
