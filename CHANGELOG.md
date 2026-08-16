@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased - Standard training-export additions (P1-P4)
+
+Additive, `ap/0.2.x`-compatible (STANDARD.md v0.2.2, no MUST field removed or narrowed) additions
+adopted from the training-pipeline gap analysis (`data/fathm-training-pipeline-research/report.md`
+section 2.4), captain-approved 2026-08-16.
+
+- New: `standard/ap-0.2/schemas/override-row.schema.json` - normative shape for every
+  `labels/overrides.jsonl` row, enforced by the new `labels_row_shape` gate check.
+  `override_id`/`field_path`/`before`/`after`/`reason_code`/`author`/`ts` required; `reason_text` and
+  `evidence_refs` stay optional in core, `reason_text` required only via a profile's new
+  `training_grade.json` opt-in (`profiles/<name>/training_grade.json`,
+  `ap_gate.profiles.load_profile_training_grade`).
+- New: per-profile `field_path_grammar.json` (see `profiles/commodity_commit_forecast/`) declaring how
+  `field_path` segments map to output-schema key columns; resolved mechanically by
+  `ap_gate.field_path.resolve_field_path`.
+- New: optional `#rows=<column>:<value>[,...]` fragment syntax on `evidence_refs` entries, pointing at
+  a slice of an input file instead of the whole file - SHOULD, never MUST. Parsed by
+  `ap_gate.evidence_refs.parse_evidence_ref`.
+- New: optional `agent_draft: {reason_code, reason_text}` sub-object on the override row (same
+  `override-row.schema.json`), capturing the pair agent's draft suggestion before the human's accepted
+  edit. New gate check `agent_draft_present` flags (advisory by default) a row missing it when
+  `model_run.role` shows agent participation; the same `training_grade.json` opt-in escalates it to
+  required.
+- `examples/commodity-commit-v1` and the `ap_agent_tools` reference template both updated to carry
+  `agent_draft` on their override rows and an `evidence_refs` fragment example; both still pass
+  `ap-gate check`.
+
 ## Unreleased - phase 2: package store, review workflow, authz scaffold, agent tools, interface layer
 
 Implements C3/C8/C10/C11 and the section-15 interface table from `docs/DESIGN-FATHM-SYSTEM.md`

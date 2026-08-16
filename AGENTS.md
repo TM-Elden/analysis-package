@@ -64,6 +64,19 @@ pulls the same set from PyPI via `pyproject.toml`.
 - `_apply_waivers` in `registry.py` runs before `qa_approved_implies_pass` (and again after), not just
   once at the end - the meta check reads prior outcomes, so a waived failure must already read as `pass`
   by the time it runs.
+- Severity has two values (`src/ap_gate/checks/types.py`): `required` (default; a `fail` blocks
+  `overall`) and `advisory` (a `fail` surfaces in the report/CLI but never blocks - see
+  `CheckOutcome.blocks_overall_pass`). Build an advisory outcome with `CheckOutcome.advisory_fail(...)`,
+  not `fail(...)` plus a manual severity override. Today `agent_draft_present` is the only advisory
+  check; a profile's `training_grade.json` opt-in can escalate it to `required` per tenant.
+- Training-export additions (P1-P4, STANDARD.md v0.2.2, `standard/ap-0.2/schemas/override-row.schema.json`):
+  a normative shape for every `labels/overrides.jsonl` row (`labels_row_shape` check), a per-profile
+  `field_path_grammar.json` + `src/ap_gate/field_path.py` resolver (declarative only, not wired into
+  any check), an optional `evidence_refs` `#rows=col:val` fragment (`src/ap_gate/evidence_refs.py`,
+  SHOULD only, unenforced), and an optional `agent_draft` sub-object flagged by `agent_draft_present`.
+  All four read a profile's `profiles/<name>/training_grade.json` (`ap_gate.profiles.load_profile_training_grade`)
+  for opt-in escalation - core stays permissive; absence of the file means not opted in, same pattern
+  as `reason_codes.json`'s "no file -> skip" precedent.
 
 ## Phase 2: package store, review workflow, authz scaffold, agent tools, interface layer
 

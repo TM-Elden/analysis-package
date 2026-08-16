@@ -20,8 +20,10 @@ from ap_gate.checks.context import CheckContext
 from ap_gate.checks.engines import check_engines_pinned
 from ap_gate.checks.inputs import check_inputs_pinned
 from ap_gate.checks.labels import (
+    check_agent_draft_present,
     check_labels_jsonl_parse,
     check_labels_paths,
+    check_labels_row_shape,
     check_reason_codes_known,
 )
 from ap_gate.checks.layout import check_guideline_exists, check_layout_dirs
@@ -46,9 +48,11 @@ _SIMPLE_CHECKS = [
     ("engines_pinned", check_engines_pinned),
     ("labels_paths", check_labels_paths),
     ("labels_jsonl_parse", check_labels_jsonl_parse),
+    ("labels_row_shape", check_labels_row_shape),
     ("reason_codes_known", check_reason_codes_known),
     ("qa_status_enum", check_qa_status_enum),
     ("training_eligibility_present", check_training_eligibility_present),
+    ("agent_draft_present", check_agent_draft_present),
     ("no_unlabeled_diff", check_no_unlabeled_diff),
 ]
 

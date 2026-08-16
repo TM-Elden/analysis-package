@@ -1,0 +1,13 @@
+{
+  "profile": "commodity_commit_forecast",
+  "profile_version": "0.1",
+  "source": "profiles/commodity_commit_forecast/README.md",
+  "description": "Declared field_path grammar (P2): maps labels/overrides.jsonl field_path segments to the output-schema key columns + value column they resolve to, so field_path resolution is mechanical instead of per-profile eyeballing. See src/ap_gate/field_path.py for the resolver.",
+  "outputs": {
+    "supplier_forecast": {
+      "template": "supplier_forecast.{supplier}.{part}.week_{week}_qty",
+      "key_columns": ["supplier", "part", "week"],
+      "value_column": "qty"
+    }
+  }
+}
