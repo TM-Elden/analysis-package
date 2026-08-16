@@ -269,7 +269,12 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
   renders the citation links itself. A backend failure mid-request (LLM call raises) is caught in
   `chat_routes.py::_stream_answer` and reported as an `error` SSE event followed by `done`, never a
   hung connection or a bare 500 - `test_console_chat_stream.py` covers this against the same
-  `_manager_bot_corpus` eval-set fixture P3.3's tests use, not synthetic UI-only content.
+  `_manager_bot_corpus` eval-set fixture P3.3's tests use, not synthetic UI-only content. The
+  browser-side reconnect-loop fix (`base.html`'s `htmx:sseBeforeMessage` handler closing the
+  `EventSource` on the `done` event) relies on real browser `EventSource` semantics that
+  TestClient/pytest cannot exercise; it was verified via manual live-server SSE/curl testing rather
+  than live-browser automation (no Chrome/Chromium binary in the sandbox this was authored in) - a
+  deliberately accepted coverage gap, not an oversight - see the comment at the fix site.
 - **`src/ap_manager_bot/`** (C4 manager bot) + `src/ap_api/chat_routes.py` (`POST /chat/manager`):
   a **tool-using loop, not embed-and-stuff RAG** (report 5.3) - `service.py::ManagerBot.answer`
   hands the LLM three read tools (`search_packages`, `get_package_summary`, `get_gate_report` -

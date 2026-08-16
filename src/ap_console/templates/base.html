@@ -151,6 +151,14 @@ document.body.addEventListener('htmx:sseBeforeMessage', function (evt) {
     // The vendored sse.js has no working sse-close - close the EventSource here instead, or the
     // browser's native reconnect-on-stream-end behavior re-issues this same question forever.
     // native.target is the EventSource that dispatched this MessageEvent, per the DOM spec.
+    // Coverage note: this relies on real browser EventSource semantics (reconnect-on-stream-end,
+    // MessageEvent.target) that TestClient/pytest cannot exercise, and no Chrome/Chromium binary
+    // was available in the sandbox this fix was authored/reviewed in for browser automation
+    // (chrome-devtools-axi). Verified instead via manual live-server SSE/curl testing (confirms
+    // the server emits exactly one 'done' frame and the fragment wires the real sse-connect URL);
+    // a live-browser check (Network/EventSource state after 'done', no repeat requests) is left
+    // for an environment with a browser installed. Deliberately accepted gap, not an oversight -
+    // do not add new test infrastructure for this.
     evt.preventDefault();
     if (native.target && typeof native.target.close === 'function') native.target.close();
     return;

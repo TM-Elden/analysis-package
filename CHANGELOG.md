@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased - phase 3 (in progress): C14 redaction, C4 retrieval index, C4 manager bot
+## Unreleased - phase 3 (in progress): C14 redaction, C4 retrieval index, C4 manager bot, console query panel
 
-Implements the redaction-before-index, search-index, and manager-bot-backend slices of §20a's
-adopted Phase 3 slice (`docs/DESIGN-FATHM-SYSTEM.md` section 20a). The manager console and planner
-chat surfaces (both consumers of `POST /chat/manager`) land later. Full architecture notes live in
+Implements the redaction-before-index, search-index, manager-bot-backend, and console query-panel
+slices of §20a's adopted Phase 3 slice (`docs/DESIGN-FATHM-SYSTEM.md` section 20a). Planner chat
+(Slack, also a `POST /chat/manager` consumer) lands later. Full architecture notes live in
 `AGENTS.md`'s "Phase 3" section; not repeated here.
 
 - New: `src/ap_redact/` - `redact_package(package_dir, manifest, ...)` pipeline: `package dir ->
@@ -52,6 +52,10 @@ chat surfaces (both consumers of `POST /chat/manager`) land later. Full architec
   request/response shaping against `httpx.MockTransport`.
 - `httpx` moved from the `dev` extra to a core dependency (`pyproject.toml`) - `AnthropicHTTPClient`
   needs it at runtime, not just in tests.
+- New: `GET /chat/manager/stream` (`ap_api/chat_routes.py`) - an SSE `StreamingResponse` wrapping the
+  same `ManagerBot`, consumed by `ap_console`'s new `GET /console/chat` query panel via htmx's SSE
+  extension. Response-chunked (the answer is computed in full, then trickled to the client), not
+  model-level token streaming. See `AGENTS.md`'s "Console query panel" note for the full contract.
 
 ## Unreleased - phase 3: real C11 authentication/authorization
 
