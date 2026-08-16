@@ -529,8 +529,11 @@ gate-resolution seam + dry-run only, all usable standalone today.
   `ap_planner_bot.scan`'s `_registry_root_override` context manager do instead of mutating env vars
   permanently). When the knob is on and the registry is configured but doesn't recognize the
   declared version, the loader raises `UnknownProfileVersionError`; each of the three check functions
-  in `labels.py` catches that and returns a normal `CheckOutcome.fail` (never an uncaught exception
-  out of `run_all`) - see `test_gate_registry_seam.py`.
+  in `labels.py` catches that and turns it into a `CheckOutcome.fail` (never an uncaught exception
+  out of `run_all`) - except `agent_draft_present`, which stays on `CheckOutcome.advisory_fail` here
+  too, consistent with its "never fails core" invariant above: `training_grade.json` never got a
+  chance to load, so its `require_agent_draft` opt-in is unknown, and an unrelated fail-closed knob
+  must not be what escalates this check to blocking - see `test_gate_registry_seam.py`.
 - **Cache lifecycle (the sharp edge this task exists to close)**: the old bare `lru_cache` per
   loader is gone. `_REGISTRY_FILE_CACHE` is keyed by `(registry_root, name, version, filename)`, not
   just `(name, filename)` - because a version's on-disk files never change after being written
