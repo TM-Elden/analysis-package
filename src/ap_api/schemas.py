@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from ap_manager_bot.models import ChatAnswer
+from ap_proposals.models import ProposalRecord
 from ap_store.models import PackageRecord
 
 
@@ -112,6 +113,77 @@ def chat_answer_to_out(answer: ChatAnswer) -> ChatResponse:
             CitationOut(package_id=c.package_id, package_version=c.package_version, field_path=c.field_path, chunk_type=c.chunk_type)
             for c in answer.citations
         ],
+    )
+
+
+class ProposalCreateRequest(BaseModel):
+    """C6/C7 proposal creation payload. `diff` is validated against `kind`'s schema
+    (`ap_proposals.kinds.DIFF_SCHEMAS`) server-side - see ap_proposals.store.ProposalStore.create."""
+
+    kind: str = Field(description="one of: standard_change, profile_change, reason_code_add, check_add")
+    summary: str
+    rationale: str
+    diff: dict[str, Any]
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class ProposalDecisionRequest(BaseModel):
+    """Decision payload for POST /proposals/{id}/decision. `reason` is required when
+    `to_status == 'rejected'` (enforced server-side by ProposalWorkflow regardless of what the
+    client sends). `edited_diff` populates approve-with-edits - stored beside the original diff,
+    never over it."""
+
+    to_status: str = Field(description="one of: approved, rejected, withdrawn")
+    reason: str | None = None
+    edited_diff: dict[str, Any] | None = None
+
+
+class ProposalOut(BaseModel):
+    proposal_id: str
+    created_at: str
+    kind: str
+    summary: str
+    rationale: str
+    diff: dict[str, Any]
+    evidence: dict[str, Any]
+    status: str
+    created_by_id: str
+    created_by_roles: str
+    decided_by_id: str | None
+    decided_at: str | None
+    decision_reason: str | None
+    edited_diff: dict[str, Any] | None
+    dry_run: dict[str, Any] | None
+    applied_version: str | None
+    applied_at: str | None
+
+
+class ProposalListResponse(BaseModel):
+    items: list[ProposalOut]
+    total: int
+    page: int
+    page_size: int
+
+
+def proposal_record_to_out(record: ProposalRecord) -> ProposalOut:
+    return ProposalOut(
+        proposal_id=record.proposal_id,
+        created_at=record.created_at,
+        kind=record.kind,
+        summary=record.summary,
+        rationale=record.rationale,
+        diff=record.diff(),
+        evidence=record.evidence(),
+        status=record.status,
+        created_by_id=record.created_by_id,
+        created_by_roles=record.created_by_roles,
+        decided_by_id=record.decided_by_id,
+        decided_at=record.decided_at,
+        decision_reason=record.decision_reason,
+        edited_diff=record.edited_diff(),
+        dry_run=record.dry_run(),
+        applied_version=record.applied_version,
+        applied_at=record.applied_at,
     )
 
 

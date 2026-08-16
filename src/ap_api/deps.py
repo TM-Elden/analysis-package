@@ -21,6 +21,9 @@ from ap_auth.roles import Role
 from ap_auth.store import DEFAULT_AUTH_DB, AuthStore
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import AnthropicHTTPClient, LLMClient
+from ap_proposals.policy import ProposalPolicy
+from ap_proposals.store import ProposalStore
+from ap_proposals.workflow import ProposalWorkflow
 from ap_review.policy import ReviewPolicy
 from ap_review.workflow import ReviewWorkflow
 from ap_store.store import PackageStore
@@ -84,6 +87,19 @@ def get_workflow(store: Annotated[PackageStore, Depends(get_store)]) -> ReviewWo
     every ReviewWorkflow built through this function - a plain internal call would bypass the
     override entirely, since FastAPI only rewires dependencies it resolves itself."""
     return ReviewWorkflow(store=store, policy=get_review_policy())
+
+
+@lru_cache(maxsize=1)
+def get_proposal_store() -> ProposalStore:
+    """`<store_root>/proposals.sqlite3` - a sibling database under the same store root PackageStore
+    uses, not a second root env var; see ap_proposals module docstring and CLAUDE.md."""
+    return ProposalStore(DEFAULT_STORE_ROOT)
+
+
+def get_proposal_workflow(store: Annotated[ProposalStore, Depends(get_proposal_store)]) -> ProposalWorkflow:
+    """Same dependency-injection reasoning as get_workflow above - takes `store` as a Depends
+    parameter so `app.dependency_overrides[get_proposal_store]` reaches every ProposalWorkflow."""
+    return ProposalWorkflow(store=store, policy=ProposalPolicy())
 
 
 def identity_from_request(

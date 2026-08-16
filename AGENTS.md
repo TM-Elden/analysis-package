@@ -13,7 +13,9 @@ JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structur
 interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress**
 (`src/ap_redact/`, `src/ap_index/`, `src/ap_manager_bot/` - redaction pipeline, FTS5 search index, and
 the C4 manager-bot backend; `src/ap_console/` - the server-rendered manager console; `src/ap_chat/` -
-the planner-chat-v0 bot (Telegram adapter in `ap_chat/telegram/`); see "Phase 3" below). Brand is
+the planner-chat-v0 bot (Telegram adapter in `ap_chat/telegram/`); see "Phase 3" below), and
+**phase-4-in-progress** (`src/ap_proposals/` - C6/C7 Standard-change proposal storage and workflow;
+see "Phase 4" below). Brand is
 **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename
 normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
@@ -393,6 +395,57 @@ not the capture mechanism.
 - Out of scope here (explicitly deferred, per the design report §6 item 4 / §7): a conformance-eval
   admission gate for third-party agent integrations - not needed while fathm configures every
   design-partner bot itself.
+
+## Phase 4 (in progress): C6/C7 Standard-change proposal storage and workflow
+
+Implements the proposal storage/workflow/API foundation Phase 4's evolution loop sits on -
+`data/fathm-phase4-readiness/report.md` §5.4 in the firstmate repo is the design authority; C6/C7
+are `docs/DESIGN-FATHM-SYSTEM.md` sections 10/11. The drafting bot that populates real `diff_json`
+content (§5.3), the apply mechanism (versioned profile registry + exported code-change specs, §5.5),
+and the dry-run engine (§5.6) are all separate, later tasks - this slice is storage + state machine
++ JSON API only.
+
+- **`src/ap_proposals/`** (`db.py` + `store.py` + `workflow.py` + `models.py` + `kinds.py` +
+  `policy.py`) is a **sibling SQLite database** at `<store_root>/proposals.sqlite3` - not new tables
+  in `ap_store`'s `index.sqlite3` - for the same reason `ap_auth`'s `auth.sqlite3` is its own file
+  (see that module's docstring): proposals are Standard-governance state, a different domain with a
+  different lifecycle than package metadata. It is also not a file sidecar like the C14 redaction
+  report - proposals are mutable workflow state with queries ("all pending"), which is exactly what
+  a sidecar isn't. Same connect/RLock pattern as `ap_store.db`/`PackageStore` and
+  `ap_auth.db`/`AuthStore`: one `check_same_thread=False` connection guarded by an `RLock`, since
+  `ap_api`'s FastAPI sync handlers run in threadpool worker threads.
+- **State machine**: `pending_hitl -> approved | rejected | withdrawn` (`ap_proposals/workflow.py`'s
+  `TRANSITIONS`). Approve-with-edits is `approved` with `edited_diff_json` populated, not a fifth
+  state - `ProposalStore.set_status`'s `edited_diff` param writes it *beside* `diff_json`, never
+  over it, so the original proposed diff always survives a human edit. There is no `applied` state:
+  `ProposalStore.set_status` accepts `edited_diff`/`applied_version` in the **same transaction** as
+  the decision (`COALESCE`-guarded UPDATE) - this is the extension point the later apply-mechanism
+  task wires into, so "approved but silently unapplied" cannot exist by construction once that task
+  lands. `ProposalPolicy.require_dry_run_for_declarative` is a documented-but-unenforced flag for
+  that same later task (the dry-run engine doesn't exist yet, so nothing can honestly require it).
+- **Policy/mechanism split** mirrors `ap_review.ReviewWorkflow`/`ap_store.PackageStore` exactly:
+  `ProposalWorkflow` (`ap_proposals/workflow.py`) owns policy (`standard_approver` role required to
+  decide, admin bypass; reject requires a non-empty `decision_reason`; an `edited_diff` is only
+  valid on an approve decision and is itself schema-validated against the proposal's `kind`);
+  `ProposalStore.set_status` owns mechanism (compare-and-swap + `proposal_audit` row, mirroring
+  `package_audit`). **Creating a proposal has no role restriction** - any authenticated identity may
+  call `ProposalWorkflow.create` (today's only caller is the sweep's service identity; a human-filed
+  proposal route is a future API addition, not a policy or schema change) - deliberately not
+  encoding a "bot vs. human" identity type anywhere.
+- **`diff_json` is schema-validated per `kind`** (`ap_proposals/kinds.py`'s `DIFF_SCHEMAS` +
+  `validate_diff`, same `jsonschema`-based pattern as `ap_mcp.errors.validate_arguments` - one
+  source of truth, planner-serving `ProposalValidationError` messages). The four kinds
+  (`standard_change | profile_change | reason_code_add | check_add`) each get a deliberately
+  minimal/stub shape - the real shapes belong to the drafting bot and apply-mechanism tasks, not
+  this one.
+- **API** (`src/ap_api/proposal_routes.py`, mounted in `ap_api/app.py`): `GET /proposals`,
+  `POST /proposals`, `POST /proposals/{id}/decision` - JSON, same auth discipline as the package
+  routes (`identity_from_request`, no anonymous access; reads unrestricted by role, single-tenant).
+  Role enforcement for decisions lives in `ProposalWorkflow.decide` (raised `ProposalPolicyError` ->
+  403), not a route-level `require_any_role` dependency - mirroring how `POST /packages/{id}/review`
+  lets `ReviewWorkflow` own the role matrix instead of double-gating at the route.
+  `ap_console` will read `ProposalStore` directly once a console tab exists, same module-boundary
+  pattern as the P3.5 review queue - no console UI is built by this slice.
 
 ## Gold-pack regression
 
