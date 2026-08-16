@@ -87,7 +87,7 @@ class ManagerBot:
         else:
             try:
                 result = handler(**tool_input)
-            except TypeError as exc:
+            except Exception as exc:
                 result = {"error": f"bad input for {name}: {exc}"}
         return {"type": "tool_result", "tool_use_id": tool_use_id, "content": _to_text(result)}
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
@@ -32,22 +32,3 @@ class ChatAnswer:
     #: Number of LLM turns the tool loop took - surfaced for observability/eval, not part of the
     #: citation contract.
     turns: int = 0
-
-
-@dataclass(frozen=True)
-class ToolCall:
-    """One tool invocation the LLM asked for."""
-
-    tool_use_id: str
-    name: str
-    input: dict = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class LLMTurn:
-    """One `LLMClient.complete(...)` response: either the model wants to call tools, or it is done
-    (in which case the tool loop expects the final call to have been `provide_answer` - see
-    `service.py::_SYSTEM_PROMPT`)."""
-
-    tool_calls: tuple[ToolCall, ...]
-    stop_reason: str
