@@ -29,6 +29,18 @@ Other engines allowed if declared.
 - `NPI_BRIDGE_MANUAL`
 - `OTHER` (requires reason_text)
 
+## field_path grammar
+
+`field_path_grammar.json` declares how `labels/overrides.jsonl` `field_path` segments map to
+`supplier_forecast`'s key columns (`supplier`, `part`, `week`) + value column (`qty`) - see
+`STANDARD.md`'s `field_path` note and `ap_gate.field_path.resolve_field_path`.
+
+## Training-grade opt-in
+
+`training_grade.json` ships with `require_reason_text` and `require_agent_draft` both `false` so this
+reference profile stays representative of core (non-training-grade) usage - see `labels_row_shape` and
+`agent_draft_present` in `product/CI-L1.md`.
+
 ## Example
 
 See `../../examples/commodity-commit-v1/`.
