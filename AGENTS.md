@@ -12,8 +12,9 @@ JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structur
 `src/ap_api/`, `src/ap_mcp/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP
 interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress**
 (`src/ap_redact/`, `src/ap_index/`, `src/ap_manager_bot/` - redaction pipeline, FTS5 search index, and
-the C4 manager-bot backend; `src/ap_console/` - the server-rendered manager console; see "Phase 3"
-below). Brand is **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename
+the C4 manager-bot backend; `src/ap_console/` - the server-rendered manager console; `src/ap_chat/` -
+the planner-chat-v0 bot (Telegram adapter in `ap_chat/telegram/`); see "Phase 3" below). Brand is
+**fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename
 normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
@@ -181,8 +182,9 @@ functions.
 
 Implements the redaction-before-index, search-index, and manager-bot-backend slices of §20a's
 adopted Phase 3 (`data/fathm-phase3-readiness/report.md` sections 5.3/5.4 in the firstmate repo hold
-the full rationale). Manager console and planner chat (both consumers of `POST /chat/manager`) are
-still later work.
+the full rationale). Manager console (below) and planner chat (`src/ap_chat/`, below) are both
+consumers of `POST /chat/manager`; the C4 query panel inside the console itself is still later
+work.
 
 - **`src/ap_redact/`** (C14): `redact.redact_package(package_dir, manifest, package_id=, package_version=)`
   is the pipeline entry point - `package dir -> (list[Chunk], RedactionReport)`. Person identifiers
@@ -303,6 +305,30 @@ still later work.
   UI layer over it. The package detail page
   (`package_detail.html`) renders `PackageStore.audit_trail(...)` as a timeline - reads the same
   audit rows `GET /packages/{id}/audit` returns, no separate audit computation.
+- **`src/ap_chat/`** (P3.6, C20 planner chat v0): fronts `POST /chat/manager` from a chat platform.
+  Layered by design (`src/ap_chat/__init__.py`) so adding a second platform is a new adapter, not a
+  rewrite: the top level (`core.py`'s `ChatPlatform`/`IncomingMessage`/`OutgoingReply`,
+  `identity_map.py`, `manager_client.py`, `formatting.py`, `runner.py`) is platform-neutral;
+  `ap_chat/telegram/` is the only adapter today (captain-decided: Telegram for v0, not Slack -
+  resolved decision `fathm-phase3-readiness-decision-chat-platform`, 2026-08-16) - long-polling
+  `getUpdates` via plain `httpx` (`telegram/client.py`), never a webhook, so no public HTTPS
+  ingress is needed on the Pi. Identity mapping is an **explicit allowlist file**
+  (`identity_map.py::IdentityAllowlist`, Telegram user id -> `{fathm_user_id, token}`), never
+  auto-provisioned - an operator must have already run `ap-auth adduser --no-password` +
+  `ap-auth token` for that person; per-team-member bot *provisioning* itself is tracked separately
+  (`fathm-phase3-team-bot-provisioning`, out of scope here). `runner.py::BotRunner.run_forever` owns
+  reconnect/backoff (exponential, capped, reset on the next successful poll) around any
+  `ChatPlatform.poll()` failure - this lives in the platform-neutral runner, not the Telegram
+  adapter, so a future Slack adapter gets the same resilience for free. Posting policy (captain
+  decision `fathm-phase3-readiness-decision-chat-answer-posting-policy`, 2026-08-16): full answer
+  text with citations, in-thread - citations render as links into the P3.4 console's package detail
+  page (`formatting.py::package_console_url`, needs `AP_CHAT_CONSOLE_BASE_URL`). Setup (BotFather
+  registration, `ap-auth` provisioning, allowlist format, systemd unit): `docs/telegram-bot-setup.md`;
+  the systemd unit itself is `deploy/systemd/fathm-chat-telegram.service`. Console script:
+  `fathm-chat-telegram` (`ap_chat.telegram.__main__:main`). Tests mock both HTTP boundaries
+  (`httpx.MockTransport`, same seam pattern as `ap_manager_bot.llm_client.AnthropicHTTPClient`) -
+  no real Telegram bot/chat credentials exist in this sandbox; `test_chat_telegram_e2e.py` is the
+  full simulated round-trip, `test_chat_runner.py` is the reconnect/backoff acceptance test.
 
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 

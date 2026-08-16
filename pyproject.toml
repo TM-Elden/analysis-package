@@ -27,6 +27,7 @@ ap-gate = "ap_gate.cli:main"
 ap-api = "ap_api.__main__:main"
 ap-auth = "ap_auth.cli:main"
 fathm-ap-mcp = "ap_mcp.server:main"
+fathm-chat-telegram = "ap_chat.telegram.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

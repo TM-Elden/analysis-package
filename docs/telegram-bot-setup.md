@@ -1,0 +1,116 @@
+# Telegram planner chat v0 - setup
+
+Implements C20 (`docs/DESIGN-FATHM-SYSTEM.md` section 13k) for Telegram, per the captain-decided
+platform choice (`fathm-phase3-readiness-decision-chat-platform`: "use telegram for now - will add
+slack later"). Code: `src/ap_chat/` (platform-neutral core + runner) and `src/ap_chat/telegram/`
+(the Telegram Bot API adapter) - see `src/ap_chat/__init__.py` for the module boundary.
+
+## 1. Register the bot with BotFather
+
+1. In Telegram, message `@BotFather` -> `/newbot`.
+2. Pick a display name and a username ending in `bot` (e.g. `fathm_manager_bot`).
+3. BotFather returns a token shaped like `123456789:AAExampleTokenDoNotUseThisOne` - this is
+   `TELEGRAM_BOT_TOKEN` below. Treat it like any other credential (it's the whole bot identity);
+   do not commit it.
+4. If planners will @mention the bot inside a group chat, BotFather -> `/setprivacy` -> select the
+   bot -> **Disable** (privacy mode ON means the bot only sees messages that already @mention it or
+   reply to it, which is usually what you want and is the default - only disable it if the bot also
+   needs to see all messages, e.g. for a future non-mention trigger; the v0 design doesn't need
+   this, so leaving privacy mode ON is the recommended default).
+
+## 2. Provision each planner a fathm service account (explicit allowlist, no auto-provisioning)
+
+Per task requirement 3, a Telegram user only gets fathm answers after being added by an operator -
+there is no self-service signup path. For each planner:
+
+```bash
+# 1. Get their numeric Telegram user id - e.g. have them message @userinfobot, or read it off the
+#    first message they send the new bot (logged at INFO level: "refusing message from unmapped
+#    platform user '<id>'").
+
+# 2. Create a scoped, password-less service account (no-password = bearer-token-only, no login UI):
+ap-auth adduser planner.alice --roles team_reader --no-password
+
+# 3. Issue a bearer token for it (shown once - copy it now):
+ap-auth token planner.alice
+```
+
+`team_reader` is the minimum role that gets any C4 answers (`ap_manager_bot.scoping`); use a
+broader role only if that planner should also see `internal_restricted` chunks.
+
+## 3. Write the allowlist file
+
+`AP_CHAT_ALLOWLIST_PATH` (default `~/.fathm/chat_telegram_allowlist.json`) - one entry per
+provisioned planner, keyed by their Telegram user id:
+
+```json
+{
+  "555000111": {"fathm_user_id": "planner.alice", "token": "<the ap-auth token output>"},
+  "555000222": {"fathm_user_id": "planner.bob", "token": "<the ap-auth token output>"}
+}
+```
+
+Editing this file and sending the bot a new message picks up the change - no restart needed
+(`IdentityAllowlist.load()` re-reads the file on every construction, and the process reloads it at
+startup; see `ap_chat/identity_map.py` if you want a live-reload-on-SIGHUP later, not built for
+v0).
+
+## 4. Configure and run
+
+Environment variables (`EnvironmentFile=` for the systemd unit, or export directly):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | *(required)* | BotFather token from step 1 |
+| `AP_CHAT_ALLOWLIST_PATH` | `~/.fathm/chat_telegram_allowlist.json` | identity mapping, step 3 |
+| `AP_CHAT_OFFSET_PATH` | `~/.fathm/chat_telegram_offset.json` | persisted `getUpdates` offset, survives restarts |
+| `AP_CHAT_MANAGER_BASE_URL` | `http://127.0.0.1:8000` | the running `ap-api` server (`POST /chat/manager`) |
+| `AP_CHAT_CONSOLE_BASE_URL` | `<manager base>/console` | base URL for citation links into package detail pages |
+| `AP_CHAT_POLL_TIMEOUT` | `30` | `getUpdates` long-poll wait, seconds |
+| `AP_CHAT_UNAUTHORIZED_REPLY` | `true` | reply with a refusal to an unmapped Telegram user vs. silently drop |
+
+Run directly:
+
+```bash
+PYTHONPATH=src TELEGRAM_BOT_TOKEN=... python3 -m ap_chat.telegram
+# or, once installed: fathm-chat-telegram
+```
+
+Run as a service (survives reboots/crashes - task requirement 5):
+
+```bash
+sudo cp deploy/systemd/fathm-chat-telegram.service /etc/systemd/system/
+sudo mkdir -p /etc/fathm && sudo tee /etc/fathm/chat-telegram.env <<'EOF'
+TELEGRAM_BOT_TOKEN=...
+AP_CHAT_MANAGER_BASE_URL=http://127.0.0.1:8000
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now fathm-chat-telegram
+```
+
+Adjust `User=`/`WorkingDirectory=`/`ExecStart=`/`ReadWritePaths=` in the unit file for the real
+deployment path first - it ships with placeholder values (`/opt/fathm`, a `fathm` service user).
+
+## 5. Reliability notes
+
+- **Long-polling, not a webhook**: `getUpdates` is an outbound-only HTTPS call from the bot process
+  to `api.telegram.org` - no public ingress needed on the Pi, same property Socket Mode would have
+  given on Slack.
+- **Reconnect/backoff**: a failed `getUpdates` call (network blip, Telegram outage) is caught by
+  `ap_chat.runner.BotRunner.run_forever`, which backs off exponentially (1s -> 60s cap) and retries
+  indefinitely - no manual restart needed for a transient failure. `tests/test_chat_runner.py`
+  exercises this against an injected failing platform.
+- **systemd `Restart=on-failure`** is the outer safety net if the process itself dies outright
+  (unhandled exception, OOM) - the two layers are complementary, not redundant.
+- **Offset persistence**: `AP_CHAT_OFFSET_PATH` is written after every poll cycle so a systemd
+  restart doesn't cause Telegram to redeliver (and the bot to re-answer) every message since the
+  last *process-lifetime* offset - it resumes from the last *persisted* one.
+
+## 6. Adding Slack later
+
+Per the captain decision, only Telegram ships in this task. When Slack is added: implement
+`ap_chat.core.ChatPlatform` against Slack's API (Socket Mode is the equivalent outbound-only
+transport - see the readiness report section 5.5) in a new `ap_chat/slack/` subpackage and give it
+its own entrypoint/systemd unit. `ap_chat.identity_map`, `ap_chat.manager_client`,
+`ap_chat.formatting`, and `ap_chat.runner` are already platform-neutral and should not need to
+change - see `src/ap_chat/__init__.py`'s module docstring for the boundary this relies on.

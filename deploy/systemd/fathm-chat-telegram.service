@@ -1,0 +1,30 @@
+[Unit]
+Description=fathm planner chat v0 (Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/WorkingDirectory/ExecStart for the real deployment path - this assumes a venv (or
+# PYTHONPATH=src checkout) owned by a dedicated "fathm" service user. See
+# docs/telegram-bot-setup.md for the full setup this unit assumes is already done.
+User=fathm
+WorkingDirectory=/opt/fathm
+Environment=PYTHONPATH=/opt/fathm/src
+EnvironmentFile=/etc/fathm/chat-telegram.env
+ExecStart=/opt/fathm/.venv/bin/fathm-chat-telegram
+
+# Requirement 5: survive restarts, reconnect/backoff is also handled in-process (ap_chat.runner)
+# but systemd is the outer safety net if the process itself dies (OOM, unhandled exception, etc).
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Light sandboxing - this process only needs outbound HTTPS/HTTP and its own state files.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/fathm/.fathm
+
+[Install]
+WantedBy=multi-user.target
