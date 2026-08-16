@@ -51,7 +51,8 @@ pulls the same set from PyPI via `pyproject.toml`.
   `profiles/<name>/*.json` machine files, loaded by `src/ap_gate/profiles.py` - never forked into this
   schema.
 - `no_unlabeled_diff` is permanently stubbed (always `skip`) until real deterministic engines exist for
-  `examples/commodity-commit-v1` to replay against - that's a phase-2 candidate, not a bug.
+  `examples/commodity-commit-v1` to replay against - phase 2 (see below) didn't touch this, it's
+  future work with no phase assigned yet, not a bug.
 - The manifest's `qa.checks[]` is a historical record the package carries, separate from what the gate
   computes fresh each run (`qa_approved_implies_pass` evaluates the gate's own results, never `qa.checks[]`).
 - Any check resolving a manifest-declared path must go through `resolve_contained`

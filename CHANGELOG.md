@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased - phase 2: package store, review workflow, authz scaffold, agent tools, interface layer
+
+Implements C3/C8/C10/C11 and the section-15 interface table from `docs/DESIGN-FATHM-SYSTEM.md`
+(section 20a). Stays headless - engineers, agents, and CI only, no UI. Full architecture notes live in
+`AGENTS.md`'s "Phase 2" section; not repeated here.
+
+- New: `src/ap_store/` - content-addressed local filesystem blob store + SQLite metadata index (C3).
+  Publish is immutable per `(package_id, package_version)`; `status` is a separate mutable column
+  seeded to `draft` on publish, decoupled from the manifest's own `qa.status`.
+- New: `src/ap_review/` - `draft -> in_review -> approved | rejected` review workflow (C10), plus
+  `in_review -> draft` and `rejected -> draft`. Policy knobs: `gate_before_review` (default on),
+  `allow_self_review` (default off).
+- New: `src/ap_auth/` - `Identity`/`Role` data model (C11 minimum role set). CLI callers via
+  `AP_ACTOR_ID`/`AP_ACTOR_ROLES` env vars, HTTP callers via `X-Ap-Actor-*` headers - both documented
+  placeholders, not authentication.
+- New: `src/ap_agent_tools/` - `TOOL_SCHEMAS` for `package.create`/`package.check`/`package.publish`
+  (C8) and a `reference_agent.py` that runs create -> check -> publish end to end against a
+  `commodity_commit_forecast` template copied from `examples/commodity-commit-v1`.
+- New: `src/ap_api/` (FastAPI) - `POST /packages/validate`, `POST /packages`,
+  `POST /packages/{id}/review`, `GET /packages/{id}`, `GET /packages`, `GET /packages/{id}/audit`.
+- 49 new tests covering store round-trip/immutability, the review state machine, and identity/audit
+  trail on state transitions. `examples/commodity-commit-v1` still passes `ap-gate check` unchanged.
+
 ## Unreleased - phase 1: Standard schema + `ap-gate` L1 structural validator
 
 **Standard (`standard/ap-0.2/`)**
