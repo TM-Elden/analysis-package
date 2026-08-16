@@ -51,7 +51,17 @@
     }
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
-    const safeNext = next && /^\/(?!\/|\\)/.test(next) ? next : "/console/packages";
+    let safeNext = "/console/packages";
+    if (next) {
+      try {
+        const resolved = new URL(next, window.location.origin);
+        if (resolved.origin === window.location.origin) {
+          safeNext = resolved.pathname + resolved.search + resolved.hash;
+        }
+      } catch (e) {
+        safeNext = "/console/packages";
+      }
+    }
     window.location = safeNext;
   });
 </script>
