@@ -1,0 +1,14 @@
+{
+  "profile": "commodity_commit_forecast",
+  "profile_version": "0.1",
+  "source": "profiles/commodity_commit_forecast/README.md",
+  "reason_codes": [
+    "HOLD_FOR_PRICE_NEGOTIATION",
+    "LTA_LINEARITY_CAP",
+    "SUPPLIER_RISK_SPLIT_CHANGE",
+    "DATA_SNAPSHOT_CORRECTION",
+    "NPI_BRIDGE_MANUAL",
+    "OTHER"
+  ],
+  "other_requires_reason_text": true
+}

@@ -27,4 +27,5 @@ ap-example-commodity-commit-v1/
 6. Hand `outputs/` to consumers in `output_contract`
 
 ## Not production data
-Hashes and quantities are demo placeholders.
+Quantities are synthetic demo data, not live production data. `content_sha256` values in `MANIFEST.yaml`
+are real (computed from the actual bytes of the files under `inputs/`) - `ap-gate check .` verifies them.

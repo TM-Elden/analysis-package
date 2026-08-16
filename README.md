@@ -98,16 +98,35 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
+## Install
+
+Git install only (no PyPI publish in phase 1):
+
+```bash
+git clone https://github.com/TM-Elden/fathm.git
+cd fathm
+pip install -e ".[dev]"
+```
+
 ## Quick start (example pack)
 
 ```bash
 cd examples/commodity-commit-v1
 cat MANIFEST.yaml
 cat labels/overrides.jsonl
-python code/run_commit_pack.py   # stub entrypoint today
+python code/run_commit_pack.py   # stub entrypoint today - real engines are a phase-2 candidate
 ```
 
-Validator CLI (`ap-gate`) is not shipped yet - see roadmap.
+Validator CLI:
+
+```bash
+ap-gate check examples/commodity-commit-v1
+ap-gate check examples/commodity-commit-v1 --json
+ap-gate check examples/commodity-commit-v1 --html report.html
+```
+
+Exit codes: `0` pass (including waived), `1` fail, `2` IO/usage error. See `product/CI-L1.md` for the
+canonical check-ID list and the gate's layered report shape.
 
 ---
 
@@ -122,11 +141,12 @@ Validator CLI (`ap-gate`) is not shipped yet - see roadmap.
 
 ## Roadmap (near)
 
-- [ ] JSON Schema for MANIFEST MUST fields  
-- [ ] `ap-gate` CLI (L1 structural)  
+- [x] JSON Schema for MANIFEST MUST fields (`standard/ap-0.2/schemas/manifest.schema.json`)
+- [x] `ap-gate` CLI (L1 structural)
 - [ ] YAML → RO-Crate compiler  
 - [ ] One real (redacted) design-partner pack  
-- [ ] Second pack type (prove universal fit)  
+- [ ] Second pack type (prove universal fit)
+- [ ] Real deterministic engines for `examples/commodity-commit-v1` (phase-2 candidate; unblocks `no_unlabeled_diff`)  
 
 ---
 

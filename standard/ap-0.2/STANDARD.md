@@ -17,7 +17,7 @@ Every **planning agent** that pair-codes / plans **with a human planner** MUST e
 | **Platform / team leads** | Version guidelines, reason codes, ontologies; run validators and gold checks |
 | **Downstream (audit, ML, teammates)** | May rely only on package contents + declared contracts - not on tribal side channels |
 
-Foundation (research): RO-Crate profile + PROV + Table/JSON Schema + Web Annotation for labels; thin `ap:` domain vocab. See `meta/research/2026-08-16-analysis-package-findings.html` / standards foundation doc.
+Foundation (research): RO-Crate profile + PROV + Table/JSON Schema + Web Annotation for labels; thin `ap:` domain vocab. See `research/findings.md` / `research/standards-foundation.md`.
 
 ---
 
@@ -108,8 +108,8 @@ Humans MAY edit Sheets/Excel as UI; agents MUST still materialize package export
 ## Extensibility rules
 
 1. **MUST** fields stay stable across minor versions of this standard.  
-2. **Additional properties** on the manifest are allowed (`x-` or profile-namespaced). Validators MUST ignore unknown fields unless `profile: strict`.  
-3. **Pack types** (commit_pack, demand_consensus, ...) are profiles that add typed checks and reason_code sets - they MUST NOT remove core MUST fields.  
+2. **Additional properties** on the manifest are allowed (`x-` or profile-namespaced). Validators MUST ignore unknown fields unless `validation_mode: strict` is set. (v0.2.1: this switch was renamed from `profile: strict` - that name collided with the MUST field `profile`, which carries a profile identifier like `commodity_commit_forecast/0.1`, not a validation mode. See changelog.)  
+3. **Pack types** (commit_pack, demand_consensus, ...) are profiles that add typed checks and reason_code sets - they MUST NOT remove core MUST fields. Profile-specific requirements (extra required output_contract names, reason-code allow-lists) live in per-profile machine files under `profiles/<name>/`, never forked into the core manifest schema.  
 4. **New input kinds** = new input resource + schema, not a fork of the standard.  
 5. **New logic** = `code/` + guideline bump, not side-channel scripts outside the package.
 
@@ -117,18 +117,21 @@ Humans MAY edit Sheets/Excel as UI; agents MUST still materialize package export
 
 ## Minimum viable metadata (MUST)
 
+> **v0.2.1 editorial reconciliation note:** this table was amended alongside the first `manifest.schema.json` build to resolve seven discrepancies found between this table, the L1 implementation plan (`docs/DESIGN-FATHM-MVP.md`), and the reference example (`examples/commodity-commit-v1/`). See changelog below for the itemized list. The schema is the enforced expression of this table; when the two ever disagree, this table is authoritative and the schema has a bug.
+
 | Field | Type | Why |
 |-------|------|-----|
 | `package_id` | string (uuid/ulid) | Stable identity |
 | `package_version` | semver or content-hash | Versioning |
 | `standard_version` | e.g. `ap/0.2` | Contract version the pack claims |
+| `profile` | string, `<name>/<version>` (e.g. `commodity_commit_forecast/0.1`) | Which pack-type profile this package conforms to |
 | `title` | string | Human name |
 | `created_at` / `as_of` | ISO-8601 | Temporal truth |
 | `owners.analyst` | id + role | Human planner of record |
 | `owners.reviewer` | id or null | Reviewer |
-| `owners.agent` | id/harness/model hash or null | Pair agent identity if any |
+| `owners.agent` | id/harness/model hash or null | Pair agent identity if any (MUST be present as a field; MAY be null when no agent paired) |
 | `purpose` | string | Why this pack exists |
-| `output_contract` | list of {name, consumer, format, schema_ref} | Definition of done (inversion) |
+| `output_contract` | list of {name, consumer, format, path, schema_ref} | Definition of done (inversion); `path` is the artifact location checked by the gate |
 | `inputs[]` | list | Provenance of each raw item |
 | `inputs[].snapshot_id` or `external_ref` | string | Pin or escape hatch |
 | `inputs[].source_system` | string | ERP, sheet, API, ... |
@@ -136,17 +139,20 @@ Humans MAY edit Sheets/Excel as UI; agents MUST still materialize package export
 | `method.guideline_version` | string | Versioned instructions |
 | `method.summary` | string | Short how |
 | `method.entrypoint` | path or command | Replay hook |
-| `outputs[]` | paths + schema_ref | Artifacts |
-| `labels.overrides` | path to jsonl | Hard deltas with reason_code |
-| `labels.judgments` | path to jsonl | Soft overlays |
-| `labels.truths_applied` | path to jsonl | Planner truths / rules used |
+| `labels.overrides_path` | path to jsonl | Hard deltas with reason_code |
+| `labels.judgments_path` | path to jsonl | Soft overlays |
+| `labels.truths_applied_path` | path to jsonl | Planner truths / rules used |
 | `engines[]` | {name, version, deterministic} | Compute / rule modules |
 | `qa.status` | draft\|in_review\|approved\|rejected | Gate |
-| `qa.checks[]` | {name, result, evidence} | Validators |
+| `qa.checks[]` | {name, result, evidence} | Validators; MUST be present once `qa.status` is `in_review` or `approved` (a fresh `draft` package has no gate history yet, so it is not required there) |
 | `intended_use` | string | Allowed use |
 | `out_of_scope` | string | Misuse fence |
-| `confidentiality` | enum | Distribution |
-| `training_eligibility` | bool + reason | Token capital policy |
+| `confidentiality` | string (free-form in v0; profiles MAY constrain to an enum) | Distribution |
+| `training_eligibility` | bool | Token capital policy; opt-in, default false (D7) |
+
+`training_eligibility_reason` (string) is SHOULD, not MUST - explains the `training_eligibility` value but its absence does not fail the gate.
+
+`outputs[]` (paths + schema_ref) MAY also be present as a convenience mirror of `output_contract`'s artifact-facing fields; it is not independently required and validators MUST NOT treat it as a second source of truth - `output_contract[].path` is authoritative for the gate.
 
 `four_bucket_map` SHOULD be present; pack-type profiles MAY require it.
 
@@ -251,13 +257,24 @@ If not, fix the process - do not fork the format.
 - **ap/0.2** - contract framing: mandatory agent pair format; portability, determinism, extensibility, universal process fit  
 - Prior: ap/0.1 semantic field list  
 
-Breaking changes only on major `ap/N`.
+Breaking changes only on major `ap/N`. Editorial reconciliation passes that clarify or fill gaps in the MUST table without removing or narrowing a MUST field are minor/patch (`ap/0.2.x`) and do not require HITL machinery pre-1.0 - a single-author commit with a changelog note is sufficient (see D6, D8).
 
----
+### Changelog
+
+**v0.2.1** (this pass) - editorial reconciliation, no MUST field removed or narrowed:
+1. Added `profile` to the MUST table (it was required by the L1 implementation plan and by `reason_codes_known`, but missing from this table).
+2. Renamed the `profile: strict` extensibility switch to `validation_mode: strict` - it collided with the `profile` field, which carries a profile identifier, not a validation mode.
+3. Renamed `labels.overrides` / `labels.judgments` / `labels.truths_applied` to `labels.overrides_path` / `labels.judgments_path` / `labels.truths_applied_path`, matching the reference example and the L1 plan.
+4. Split `training_eligibility` (bool, MUST) from `training_eligibility_reason` (string, SHOULD) instead of one combined "bool + reason" MUST row.
+5. Clarified `qa.checks[]` is MUST only from `in_review` onward - a fresh `draft` package has no gate history yet.
+6. Clarified `owners.agent` MUST be present as a field and MAY be null (was ambiguous "or null" phrasing read as optional-field).
+7. Clarified `confidentiality` is a free-form string in v0 (no enum values were ever defined); an enum MAY be added later, and profiles MAY constrain it sooner.
+8. Added `path` to `output_contract` entries (the L1 plan and the reference example both carry it; this table previously omitted it) and clarified the separate `outputs[]` array some packages carry is a non-authoritative convenience mirror, not a second MUST list.
+9. Fixed broken `meta/...` related-file links below to the paths that actually exist in this repo (`research/`, not `meta/`).
 
 ## Related files
 
-- `meta/templates/analysis-package-manifest.example.yaml`  
-- `meta/research/2026-08-16-analysis-package-findings.md`  
-- `meta/research/2026-08-16-analysis-package-standards-foundation.md`  
+- `standard/ap-0.2/manifest.example.yaml`  
+- `research/findings.md`  
+- `research/standards-foundation.md`  
 - Blog series: token capital, inversion, four buckets, harden ladder  

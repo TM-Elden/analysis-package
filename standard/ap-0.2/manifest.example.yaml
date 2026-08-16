@@ -1,4 +1,11 @@
-# MANIFEST.yaml - analysis package v0
+# MANIFEST.yaml - analysis package v0 (ap/0.2)
+# Compiles to RO-Crate ro-crate-metadata.json (D1A). Agents/planners edit THIS file.
+# Reconciled v0.2.1: matches standard/ap-0.2/STANDARD.md's MUST table and
+# examples/commodity-commit-v1/MANIFEST.yaml's shape - see STANDARD.md changelog.
+
+standard_version: "ap/0.2"
+profile: "commodity_commit_forecast/0.1"
+
 package_id: "pkg_replace_me"
 package_version: "0.1.0"
 title: "Weekly supplier commit pack - example commodity"
@@ -8,15 +15,18 @@ as_of: "2026-08-15T23:59:59Z"
 owners:
   analyst: { id: "planner_x", role: "commodity_planner" }
   reviewer: { id: "lead_y", role: "planning_lead" }
+  agent: null
 
 purpose: "Supplier-level commit / forecast pack for weekly S&OE"
 output_contract:
   - name: supplier_forecast
     consumer: sourcing_managers
     format: csv
+    path: outputs/supplier_forecast.csv
   - name: exception_list
     consumer: planning_lead
     format: csv
+    path: outputs/exceptions.csv
 
 inputs:
   - name: on_hand
@@ -49,40 +59,26 @@ engines:
     version: "0.9.1"
     deterministic: true
 
-outputs:
-  - name: supplier_forecast
-    path: outputs/supplier_forecast.csv
-    schema_ref: "schemas/supplier_forecast.json"
-  - name: exception_list
-    path: outputs/exceptions.csv
-
 labels:
   overrides_path: labels/overrides.jsonl
   judgments_path: labels/judgments.jsonl
   truths_applied_path: labels/truths_applied.jsonl
 
 four_bucket_map:
-  structured_inputs: ["on_hand", "open_pos", "demand_cut"]
+  structured: ["on_hand", "open_pos", "demand_cut"]
   judgment_count: 2
   truths_applied_count: 3
   engines: ["bom_explode", "allocation_heuristic"]
 
 qa:
-  status: in_review
-  checks:
-    - name: rowcount_vs_prior
-      result: pass
-      evidence: "within 5% of prior week SKU count"
-    - name: negative_qty
-      result: pass
-      evidence: "0 negatives"
+  status: draft
   gold_reference_package_id: null
-  consensus: null
 
 intended_use: "Internal weekly execution with sourcing; eligible for internal model training if confidentiality allows"
 out_of_scope: "Not an automatic PO release; not finance revenue recognition"
 confidentiality: internal_restricted
-training_eligibility: true
+training_eligibility: false   # D7A opt-in default
+training_eligibility_reason: "Not yet reviewed for training eligibility"
 
 model_run:
   assisted: false

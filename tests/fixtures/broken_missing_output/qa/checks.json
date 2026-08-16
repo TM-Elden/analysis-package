@@ -1,0 +1,14 @@
+{
+  "checks_run_at": "2025-09-12T22:10:00Z",
+  "validator": "ap-gate/0.2-draft",
+  "package_id": "pkg_01hqexample000000000000001",
+  "results": [
+    {"name": "must_fields_present", "result": "pass"},
+    {"name": "output_contract_files_exist", "result": "pass"},
+    {"name": "inputs_hashed", "result": "pass"},
+    {"name": "no_unlabeled_diff", "result": "pass"},
+    {"name": "non_negative_qty", "result": "pass"},
+    {"name": "reason_codes_known", "result": "pass"}
+  ],
+  "status": "approved"
+}

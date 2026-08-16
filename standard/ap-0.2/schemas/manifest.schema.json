@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fathm.dev/ap/0.2/schemas/manifest.schema.json",
+  "title": "Analysis Package manifest (ap/0.2)",
+  "description": "MUST-field schema for MANIFEST.yaml under standard/ap-0.2/STANDARD.md. Open-world by design: unknown top-level and nested fields are always allowed so profiles can extend without forking this schema (STANDARD.md extensibility rules). Profile-specific requirements belong in profiles/<name>/ machine files, never here.",
+  "type": "object",
+  "required": [
+    "standard_version",
+    "profile",
+    "package_id",
+    "package_version",
+    "title",
+    "created_at",
+    "as_of",
+    "owners",
+    "purpose",
+    "output_contract",
+    "inputs",
+    "method",
+    "engines",
+    "labels",
+    "qa",
+    "intended_use",
+    "out_of_scope",
+    "confidentiality",
+    "training_eligibility"
+  ],
+  "properties": {
+    "standard_version": {
+      "const": "ap/0.2",
+      "description": "This schema file validates ap/0.2 manifests only. The gate's version-keyed registry (src/ap_gate/versions.py) picks this schema file for that value; a manifest declaring another standard_version is routed to a different schema by the standard_version check, not rejected here."
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Profile identifier, e.g. 'commodity_commit_forecast/0.1'."
+    },
+    "package_id": { "type": "string", "minLength": 1 },
+    "package_version": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "minLength": 1 },
+    "as_of": { "type": "string", "minLength": 1 },
+    "owners": {
+      "type": "object",
+      "required": ["analyst", "reviewer", "agent"],
+      "properties": {
+        "analyst": {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "role": { "type": "string" }
+          }
+        },
+        "reviewer": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "role": { "type": "string" }
+              }
+            }
+          ]
+        },
+        "agent": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "harness": { "type": "string" },
+                "model": { "type": "string" },
+                "prompt_tool_hash": { "type": "string" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "purpose": { "type": "string", "minLength": 1 },
+    "output_contract": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "consumer", "path"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "consumer": { "type": "string", "minLength": 1 },
+          "format": { "type": "string" },
+          "path": { "type": "string", "minLength": 1 },
+          "schema_ref": { "type": "string" }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "source_system", "as_of"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "source_system": { "type": "string", "minLength": 1 },
+          "as_of": { "type": "string", "minLength": 1 },
+          "snapshot_id": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "content_sha256": { "type": "string" },
+          "availability": { "type": "string" },
+          "external_ref": { "type": ["string", "null"] },
+          "access_procedure": { "type": "string" }
+        },
+        "anyOf": [
+          {
+            "required": ["path"],
+            "properties": { "path": { "type": "string", "minLength": 1 } }
+          },
+          {
+            "required": ["availability", "external_ref"],
+            "properties": {
+              "availability": { "const": "external_ref" },
+              "external_ref": { "type": "string", "minLength": 1 }
+            }
+          }
+        ]
+      }
+    },
+    "method": {
+      "type": "object",
+      "required": ["guideline_version", "entrypoint"],
+      "properties": {
+        "guideline_version": { "type": "string", "minLength": 1 },
+        "guideline_path": { "type": "string" },
+        "summary": { "type": "string" },
+        "entrypoint": { "type": "string", "minLength": 1 },
+        "ontology_version": { "type": "string" }
+      }
+    },
+    "engines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version", "deterministic"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "deterministic": { "type": "boolean" },
+          "path": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "required": ["overrides_path", "judgments_path", "truths_applied_path"],
+      "properties": {
+        "overrides_path": { "type": "string", "minLength": 1 },
+        "judgments_path": { "type": "string", "minLength": 1 },
+        "truths_applied_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "qa": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["draft", "in_review", "approved", "rejected"] },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "result"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "result": { "type": "string" },
+              "evidence": { "type": "string" }
+            }
+          }
+        },
+        "waivers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["check_id", "reason", "author"],
+            "properties": {
+              "check_id": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 },
+              "author": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "gold_reference_package_id": { "type": ["string", "null"] },
+        "tolerances": { "type": "object" }
+      },
+      "if": {
+        "properties": { "status": { "enum": ["in_review", "approved"] } },
+        "required": ["status"]
+      },
+      "then": { "required": ["status", "checks"] }
+    },
+    "intended_use": { "type": "string", "minLength": 1 },
+    "out_of_scope": { "type": "string", "minLength": 1 },
+    "confidentiality": { "type": "string", "minLength": 1 },
+    "training_eligibility": { "type": "boolean" },
+    "training_eligibility_reason": { "type": "string" }
+  }
+}
