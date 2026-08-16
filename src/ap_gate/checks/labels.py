@@ -9,6 +9,7 @@ from ap_gate.checks.context import CheckContext
 from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 from ap_gate.profiles import (
+    UnknownProfileVersionError,
     load_profile_reason_codes,
     load_profile_training_grade,
     profile_short_name,
@@ -98,7 +99,12 @@ def check_labels_jsonl_parse(ctx: CheckContext) -> CheckOutcome:
 def check_reason_codes_known(ctx: CheckContext) -> CheckOutcome:
     profile = ctx.manifest.get("profile")
     profile_name = profile_short_name(profile)
-    allowlist = load_profile_reason_codes(profile_name) if profile_name else None
+    try:
+        # Pass the raw manifest value (not the stripped short name) so a registry-configured
+        # gate resolves the package's declared version - see ap_gate.profiles module docstring.
+        allowlist = load_profile_reason_codes(profile) if profile_name else None
+    except UnknownProfileVersionError as exc:
+        return CheckOutcome.fail(CHECK_ID_REASON_CODES_KNOWN, str(exc))
     if allowlist is None:
         return CheckOutcome.skip(
             CHECK_ID_REASON_CODES_KNOWN,
@@ -186,8 +192,12 @@ def check_labels_row_shape(ctx: CheckContext) -> CheckOutcome:
             CHECK_ID_LABELS_ROW_SHAPE, f"labels.overrides_path '{overrides_path}' does not exist - cannot check row shape"
         )
 
-    profile_name = profile_short_name(ctx.manifest.get("profile"))
-    training_grade = load_profile_training_grade(profile_name) if profile_name else None
+    profile = ctx.manifest.get("profile")
+    profile_name = profile_short_name(profile)
+    try:
+        training_grade = load_profile_training_grade(profile) if profile_name else None
+    except UnknownProfileVersionError as exc:
+        return CheckOutcome.fail(CHECK_ID_LABELS_ROW_SHAPE, str(exc))
     require_reason_text = bool(training_grade and training_grade.get("require_reason_text"))
 
     schema = load_override_row_schema()
@@ -234,8 +244,15 @@ def check_agent_draft_present(ctx: CheckContext) -> CheckOutcome:
             CHECK_ID_AGENT_DRAFT_PRESENT, f"labels.overrides_path '{overrides_path}' does not exist - cannot check agent_draft"
         )
 
-    profile_name = profile_short_name(ctx.manifest.get("profile"))
-    training_grade = load_profile_training_grade(profile_name) if profile_name else None
+    profile = ctx.manifest.get("profile")
+    profile_name = profile_short_name(profile)
+    try:
+        training_grade = load_profile_training_grade(profile) if profile_name else None
+    except UnknownProfileVersionError as exc:
+        # training_grade.json never got a chance to load, so require_agent_draft's opt-in
+        # is unknown - stay advisory by default (this check's "never fails core" invariant)
+        # rather than escalating to a hard block on an unrelated fail-closed knob.
+        return CheckOutcome.advisory_fail(CHECK_ID_AGENT_DRAFT_PRESENT, str(exc))
     require_agent_draft = bool(training_grade and training_grade.get("require_agent_draft"))
 
     missing: list[str] = []

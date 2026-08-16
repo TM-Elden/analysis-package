@@ -21,7 +21,9 @@ enforcement test.
 from __future__ import annotations
 
 import json
+import os
 import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -30,7 +32,35 @@ from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.registry import run_all
 from ap_gate.checks.types import CheckOutcome
 from ap_gate.load_manifest import load_manifest
+from ap_gate.profiles import ENV_REGISTRY_ROOT
 from ap_store.store import ListFilter, PackageStore
+
+
+@contextmanager
+def _registry_root_override(registry_root: Path | None):
+    """Temporarily point `ap_gate.profiles`' registry resolution at `registry_root` for the
+    duration of one gate rerun, by setting the same env var `ap-gate check` reads
+    (`AP_STANDARD_REGISTRY_ROOT`) - the seam every check function already resolves against, so
+    nothing here needs to thread a registry_root parameter through `CheckContext`/every check.
+
+    No-op when `registry_root` is None (the common case: scan under whatever the process
+    environment already has configured, same as today). This mutates process-global state for
+    the duration of the `with` block - acceptable for the same reason `ap_auth`'s env-based
+    `AP_ACTOR_ID`/`AP_ACTOR_ROLES` knobs are: same-process, same-thread, non-concurrent callers
+    only (dry_run.py's two scan_corpus calls are sequential, not parallel).
+    """
+    if registry_root is None:
+        yield
+        return
+    previous = os.environ.get(ENV_REGISTRY_ROOT)
+    os.environ[ENV_REGISTRY_ROOT] = str(registry_root)
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(ENV_REGISTRY_ROOT, None)
+        else:
+            os.environ[ENV_REGISTRY_ROOT] = previous
 
 
 @dataclass(frozen=True)
@@ -112,8 +142,15 @@ def _parse_override_rows(pkg_dir: Path, manifest: dict) -> tuple[OverrideRow, ..
     return tuple(rows)
 
 
-def scan_package(store: PackageStore, package_id: str, package_version: str) -> PackageScan:
+def scan_package(
+    store: PackageStore, package_id: str, package_version: str, *, registry_root: Path | None = None
+) -> PackageScan:
     """Extract, rerun the gate, and parse override rows for one approved package version.
+
+    `registry_root`, when given, reruns the gate against that standard-registry root instead
+    of whatever `AP_STANDARD_REGISTRY_ROOT` the process environment already has (or none) -
+    this is the overlay seam `ap_planner_bot.dry_run` builds on; a plain sweep call leaves it
+    unset and gets today's behavior unchanged.
 
     Raises `ap_store.store.StoreError` if no such package_version exists (mirrors
     `ap_console.gate_report.render_gate_report_html`).
@@ -122,7 +159,8 @@ def scan_package(store: PackageStore, package_id: str, package_version: str) -> 
         pkg_dir = store.extract(package_id, package_version, Path(tmp))
         manifest = load_manifest(pkg_dir)
         ctx = CheckContext(package_path=pkg_dir, manifest=manifest)
-        outcomes = {o.check_id: o for o in run_all(ctx)}
+        with _registry_root_override(registry_root):
+            outcomes = {o.check_id: o for o in run_all(ctx)}
         override_rows = _parse_override_rows(pkg_dir, manifest)
 
     return PackageScan(
@@ -134,15 +172,16 @@ def scan_package(store: PackageStore, package_id: str, package_version: str) -> 
     )
 
 
-def scan_corpus(store: PackageStore) -> CorpusScan:
+def scan_corpus(store: PackageStore, *, registry_root: Path | None = None) -> CorpusScan:
     """Scan every currently-approved package version in `store`.
 
     One `PackageScan` per approved `(package_id, package_version)` row - if a package has been
     republished under a new version and only the new one is `approved`, only that version is
     scanned (mirrors the store's own live-status semantics, not a snapshot of publish history).
+    `registry_root` is forwarded to `scan_package` - see its docstring.
     """
     scans = tuple(
-        scan_package(store, record.package_id, record.package_version)
+        scan_package(store, record.package_id, record.package_version, registry_root=registry_root)
         for record in _iter_approved_records(store)
     )
     return CorpusScan(packages=scans)

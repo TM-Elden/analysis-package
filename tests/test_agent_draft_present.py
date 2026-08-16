@@ -94,7 +94,7 @@ def test_escalates_to_required_when_profile_opts_in(tmp_path, monkeypatch):
     monkeypatch.setattr(
         profiles_mod,
         "load_profile_training_grade",
-        lambda name: {"require_agent_draft": True} if name == "commodity_commit_forecast" else None,
+        lambda profile: {"require_agent_draft": True} if profile == "commodity_commit_forecast/0.1" else None,
     )
     monkeypatch.setattr(
         "ap_gate.checks.labels.load_profile_training_grade",

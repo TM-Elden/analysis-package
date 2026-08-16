@@ -443,9 +443,11 @@ not the capture mechanism.
 Implements the proposal storage/workflow/API foundation Phase 4's evolution loop sits on -
 `data/fathm-phase4-readiness/report.md` §5.4 in the firstmate repo is the design authority; C6/C7
 are `docs/DESIGN-FATHM-SYSTEM.md` sections 10/11. The drafting bot that populates real `diff_json`
-content (§5.3), the apply mechanism (versioned profile registry + exported code-change specs, §5.5),
-and the dry-run engine (§5.6) are all separate, later tasks - this slice is storage + state machine
-+ JSON API only.
+content (§5.3) is a separate, later task - this slice is storage + state machine + JSON API only.
+The apply substrate (versioned profile registry + gate resolution seam + dry-run, §5.5/5.6) is
+built - see "Standard registry, gate seam, dry-run" below - but wiring it to a proposal decision
+(the actual apply-on-approve trigger, and `ProposalPolicy.require_dry_run_for_declarative`
+enforcement) is still a later task.
 
 - **`src/ap_proposals/`** (`db.py` + `store.py` + `workflow.py` + `models.py` + `kinds.py` +
   `policy.py`) is a **sibling SQLite database** at `<store_root>/proposals.sqlite3` - not new tables
@@ -488,6 +490,79 @@ and the dry-run engine (§5.6) are all separate, later tasks - this slice is sto
   lets `ReviewWorkflow` own the role matrix instead of double-gating at the route.
   `ap_console` will read `ProposalStore` directly once a console tab exists, same module-boundary
   pattern as the P3.5 review queue - no console UI is built by this slice.
+
+## Phase 4 (in progress): standard registry, gate resolution seam, dry-run (C7 apply substrate)
+
+Implements the apply substrate C6/C7's evolution loop sits on - `data/fathm-phase4-readiness/
+report.md` §5.5/5.6 in the firstmate repo is the design authority. Wiring this to a proposal
+decision (the real apply-on-approve trigger) is a later task; this slice is registry +
+gate-resolution seam + dry-run only, all usable standalone today.
+
+- **`src/ap_registry/profile_registry.py`**'s `ProfileRegistry(store_root)` is a **pure-filesystem**
+  versioned store at `<store_root>/standard_registry/profiles/<name>/<version>/*.json` - no SQLite,
+  unlike `ap_proposals`/`ap_auth`/`ap_store`: a version directory, once written, is never edited in
+  place (`_write_version_dir` raises `ProfileRegistryError` if the target already exists), so there's
+  no concurrent-mutation hazard a DB would need to arbitrate. `ensure_seeded(name)` copies the repo's
+  vendored `profiles/<name>/*.json` tree in as version `"0.1"` the first time a name is touched
+  (idempotent - a second call is a no-op); the repo tree remains the permanent default/seed, never
+  written to. `bump_version(name, new_version, changed_files, ...)` is the real workflow write: reads
+  the current version's files, applies `changed_files` on top (a `None` value deletes that file),
+  writes the result as a *new* version directory, appends a `_changelog.jsonl` row, and flips
+  `_pointer.json` to the new version - all via write-to-temp-then-`os.replace`, so a reader never
+  observes a half-written version or a pointer aimed at one. `seed_version(name, version, files)` is
+  the lower-level primitive (no changelog, no monotonic-version check) `ap_planner_bot.dry_run` uses
+  to set up a scratch registry - not for real workflow writes.
+- **`ap_gate/profiles.py`'s registry seam**: every `load_profile_*` loader now takes the manifest's
+  *raw* `profile` value (e.g. `"commodity_commit_forecast/0.2"`, not the version-stripped short
+  name) and resolves it registry-root-first, repo-`PROFILES_ROOT`-fallback. `profile_short_name`
+  keeps its old contract (strips the version); `resolve_profile_declaration` is the new
+  version-preserving parse. **Only call sites that pass a manifest's real declared profile value get
+  version-aware behavior** - today that's `ap_gate/checks/labels.py`'s three checks
+  (`reason_codes_known`, `labels_row_shape`, `agent_draft_present`); callers that only ever had a
+  bare short name (`ap_redact`, `ap_planner_bot/detectors.py`, `ap_gate/field_path.py`) are
+  unaffected and keep resolving straight to `PROFILES_ROOT`, by design (a declared version with no
+  registry configured, or no version at all, always falls through - this is what keeps the
+  `examples/commodity-commit-v1` gold-pack regression passing unchanged with the seam in place and
+  no registry configured). Registry root and the fail-closed knob are resolved from
+  `AP_STANDARD_REGISTRY_ROOT` / `AP_GATE_FAIL_CLOSED_UNKNOWN_PROFILE_VERSION=1` env vars by default,
+  or passed explicitly as `registry_root=`/`fail_closed=` kwargs (what tests and
+  `ap_planner_bot.scan`'s `_registry_root_override` context manager do instead of mutating env vars
+  permanently). When the knob is on and the registry is configured but doesn't recognize the
+  declared version, the loader raises `UnknownProfileVersionError`; each of the three check functions
+  in `labels.py` catches that and turns it into a `CheckOutcome.fail` (never an uncaught exception
+  out of `run_all`) - except `agent_draft_present`, which stays on `CheckOutcome.advisory_fail` here
+  too, consistent with its "never fails core" invariant above: `training_grade.json` never got a
+  chance to load, so its `require_agent_draft` opt-in is unknown, and an unrelated fail-closed knob
+  must not be what escalates this check to blocking - see `test_gate_registry_seam.py`.
+- **Cache lifecycle (the sharp edge this task exists to close)**: the old bare `lru_cache` per
+  loader is gone. `_REGISTRY_FILE_CACHE` is keyed by `(registry_root, name, version, filename)`, not
+  just `(name, filename)` - because a version's on-disk files never change after being written
+  (`bump_version`/`seed_version` always create a *new* version directory), a cache hit for an
+  already-resolved version can never go stale: any newly-written content necessarily lives under a
+  key this cache has never seen. `bump_version`/`ensure_seeded`/`seed_version` also call
+  `invalidate_registry_cache` defensively (belt-and-suspenders against a future in-place-edit escape
+  hatch), but the version-keying is what actually makes "a registry write is visible on the very next
+  read, same process, no restart" true by construction -
+  `test_profile_registry.py::test_cache_invalidation_no_restart_needed` and
+  `test_gate_registry_seam.py::test_registry_write_visible_on_next_gate_check_no_restart` both prove
+  it end to end (loader-level and full `run_all`-level).
+- **`src/ap_planner_bot/dry_run.py`**'s `dry_run(store, store_root, profile_name, proposed_files)`
+  generalizes `ap_planner_bot.scan`'s scan-under-an-overlay capability (`scan_corpus`/`scan_package`
+  gained an optional `registry_root` param; `scan.py`'s `_registry_root_override` context manager is
+  what temporarily points the env-var seam above at a scratch root for one rerun) rather than
+  reimplementing gate-rerun logic. **Deliberate non-obvious design point**: the overlay is written at
+  the *same* version number every currently-approved package under `profile_name` already declares,
+  not a new one - a real `bump_version` bumps the version and, by the version-pinning invariant
+  above, an already-published package would never resolve to that new version on its own. But "which
+  packages would newly fail" needs to be answered over the corpus that exists *today*, so dry-run
+  simulates "this pinned version's files read as the proposal instead" (the design report's "as if
+  republished under the proposal" framing) rather than a version nothing currently resolves to. The
+  function is pure over the store + a throwaway scratch registry (`tempfile.TemporaryDirectory`,
+  cleaned up before returning) - it never writes to the real registry and has no `ap_proposals`
+  dependency; `DryRunResult.to_dict()` is the JSON-serializable shape a later task attaches to a
+  proposal's `dry_run_json`. Diffing is per-package (`blocks_overall_pass()` flip -> newly-failing/
+  newly-passing) and per-check (`CheckOutcome.result` string changed -> a `CheckMovement`, even when
+  the package's overall pass/fail didn't move) - see `test_planner_bot_dry_run.py`.
 
 ## Gold-pack regression
 
