@@ -32,9 +32,7 @@ from ap_console.deps import (
 from ap_console.gate_report import render_gate_report_html
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import LLMClient
-from ap_planner_bot.detectors import run_all_detectors
-from ap_planner_bot.scan import scan_corpus
-from ap_planner_bot.service import draft_proposals
+from ap_planner_bot.sweep import run_sweep
 from ap_proposals.kinds import ProposalValidationError
 from ap_proposals.store import ListFilter as ProposalListFilter
 from ap_proposals.store import ProposalStore, ProposalStoreError
@@ -308,13 +306,13 @@ def standard_sweep(
 
     notice = None
     if error is None:
-        scan = scan_corpus(package_store)
-        findings = run_all_detectors(scan)
-        workflow = ProposalWorkflow(store=store)
-        result = draft_proposals(findings, index=index, workflow=workflow, llm_client=llm_client, identity=identity)
+        result = run_sweep(
+            store=package_store, index=index, proposal_store=store, llm_client=llm_client, identity=identity
+        )
         discarded = sum(result.discarded.values())
         notice = (
-            f"Planner sweep: {len(findings)} finding(s) scanned, {len(result.created)} proposal(s) created"
+            f"Planner sweep: {len(result.created) + discarded} finding(s) scanned, "
+            f"{len(result.created)} proposal(s) created"
             + (f", {discarded} discarded ({result.discarded})" if discarded else "")
             + "."
         )
