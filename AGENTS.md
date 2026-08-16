@@ -34,7 +34,7 @@ PYTHONPATH=src python3 -m ap_mcp.server   # fathm-ap MCP server, stdio JSON-RPC
 
 No PyPI publish (git install only, per `docs/DECISIONS.md`-adjacent open-question defaults). This sandbox
 has no `pip`; system `apt` packages `python3-yaml`, `python3-jsonschema`, `python3-pytest`,
-`python3-fastapi`, `python3-uvicorn`, `python3-httpx` cover local dev without a venv
+`python3-fastapi`, `python3-uvicorn`, `python3-httpx`, `python3-jinja2` cover local dev without a venv
 (`sudo apt-get install <pkg>` if missing) - `PYTHONPATH=src` is enough to run `ap-gate`, `ap-api`, or
 `pytest` without an editable install. On a real (non-apt) machine / in CI, `pip install -e ".[dev]"`
 pulls the same set from PyPI via `pyproject.toml`.
