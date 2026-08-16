@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 
 from ap_gate.checks.context import CheckContext
+from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 
 CHECK_ID = "inputs_pinned"
@@ -42,7 +43,11 @@ def check_inputs_pinned(ctx: CheckContext) -> CheckOutcome:
             )
             continue
 
-        full_path = pkg / rel_path
+        full_path = resolve_contained(pkg, rel_path)
+        if full_path is None:
+            problems.append(f"{label}: declared path '{rel_path}' resolves outside the package directory")
+            paths.append(rel_path)
+            continue
         if not full_path.is_file():
             problems.append(f"{label}: declared path '{rel_path}' does not exist")
             paths.append(rel_path)

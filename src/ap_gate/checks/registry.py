@@ -85,6 +85,10 @@ def run_all(ctx: CheckContext) -> list[CheckOutcome]:
         outcome = fn(ctx)
         assert outcome.check_id == check_id, f"check {fn} returned check_id {outcome.check_id!r}, expected {check_id!r}"
         outcomes.append(outcome)
+    # Waivers must land before meta checks run: qa_approved_implies_pass reads
+    # blocks_overall_pass() on prior_outcomes, and a waived check must not
+    # still count as blocking there.
+    _apply_waivers(outcomes, ctx.manifest)
     for check_id, fn in _META_CHECKS:
         outcome = fn(ctx, outcomes)
         assert outcome.check_id == check_id, f"check {fn} returned check_id {outcome.check_id!r}, expected {check_id!r}"

@@ -9,6 +9,7 @@ output_contract_files - cheap, structural, no domain logic required.
 from __future__ import annotations
 
 from ap_gate.checks.context import CheckContext
+from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 
 CHECK_ID = "engines_pinned"
@@ -33,8 +34,11 @@ def check_engines_pinned(ctx: CheckContext) -> CheckOutcome:
             problems.append(f"{label}: deterministic must be true or false")
         rel_path = e.get("path")
         if rel_path:
-            full_path = pkg / rel_path
-            if not full_path.is_file():
+            full_path = resolve_contained(pkg, rel_path)
+            if full_path is None:
+                problems.append(f"{label}: declared path '{rel_path}' resolves outside the package directory")
+                paths.append(rel_path)
+            elif not full_path.is_file():
                 problems.append(
                     f"{label}: declared path '{rel_path}' does not exist - "
                     f"drop engines[{i}].path if this engine has no code yet, or add the file"

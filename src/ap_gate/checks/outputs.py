@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ap_gate.checks.context import CheckContext
+from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 
 CHECK_ID = "output_contract_files"
@@ -24,8 +25,11 @@ def check_output_contract_files(ctx: CheckContext) -> CheckOutcome:
         if not rel_path:
             problems.append(f"{label}: output_contract entry has no path - add output_contract[{i}].path")
             continue
-        full_path = pkg / rel_path
-        if not full_path.is_file():
+        full_path = resolve_contained(pkg, rel_path)
+        if full_path is None:
+            problems.append(f"{label}: declared output '{rel_path}' resolves outside the package directory")
+            paths.append(rel_path)
+        elif not full_path.is_file():
             problems.append(
                 f"{label}: declared output '{rel_path}' does not exist - generate it, "
                 f"or remove this output_contract entry if '{label}' isn't produced yet"

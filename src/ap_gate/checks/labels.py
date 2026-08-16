@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from ap_gate.checks.context import CheckContext
+from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 from ap_gate.profiles import load_profile_reason_codes, profile_short_name
 
@@ -29,7 +30,11 @@ def check_labels_paths(ctx: CheckContext) -> CheckOutcome:
         if not rel_path:
             problems.append(f"labels.{key} is not set in MANIFEST.yaml")
             continue
-        if not (pkg / rel_path).is_file():
+        full_path = resolve_contained(pkg, rel_path)
+        if full_path is None:
+            problems.append(f"labels.{key} points to '{rel_path}' which resolves outside the package directory")
+            paths.append(rel_path)
+        elif not full_path.is_file():
             problems.append(f"labels.{key} points to '{rel_path}' which does not exist")
             paths.append(rel_path)
 
@@ -53,8 +58,8 @@ def check_labels_jsonl_parse(ctx: CheckContext) -> CheckOutcome:
     for key, rel_path in _label_paths(ctx).items():
         if not rel_path:
             continue
-        full_path = pkg / rel_path
-        if not full_path.is_file():
+        full_path = resolve_contained(pkg, rel_path)
+        if full_path is None or not full_path.is_file():
             continue  # labels_paths already reports this
         checked += 1
         for lineno, line in enumerate(full_path.read_text(encoding="utf-8").splitlines(), start=1):
@@ -96,8 +101,8 @@ def check_reason_codes_known(ctx: CheckContext) -> CheckOutcome:
     overrides_path = (ctx.manifest.get("labels") or {}).get("overrides_path")
     if not overrides_path:
         return CheckOutcome.skip(CHECK_ID_REASON_CODES_KNOWN, "labels.overrides_path not set - cannot check reason codes")
-    full_path = ctx.package_path / overrides_path
-    if not full_path.is_file():
+    full_path = resolve_contained(ctx.package_path, overrides_path)
+    if full_path is None or not full_path.is_file():
         return CheckOutcome.skip(
             CHECK_ID_REASON_CODES_KNOWN, f"labels.overrides_path '{overrides_path}' does not exist - cannot check reason codes"
         )

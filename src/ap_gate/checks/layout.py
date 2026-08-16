@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ap_gate.checks.context import CheckContext
+from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.checks.types import CheckOutcome
 
 CHECK_ID_LAYOUT_DIRS = "layout_dirs"
@@ -44,7 +45,14 @@ def check_guideline_exists(ctx: CheckContext) -> CheckOutcome:
     guideline_path = method.get("guideline_path") if isinstance(method, dict) else None
 
     if guideline_path:
-        candidate = pkg / guideline_path
+        candidate = resolve_contained(pkg, guideline_path)
+        if candidate is None:
+            return CheckOutcome.fail(
+                CHECK_ID_GUIDELINE_EXISTS,
+                f"method.guideline_path is set to '{guideline_path}' but that resolves outside "
+                "the package directory - fix the path.",
+                paths=[guideline_path],
+            )
         if candidate.is_file():
             return CheckOutcome.ok(CHECK_ID_GUIDELINE_EXISTS, f"method card found at {guideline_path}")
         return CheckOutcome.fail(
