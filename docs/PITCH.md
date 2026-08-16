@@ -69,6 +69,22 @@ As corpus compounds **within** a customer (and structure-level patterns across c
 
 **Services** (implementation) are a funding bridge for early enterprise onboarding and design partners - not a pitched pillar.
 
+## Who wins (managers and planners)
+
+Success requires both buyers. If only managers get value, planners sandbag packages.
+
+| Managers / company bot | Planners |
+|------------------------|----------|
+| Query the chart room with citations | Own packages; overrides carry credit |
+| Audit-complete publish | Less Monday archaeology (prior pack + diff) |
+| Governance / HITL on the Standard | Defense in the meeting - show-your-work is one link |
+| Lower risk on AI-assisted analysis | Craft visible (gold packs, clean gates); role = judgment not thrash |
+
+**Objection:** “Why train AI to replace me?”  
+**Answer:** You’re not feeding a model your secret sauce so it can fire you. You’re publishing **soundings** so your judgment is the unit of record. Helpful AI must show the chain **back to you**. Trust stance: no cross-customer content training; training eligibility opt-in; models draft only.
+
+**Pilot note:** design partners include **named planner authorship** on first gold packs - not only manager sponsors. Do not lead with headcount efficiency.
+
 ## Trust answer (decided, not open)
 
 Contractual stance:
