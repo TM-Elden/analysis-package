@@ -34,12 +34,14 @@ class IncomingMessage:
 class OutgoingReply:
     """A reply the runner asks the platform adapter to deliver. `citation_links` is a
     platform-neutral `(label, url)` list - `formatting.py` builds these, each adapter renders them
-    in its own markup (Telegram HTML `<a href>`, a future Slack `<url|label>`, etc.)."""
+    in its own markup (Telegram HTML `<a href>`, a future Slack `<url|label>`, etc.). `url` is
+    `None` when no console link could be built (e.g. `console_base_url` unset) - the citation
+    label itself must still render, just without a hyperlink."""
 
     conversation_id: str
     reply_to_id: str
     body: str
-    citation_links: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    citation_links: tuple[tuple[str, str | None], ...] = field(default_factory=tuple)
 
 
 class ChatPlatform(Protocol):

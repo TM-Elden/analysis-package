@@ -23,12 +23,16 @@ def citation_label(citation) -> str:
     return f"{citation.package_id} v{citation.package_version} ({citation.chunk_type})"
 
 
-def build_reply_body(answer: ChatAnswer, *, console_base_url: str | None) -> tuple[str, tuple[tuple[str, str], ...]]:
-    """Returns `(body_text, citation_links)`. `citation_links` is empty when `console_base_url` is
-    not configured (links degrade gracefully to no links, never to a broken URL) or when the
-    answer carries no citations (a refusal, or - structurally impossible today per
+def build_reply_body(
+    answer: ChatAnswer, *, console_base_url: str | None
+) -> tuple[str, tuple[tuple[str, str | None], ...]]:
+    """Returns `(body_text, citation_links)`. Each entry is `(label, url)`; `url` is `None` when
+    `console_base_url` is not configured (only the hyperlink degrades gracefully, never the
+    citation itself - required posting policy is "citations rendered as links ... where possible",
+    which qualifies the link rendering, not whether a citation appears) or when the answer carries
+    no citations at all (a refusal, or - structurally impossible today per
     `ManagerBot._final_answer`'s citation-enforcement, but harmless either way - a bare answer)."""
     if not console_base_url:
-        return answer.answer, ()
+        return answer.answer, tuple((citation_label(c), None) for c in answer.citations)
     links = tuple((citation_label(c), package_console_url(console_base_url, c.package_id)) for c in answer.citations)
     return answer.answer, links

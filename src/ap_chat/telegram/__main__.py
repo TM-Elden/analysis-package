@@ -10,6 +10,11 @@ import logging
 import os
 from pathlib import Path
 
+# httpx read-timeout margin above `AP_CHAT_POLL_TIMEOUT` (Telegram's own long-poll wait): the
+# request round-trip needs slack beyond the server-side wait itself, or a `getUpdates` response
+# that lands right at the poll timeout would still read as an httpx timeout.
+_POLL_HTTP_TIMEOUT_MARGIN_SECONDS = 10.0
+
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -35,7 +40,7 @@ def main() -> None:
     poll_timeout = int(os.environ.get("AP_CHAT_POLL_TIMEOUT", "30"))
     reply_when_unauthorized = os.environ.get("AP_CHAT_UNAUTHORIZED_REPLY", "true").strip().lower() != "false"
 
-    telegram_client = TelegramBotClient(token=token)
+    telegram_client = TelegramBotClient(token=token, timeout=poll_timeout + _POLL_HTTP_TIMEOUT_MARGIN_SECONDS)
     platform = TelegramPlatform(telegram_client, offset_store=OffsetStore(offset_path), poll_timeout=poll_timeout)
     identity_map = IdentityAllowlist(allowlist_path)
     manager_client = ManagerBotClient(base_url=manager_base_url)
@@ -47,7 +52,7 @@ def main() -> None:
         console_base_url=console_base_url,
         reply_when_unauthorized=reply_when_unauthorized,
     )
-    logging.getLogger(__name__).info("fathm planner chat (Telegram) starting, polling as @%s", telegram_client.get_me()["username"])
+    logging.getLogger(__name__).info("fathm planner chat (Telegram) starting, polling as @%s", platform.bot_username)
     runner.run_forever()
 
 

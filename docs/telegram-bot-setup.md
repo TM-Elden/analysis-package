@@ -29,7 +29,7 @@ there is no self-service signup path. For each planner:
 #    platform user '<id>'").
 
 # 2. Create a scoped, password-less service account (no-password = bearer-token-only, no login UI):
-ap-auth adduser planner.alice --roles team_reader --no-password
+ap-auth adduser planner.alice --display-name "Alice Planner" --roles team_reader --no-password
 
 # 3. Issue a bearer token for it (shown once - copy it now):
 ap-auth token planner.alice
@@ -50,10 +50,10 @@ provisioned planner, keyed by their Telegram user id:
 }
 ```
 
-Editing this file and sending the bot a new message picks up the change - no restart needed
-(`IdentityAllowlist.load()` re-reads the file on every construction, and the process reloads it at
-startup; see `ap_chat/identity_map.py` if you want a live-reload-on-SIGHUP later, not built for
-v0).
+`IdentityAllowlist.load()` reads the file once, at process startup - editing it takes effect only
+after a restart (`sudo systemctl restart fathm-chat-telegram`, or re-run the process directly).
+Live-reload-on-SIGHUP would let an edit take effect without a restart; see `ap_chat/identity_map.py`
+if you want that later, not built for v0.
 
 ## 4. Configure and run
 

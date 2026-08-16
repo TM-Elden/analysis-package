@@ -88,13 +88,24 @@ class BotRunner:
                 # Loop back to `while` and call platform.poll() again - a prior generator that
                 # raised mid-iteration is not resumed, a fresh poll cycle is started instead.
 
+    def _send_reply(self, reply: OutgoingReply) -> None:
+        """Delivery is best-effort from the loop's point of view: `ChatPlatform.send_reply` raises
+        on failure (rate limit, oversized message, transient network error), and this is the one
+        place that catches it - a lost reply is logged and the loop moves on to the next message
+        rather than aborting the rest of the batch or being mistaken for a `getUpdates` poll
+        failure by `run_forever`'s backoff handling."""
+        try:
+            self.platform.send_reply(reply)
+        except Exception:
+            logger.exception("send_reply failed for conversation %r, message dropped", reply.conversation_id)
+
     def _handle_message(self, message: IncomingMessage) -> None:
         identity = self.identity_map.resolve(message.platform_user_id)
         if identity is None:
             logger.info("refusing message from unmapped platform user %r", message.platform_user_id)
             if self.reply_when_unauthorized:
                 self.stats.unauthorized_replies += 1
-                self.platform.send_reply(
+                self._send_reply(
                     OutgoingReply(
                         conversation_id=message.conversation_id,
                         reply_to_id=message.reply_to_id,
@@ -108,7 +119,7 @@ class BotRunner:
         except ManagerClientError:
             logger.exception("POST /chat/manager failed for fathm user %r", identity.fathm_user_id)
             self.stats.backend_errors += 1
-            self.platform.send_reply(
+            self._send_reply(
                 OutgoingReply(
                     conversation_id=message.conversation_id,
                     reply_to_id=message.reply_to_id,
@@ -119,7 +130,7 @@ class BotRunner:
 
         body, citation_links = build_reply_body(answer, console_base_url=self.console_base_url)
         self.stats.messages_handled += 1
-        self.platform.send_reply(
+        self._send_reply(
             OutgoingReply(
                 conversation_id=message.conversation_id,
                 reply_to_id=message.reply_to_id,

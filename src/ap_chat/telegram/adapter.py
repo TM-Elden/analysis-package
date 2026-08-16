@@ -34,6 +34,13 @@ class TelegramPlatform:
         self._poll_timeout = poll_timeout
         self._bot_username = client.get_me()["username"]
 
+    @property
+    def bot_username(self) -> str:
+        """The bot's own username, fetched once via `getMe` at construction - exposed so callers
+        (e.g. the `__main__` entrypoint's startup log line) don't need a second `getMe` round-trip
+        just to display it."""
+        return self._bot_username
+
     def poll(self) -> Iterator[list[IncomingMessage]]:
         while True:
             updates = self._client.get_updates(offset=self._offset_store.load(), timeout=self._poll_timeout)
@@ -77,7 +84,10 @@ class TelegramPlatform:
     def send_reply(self, reply: OutgoingReply) -> None:
         body = _escape_html(reply.body)
         if reply.citation_links:
-            lines = "\n".join(f'• <a href="{_escape_attr(url)}">{_escape_html(label)}</a>' for label, url in reply.citation_links)
+            lines = "\n".join(
+                f'• <a href="{_escape_attr(url)}">{_escape_html(label)}</a>' if url else f"• {_escape_html(label)}"
+                for label, url in reply.citation_links
+            )
             body = f"{body}\n\nCitations:\n{lines}"
         self._client.send_message(
             chat_id=int(reply.conversation_id),

@@ -17,11 +17,11 @@ def test_builds_citation_links_when_console_base_url_configured():
     assert links == (("pkg-a v1.0.0 (override)", "http://host/console/packages/pkg-a"),)
 
 
-def test_no_links_when_console_base_url_not_configured():
+def test_citation_labels_without_urls_when_console_base_url_not_configured():
     citation = ChatCitation(package_id="pkg-a", package_version="1.0.0", field_path="x", chunk_type="override")
     body, links = build_reply_body(_answer(citations=(citation,)), console_base_url=None)
     assert body == "Copper spot moved 4%."
-    assert links == ()
+    assert links == (("pkg-a v1.0.0 (override)", None),)
 
 
 def test_no_links_when_answer_has_no_citations():
