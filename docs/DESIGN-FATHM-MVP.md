@@ -1,5 +1,7 @@
 # fathm MVP - Design Doc for Firstmate Build
 
+> **Superseded for scope.** Full system design is **`docs/DESIGN-FATHM-SYSTEM.md`**. Phasing is firstmate's decision. This file is a historical L1 checklist only.
+
 **Handoff ID:** `fathm-mvp-2026-08-16`  
 **To:** firstmate / captain (PiSD)  
 **From:** Hermes (spec + product join)  
