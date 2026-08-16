@@ -34,10 +34,10 @@ Not the meeting notetaker. Not an ERP. Analysis packages + chart room.
 | 5 | Insight | Real plans need unstructured judgment. Clean pipelines and classic planning tools alone never capture it. |
 | 6 | Competition | The threat is ERP topping-down. Market already prefers focused modules - Anaplan over Oracle planning. We are that shape for AI publish. |
 | 7 | Product | Demo: publish through the gate, manager asks the corpus, human approves a standard change. |
-| 8 | GTM | First buyer: finance teams with bot sprawl and no management visibility. We must win planners too - credit, not replacement. |
-| 9 | Model | SaaS on standard + gate + chart room. Price like a planning module with an AI premium - validate with design partner. |
-| 10 | Team + status | Solo founder: Coast Guard boatswain, supply-chain planner, engineer/AI builder. Spec-stage; proof metric is provenance completeness plus live query. |
-| 11 | Ask | Design partner now. YC to mature. Seed **[TOM: $]** to ship the loop, land partners, hire. |
+| 8 | GTM | First design partner target: **Lambda AI** (datacenter). Finance/planning bot sprawl path in. Must win planners too. |
+| 9 | Model | SaaS on standard + gate + chart room. Not raising yet. First hire = sales for corp planning access. |
+| 10 | Team + status | Solo: Coast Guard boatswain, planner, eng/AI. Spec now; demo next week. KPI provenance % + live query. |
+| 11 | Ask | Design partner now (Lambda path). YC stretch. **Not raising.** |
 
 ---
 
@@ -92,42 +92,37 @@ fathm = bottoms-up publish contract + chart room for the AI era.
 Flow: Standard → Gate → Store → Bots → Planner proposes → HITL.
 
 ### 8. GTM
-- **ICP:** Finance team, bot sprawl, weak mgmt visibility, easy adoption  
+- **Named target:** **Lambda AI** (datacenter) - first design-partner path  
+- **Pattern:** teams with bot sprawl + weak management visibility; easy adoption  
 - **Dual win:** managers (query/control) + planners (credit, less thrash)  
-- **Year one:** gate + chart room (query is magic; provenance % is KPI)  
-- **Objection:** "training AI to replace me" → soundings make judgment the unit of record; no cross-customer content training  
+- **Year one:** gate + chart room  
+- **Objection:** soundings = judgment as unit of record; no cross-customer content training  
 
 ### 9. Business model
 - SaaS: Standard + CI + chart room  
 - Later: Planner / standard-evolution tier  
 - Services only to land  
-- **Pricing thesis:** benchmark Anaplan/Kinaxis-class module ACV, then ~2× for AI gate+query - **validate in pilot**  
-- Not selling headcount replacement  
+- Pricing thesis: Anaplan/Kinaxis-class × ~2 AI premium - validate in pilot  
+- **Capital:** not raising yet  
 
 ### 10. Traction + team
-**Traction:** Spec-stage - ap/0.2, example pack, system design, brand. Pre-revenue. Honest.  
-**KPI:** % published packs with full queryable provenance → 100% in pilot scope.  
-**Felt win:** managers live in corpus Q&A.  
+**Traction:** Spec-stage today. **Demo next week** - full UI publish→query and standard HITL. Pre-revenue.  
+**KPI:** % packs with full queryable provenance → 100% in pilot. Felt win: manager corpus Q&A.  
 
 **Tom Moore** (solo)
-- USCG Boatswain's Mate ~10y - soundings, go/no-go  
-- Supply-chain planner - spreadsheet hell, no traceability  
+- USCG Boatswain's Mate ~10y  
+- Supply-chain planner  
 - Engineer + AI builder  
 
-**Solo mitigation (honest):** domain depth is the edge; first hire is eng to ship UI loop; design partner is the external validator. Not pretending a fake co-founder.
+**First hire:** **Sales** - founder is eng; hire brings corp planning team access/connections.  
+**Advisors:** none named yet.  
 
 ### 11. Ask
 | Path | Ask |
 |------|-----|
-| Now | 1 finance design partner - full loop |
-| YC | Stretch goal to mature company/network |
-| Seed **[TOM]** | $___ / ~18 mo → ship demo loop, 2–3 partners, prove KPI, hire eng |
-
-**Use of funds template (edit $ only):**
-- Product (gate + chart room + HITL UI) ~50%  
-- Design partner success / light services ~15%  
-- First eng + infra ~25%  
-- Ops/legal/buffer ~10%  
+| **Now** | Design partner - path starts at **Lambda AI** (datacenter); full publish → query → HITL loop |
+| **YC** | Stretch goal to mature company/network |
+| **Seed** | **Not raising yet** |
 
 ---
 
@@ -150,17 +145,19 @@ SaaS subscription for standard tooling, CI gate, and chart room; upgrade path fo
 
 ---
 
+## Critical inputs from Tom — LOCKED 2026-08-16
+
+| ID | Answer |
+|----|--------|
+| **T1 Seed $** | **Not raising yet.** Does not need money yet. Ask = design partner (+ YC as stretch). |
+| **T2 ICP** | **Lambda AI** (datacenter company) as first design-partner target. |
+| **T3 Demo** | **Nothing clickable until next week.** Target loop (unchanged): full UI publish → manager query; full standard revision → HITL approve. |
+| **T4 First hire** | **Sales** (not eng). Tom is eng; needs someone with connections into corp planning teams. |
+| **T5 Advisors** | **Not yet.** |
+
+---
+
 ## Critical inputs from Tom only
-
-| ID | Input | Why blocked |
-|----|--------|-------------|
-| T1 | Seed **dollar amount** (or "design partner only until demo") | Ask slide |
-| T2 | **ICP sharpening** - industry/size example (even fictionalized OK) | Wedge credibility |
-| T3 | **Demo date** / what exists in 2 weeks vs vapor | Interview integrity |
-| T4 | First hire yes/no + profile one-liner | Solo + use of funds |
-| T5 | Any advisor/operator OK to name | Optional solo mitigation |
-
-Everything else can ship without you.
 
 ---
 

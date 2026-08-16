@@ -18,30 +18,29 @@
 | 5 | Insight / non-obvious | **5** | Unstructured judgment load-bearing - founder-earned |
 | 6 | Wedge / first customer | **3** | Finance + bots + mgmt visibility - still broad (which vertical/size?) |
 | 7 | Competition / alternatives | **4** | ERP monolith threat + Anaplan-vs-Oracle bottoms-up - good |
-| 8 | Product / demo path | **3** | Script clear; **build not real yet** (caps score) |
-| 9 | Business model / pricing logic | **3** | SaaS path clear; Anaplan×2 is thesis not validated $ |
-| 10 | Traction honesty + proof metric | **3** | Honest pre-revenue; metric good; no external proof |
-| 11 | Team / founder-market fit | **4** | USCG BM + planner + eng/AI - excellent; solo is risk |
-| 12 | Ask (YC + seed) | **2** | Partner ask clear; **$ raise undecided** |
-| 13 | Deck craft (11 slides, skim) | **4** | YC HTML + spine (this pass) |
-| 14 | Brand / name risk handled | **3** | TM memo exists; deck must disambiguate fathom.ai |
-| 15 | YC application prose | **4** | Blurbs in spine (this pass) |
+| 8 | GTM / first customer | **4** | Lambda AI (datacenter) named; pattern still finance/planning bots |
+| 9 | Business model / pricing logic | **3** | SaaS clear; not raising; pricing thesis unvalidated |
+| 10 | Traction honesty + proof metric | **3** | Honest; demo next week committed |
+| 11 | Team / founder-market fit | **4** | Strong fit; first hire = sales for access |
+| 12 | Ask (YC + seed) | **4** | Clear: partner now, YC stretch, **not raising** |
+| 13 | Deck craft (11 slides, skim) | **4** | YC HTML shipped |
+| 14 | Brand / name risk handled | **3** | Memo + disambiguation line |
+| 15 | YC application prose | **4** | Blurbs in spine |
 
 | | |
 |--|--|
-| **Deck-controllable average (1–7,9,11,13–15)** | **~3.9** |
-| **Overall average (all 15)** | **~3.6** |
-| **Verdict** | **Deck artifact: almost YC-ready.** **Submit/raise: not yet** - blocked on demo reality, raise $, sharper wedge, optional second person. |
+| **Overall average (all 15)** | **~3.9** |
+| **Verdict** | **B** - story ready for partner conversations; proof waits on next-week demo. Not a fundraise deck until you choose otherwise. |
 
 ### Grade bands
 | Band | Meaning |
 |------|---------|
 | A (4.5+) | Interview with live demo + clear ask |
-| B (3.5–4.4) | Strong narrative deck; reality still catching up |
+| B (3.5–4.4) | Strong narrative; reality catching up |
 | C (2.5–3.4) | Story holes |
 | D (<2.5) | Not a pitch |
 
-**Current: B-** overall · **B+** on story · **C** on proof/ask dollars.
+**Current: B** overall · **A-** on ask clarity (not raising) · **demo is the gate to A**.
 
 ---
 
