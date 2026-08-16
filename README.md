@@ -62,7 +62,8 @@ research/                 Prior art and source materials
 | [docs/FIRSTMATE-KICKOFF.md](docs/FIRSTMATE-KICKOFF.md) | Short kickoff card |
 | [standard/ap-0.2/STANDARD.md](standard/ap-0.2/STANDARD.md) | Normative contract |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Product + Standard join; L1/L2 CI |
-| [docs/PITCH.md](docs/PITCH.md) | Pitch (fathm) |
+| [docs/PITCH.md](docs/PITCH.md) | Pitch narrative (fathm) |
+| [docs/html/fathm-pitch.html](docs/html/fathm-pitch.html) | **Pitch deck HTML** |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Frozen decisions |
 | [docs/html/spec-guide.html](docs/html/spec-guide.html) | Polished HTML spec guide |
 | [examples/commodity-commit-v1/](examples/commodity-commit-v1/) | Example package |
