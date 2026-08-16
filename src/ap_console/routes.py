@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ap_api.deps import get_proposal_store, get_proposal_workflow, get_store, get_workflow
+from ap_api.deps import get_index, get_llm_client, get_proposal_store, get_proposal_workflow, get_store, get_workflow
 from ap_auth.identity import Identity
 from ap_console.deps import (
     ConsoleAuthRequired,
@@ -30,6 +30,9 @@ from ap_console.deps import (
     verify_console_csrf,
 )
 from ap_console.gate_report import render_gate_report_html
+from ap_index.index_store import IndexStore
+from ap_manager_bot.llm_client import LLMClient
+from ap_planner_bot.sweep import run_sweep
 from ap_proposals.kinds import ProposalValidationError
 from ap_proposals.store import ListFilter as ProposalListFilter
 from ap_proposals.store import ProposalStore, ProposalStoreError
@@ -279,25 +282,41 @@ def standard_sweep(
     request: Request,
     identity: Annotated[Identity, Depends(get_console_identity)],
     store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    package_store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    llm_client: Annotated[LLMClient, Depends(get_llm_client)],
     status: str = "pending_hitl",
     kind: str | None = None,
 ) -> HTMLResponse:
-    """"Run planner sweep" button target. The drafting bot (`fathm-p4-sweep`) that would actually
-    scan the corpus and create proposals is a separate, not-yet-built task (see this task's brief) -
-    this route is a documented no-op rather than a fake success, so the button is honestly wired to
-    something real today and only needs its body swapped for a real call once that bot lands. CSRF
-    is still verified since it's a POST reachable via the ambient session cookie."""
+    """"Run planner sweep" button target - wired to the real C6 drafting service (`fathm-p4-sweep`:
+    `ap_planner_bot.scan`/`detectors`/`service`). Runs synchronously in-request (design report
+    section 5.1/5.2: a full corpus scan + draft pass is seconds at pilot scale), under the console
+    session's own identity rather than a service identity - "session identity when triggered from
+    the console" per that same section. `llm_client` is a `Depends(get_llm_client)` parameter (not
+    a direct call) so `app.dependency_overrides[get_llm_client]` reaches it in tests, matching every
+    other store/workflow dependency in this module and `ap_api.chat_routes`'s own use of the same
+    dependency - a misconfigured deployment (no `ANTHROPIC_API_KEY`) fails the same way a chat
+    request already does, not a new failure mode introduced here. CSRF is still verified first
+    since it's a POST reachable via the ambient session cookie."""
     error = None
     try:
         verify_console_csrf(request)
     except ConsoleCsrfInvalid:
         error = "Security token expired or missing - refresh the page and try again."
-    notice = (
-        None
-        if error
-        else "Planner sweep is not yet wired up (fathm-p4-sweep is a separate task) - no proposals "
-        "were generated. This button will run the real drafting bot once that lands."
-    )
+
+    notice = None
+    if error is None:
+        result = run_sweep(
+            store=package_store, index=index, proposal_store=store, llm_client=llm_client, identity=identity
+        )
+        discarded = sum(result.discarded.values())
+        notice = (
+            f"Planner sweep: {len(result.created) + discarded} finding(s) scanned, "
+            f"{len(result.created)} proposal(s) created"
+            + (f", {discarded} discarded ({result.discarded})" if discarded else "")
+            + "."
+        )
+
     ctx = _proposal_queue_context(store, status=status, kind=kind, notice=notice)
     return templates.TemplateResponse(
         request, "_proposal_queue_table.html", {"csrf_token": console_csrf_token(request), "error": error, **ctx}

@@ -501,13 +501,13 @@ enforcement) is still a later task.
   detectors actually produce - `_evidence_summary` falls back to a bare count for any other shape);
   decisions (approve / approve-with-edits / reject) post to
   `POST /console/standard/proposals/{id}/decision`, which parses the edit textarea's JSON itself
-  and re-renders `_proposal_detail_body.html` in place. Two things are deliberately-honest stubs,
-  not fake functionality, pending later tasks: `POST /console/standard/sweep` (the "Run planner
-  sweep" button) is a no-op that renders a `.notice` explaining `fathm-p4-sweep` isn't built yet,
-  and the dry-run panel (`_dry_run_panel.html`, driven by `POST .../dry-run`) only ever echoes the
-  proposal's existing `dry_run_json` - always null today since `fathm-p4-registry-dryrun` hasn't
-  landed - and says so rather than fabricating a result; both routes already call the real data
-  path, so landing those tasks is a data change, not a UI rewrite. `GET
+  and re-renders `_proposal_detail_body.html` in place. `POST /console/standard/sweep` (the "Run
+  planner sweep" button) now runs the real `ap_planner_bot` scan/detect/draft pipeline in-request
+  (`fathm-p4-sweep` - see the dedicated section below); the dry-run panel
+  (`_dry_run_panel.html`, driven by `POST .../dry-run`) is still a deliberately-honest stub that
+  only ever echoes the proposal's existing `dry_run_json` - always null today since apply-on-approve
+  wiring (a later task) doesn't set it - and says so rather than fabricating a result; that route
+  already calls the real data path, so landing that task is a data change, not a UI rewrite. `GET
   /console/standard/changelog` is an explicit interim substitute for the real
   `GET /standard/versions` surface (also a later task): it lists every non-`pending_hitl` proposal
   from `ProposalStore.list`, not a computed version history.
@@ -584,6 +584,71 @@ gate-resolution seam + dry-run only, all usable standalone today.
   proposal's `dry_run_json`. Diffing is per-package (`blocks_overall_pass()` flip -> newly-failing/
   newly-passing) and per-check (`CheckOutcome.result` string changed -> a `CheckMovement`, even when
   the package's overall pass/fail didn't move) - see `test_planner_bot_dry_run.py`.
+
+## Phase 4 (in progress): C6 proposal-drafting service + sweep entry point (`fathm-p4-sweep`)
+
+The piece that actually creates proposals - `data/fathm-phase4-readiness/report.md` §5.3 in the
+firstmate repo is the design authority. Builds on the already-merged scan/detectors
+(`ap_planner_bot/scan.py` + `detectors.py`), `ap_proposals` (storage/workflow), and the C4 manager
+bot's `LLMClient`/`AnthropicHTTPClient`/`ScriptedLLMClient` seam (`ap_manager_bot/llm_client.py`) -
+reused directly, not reimplemented.
+
+- **`src/ap_planner_bot/service.py`** (`ProposalDrafter` + `draft_proposals`): one LLM turn per
+  `Finding` - no retrieval loop like C4's Q&A, because the finding and its evidence are fully known
+  up front (there is nothing further for the model to search for). `_fetch_evidence` fetches
+  redacted chunks from `ap_index` for exactly the finding's own `package_ids` (never raw package
+  bytes, same rule C4 follows), scoped through `ap_manager_bot.scoping`'s pre+post confidentiality
+  double-check, and records `chunk_id -> package_id` in a per-finding citation registry - the same
+  pattern `ap_manager_bot.tool_backend`'s `_citable` uses. Every approved+indexed package carries at
+  least one `manifest_summary` chunk (`ap_redact.chunk.build_manifest_summary_chunk`), so a
+  genuinely-indexed package always contributes at least one evidence ref.
+- **Enforcement mirrors `_final_answer`'s citation registry, applied to a drafted diff instead of a
+  chat answer** - all server-side, none of it prompt-only:
+  - `diff` is schema-validated per `kind` (`ap_proposals.kinds.validate_diff`) before persist; a
+    schema violation (or missing `summary`/`rationale`) discards the draft (`invalid_diff`) - never
+    "fixed up" or stored raw.
+  - `evidence[].ref_id` values are resolved only against that finding's own citation registry; an
+    invented ref_id is dropped, and a draft whose evidence is entirely invented (nothing resolves)
+    is discarded whole (`no_evidence_resolved`) - a partially-invented citation set never survives
+    as if fully grounded, matching C4's "all-or-nothing" citation contract.
+  - **Dedup**: `proposal_target(kind, diff)` (a kind-specific identity: `(profile, code)` for
+    `reason_code_add`, `(profile, file)` for `profile_change`, `(target,)` for `standard_change`,
+    `(check_id,)` for `check_add`) is compared against every currently-`pending_hitl` proposal of
+    the same `kind`; a match discards the new draft (`duplicate`) - a re-run over the same drift
+    signal never spams the queue with repeats. This also fires *within* one sweep when two distinct
+    findings happen to draft the same target (see `test_planner_bot_service.py`).
+  - A model turn that calls no tool at all is a considered decline (`declined`), not an error - not
+    every finding need become a proposal, and this is not "no tool_uses -> refusal" (C4's fail-closed
+    read of the same shape) but the opposite: silence here is a legitimate, expected outcome.
+  - `draft_proposals` never lets one finding's bad draft abort a sweep - every discard reason is
+    counted (`SweepDraftResult.discarded`), not raised.
+- **`python3 -m ap_planner_bot.sweep`** (`src/ap_planner_bot/sweep.py`): the actual entry point.
+  `run_sweep` is the plain library call (scan -> detect -> draft -> persist) both callers share;
+  `main()` resolves identity via `identity_from_env` (systemd/CLI path) and the store/index roots
+  via the same `AP_STORE_ROOT`/`AP_INDEX_ROOT` env-var convention `ap_api.deps` uses - resolved
+  independently in this module rather than importing `ap_api`, since a sweep entry point is a peer
+  of the interface layer, not a consumer of it. `deploy/systemd/fathm-planner-sweep.service` (oneshot)
+  + `.timer` (weekly, mirroring the `fathm-chat-telegram.service` precedent) is the scheduled path;
+  the console's "Run planner sweep" button (`ap_console.routes.standard_sweep`, previously a
+  documented no-op stub) now calls `draft_proposals` directly in-request under the triggering
+  session's own identity (not a service identity) - a full scan + draft pass is seconds at pilot
+  scale, so no background job is needed there.
+- **Egress**: covered by the same captain-approved inference-time exception as C4, extended to C6 by
+  resolved decision `fathm-phase4-readiness-decision-llm-egress-c6-extension` (2026-08-16) - see
+  `product/TRUST.md`'s exception paragraph, which now names C6 alongside C4. No new provider, no new
+  posture - same Anthropic no-training terms, same data class (deterministic conformance stats +
+  redacted evidence chunks).
+- **Tests**: `tests/_planner_bot_corpus.py` gained `build_drift_corpus_with_index` /
+  `build_clean_corpus_with_index` (same scenarios as the plain `build_*_corpus` the detector tests
+  use, plus a populated `IndexStore` via `ap_index.reindex.reindex_package` - non-breaking additions,
+  existing signatures unchanged). `tests/_planner_bot_fake_llm.py::ScriptedDraftingLLMClient` plays
+  the model's role deterministically (mirrors `_manager_bot_fake_llm.py::ScriptedLLMClient`'s role:
+  exercises the real schema-validation/evidence-resolution/dedup harness, not model judgment) for
+  `test_planner_bot_service.py`'s eval bar (drift corpus -> expected proposal kinds with
+  correctly-resolved evidence; clean corpus -> nothing) and `test_planner_bot_sweep.py`'s end-to-end
+  `run_sweep` tests; `InventedEvidenceLLMClient`/`InvalidDiffLLMClient` are adversarial fakes for the
+  two discard-path tests. `test_console_standard.py`'s fixture now also overrides `get_store` /
+  `get_index` / `get_llm_client` for the sweep-button tests.
 
 ## Gold-pack regression
 

@@ -16,13 +16,18 @@
 
 ## Exceptions
 
-- **Inference-time LLM egress (C4 manager bot).** Retrieved, redacted, in-scope package content may be
-  sent to a frontier-model API (Anthropic) at query time, under that provider's no-training API terms,
-  to answer a caller's question. This is a deliberate exception distinct from - and not in conflict
-  with - the training/pooling commitments above: no content is used to train or fine-tune a model, and
-  nothing is pooled across customers. Resolved captain decision
-  `fathm-phase3-readiness-decision-llm-egress-posture` (2026-08-16). See `AGENTS.md`'s Phase 3 manager-bot
-  section for the implementation (`src/ap_manager_bot/llm_client.py`).
+- **Inference-time LLM egress (C4 manager bot, C6 planner bot).** Retrieved, redacted, in-scope
+  package content may be sent to a frontier-model API (Anthropic) at query time, under that
+  provider's no-training API terms, to answer a caller's question (C4) or to draft a Standard-change
+  proposal from a deterministic drift finding (C6). This is a deliberate exception distinct from -
+  and not in conflict with - the training/pooling commitments above: no content is used to train or
+  fine-tune a model, and nothing is pooled across customers. Resolved captain decisions
+  `fathm-phase3-readiness-decision-llm-egress-posture` (2026-08-16, C4) and
+  `fathm-phase4-readiness-decision-llm-egress-c6-extension` (2026-08-16, extends the same posture to
+  C6 - same provider, same no-training terms, same data class: deterministic conformance stats plus
+  redacted evidence chunks). See `AGENTS.md`'s Phase 3 manager-bot section for the shared
+  implementation (`src/ap_manager_bot/llm_client.py`) and the Phase 4 section for `ap_planner_bot`'s
+  use of it.
 
 ## Why this is non-negotiable
 

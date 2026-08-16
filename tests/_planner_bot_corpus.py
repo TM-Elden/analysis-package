@@ -25,6 +25,8 @@ from ap_agent_tools.tools import package_create
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_gate.load_manifest import load_manifest
+from ap_index.index_store import IndexStore
+from ap_index.reindex import reindex_package
 from ap_review.policy import ReviewPolicy
 from ap_review.workflow import ReviewWorkflow
 from ap_store.store import PackageStore
@@ -119,8 +121,11 @@ def _rewrite_package(pkg_dir: Path, scenario: DriftScenario) -> None:
     (pkg_dir / "labels" / "overrides.jsonl").write_text(json.dumps(override_row) + "\n", encoding="utf-8")
 
 
-def _build(tmp_path: Path, scenarios: tuple[DriftScenario, ...], name: str) -> PackageStore:
-    store = PackageStore(tmp_path / f"{name}-store")
+def _build(
+    tmp_path: Path, scenarios: tuple[DriftScenario, ...], name: str, *, index: IndexStore | None = None
+) -> PackageStore:
+    store_root = tmp_path / f"{name}-store"
+    store = PackageStore(store_root)
     wf = ReviewWorkflow(store=store, policy=ReviewPolicy(gate_before_review=False))
 
     for scenario in scenarios:
@@ -135,6 +140,13 @@ def _build(tmp_path: Path, scenarios: tuple[DriftScenario, ...], name: str) -> P
         record = wf.transition(record.package_id, record.package_version, to_status="approved", actor=REVIEWER)
         assert record.status == "approved"
 
+        if index is not None:
+            report = reindex_package(
+                store=store, index=index, store_root=store_root,
+                package_id=record.package_id, package_version=record.package_version,
+            )
+            assert report is not None and not report.blocked, f"{scenario.label} failed to index: {report}"
+
     return store
 
 
@@ -144,3 +156,19 @@ def build_drift_corpus(tmp_path: Path) -> PackageStore:
 
 def build_clean_corpus(tmp_path: Path) -> PackageStore:
     return _build(tmp_path, CLEAN_SCENARIOS, "clean")
+
+
+def build_drift_corpus_with_index(tmp_path: Path) -> tuple[PackageStore, IndexStore]:
+    """Same drift corpus as `build_drift_corpus`, plus a populated `IndexStore` - for the C6
+    drafting-service tests (`test_planner_bot_service.py`/`test_planner_bot_sweep.py`), which need
+    redacted evidence chunks to fetch, not just the scan/detector layer `build_drift_corpus` alone
+    is enough for."""
+    index = IndexStore(tmp_path / "drift-idx-index")
+    store = _build(tmp_path, DRIFT_SCENARIOS, "drift-idx", index=index)
+    return store, index
+
+
+def build_clean_corpus_with_index(tmp_path: Path) -> tuple[PackageStore, IndexStore]:
+    index = IndexStore(tmp_path / "clean-idx-index")
+    store = _build(tmp_path, CLEAN_SCENARIOS, "clean-idx", index=index)
+    return store, index
