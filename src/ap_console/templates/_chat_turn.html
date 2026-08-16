@@ -1,0 +1,11 @@
+{# Partial: one turn, appended to #chat-transcript on every form submit (see chat.html). Opens its
+   own SSE connection at ap_api's root-mounted /chat/manager/stream (not under /console - see
+   CLAUDE.md's ap_console/ap_api module boundary) so the browser's EventSource carries the session
+   cookie. `sse-close="done"` tears the connection down once the stream's final frame arrives -
+   see ap_api/chat_routes.py's _stream_answer, which always emits a "done" event, success or error. #}
+<div class="chat-turn card" hx-ext="sse" sse-connect="/chat/manager/stream?question={{ question|urlencode }}" sse-close="done">
+  <div class="chat-question mono">{{ question }}</div>
+  <div class="chat-answer" sse-swap="message" hx-swap="beforeend"><span class="chat-pending mono">thinking…</span></div>
+  <div class="chat-citations"></div>
+  <div class="chat-error" sse-swap="error" hx-swap="innerHTML"></div>
+</div>

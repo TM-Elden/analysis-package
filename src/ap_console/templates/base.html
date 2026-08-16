@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Newsreader:ital,opsz,wght@0,6..72,200..500;1,6..72,200..500&display=swap" rel="stylesheet">
 <script src="/console/static/htmx.min.js"></script>
+<script src="/console/static/sse.js"></script>
 <style>
   :root{
     --ink:#07090D; --ink2:#0A0E16; --slate:#121826; --brass:#E8B36A; --brass-dim:#B98C4F;
@@ -78,6 +79,24 @@
   .timeline li:last-child{border-bottom:none}
   .timeline .ts{color:var(--drift);font-size:.76rem;font-family:'IBM Plex Mono',monospace}
   .timeline .reason{color:var(--drift);font-size:.82rem;margin-top:2px}
+  .chat-form{display:flex;gap:10px;margin-top:18px}
+  .chat-form input{flex:1;background:#04060A;border:1px solid var(--line);border-radius:6px;
+    color:var(--bone);padding:10px 12px;font-family:'Archivo',sans-serif;font-size:15px}
+  .chat-form button{background:var(--brass);color:var(--ink);border:none;border-radius:6px;
+    padding:0 20px;font-weight:700;letter-spacing:.03em;cursor:pointer}
+  .chat-form button:hover{filter:brightness(1.08)}
+  #chat-transcript{display:flex;flex-direction:column;gap:14px;margin-top:20px}
+  .chat-turn .chat-question{color:var(--drift);font-size:.82rem;margin-bottom:10px}
+  .chat-turn .chat-question::before{content:"› ";color:var(--brass)}
+  .chat-answer{white-space:pre-wrap;font-size:15px;line-height:1.6}
+  .chat-pending{color:var(--drift)}
+  .chat-citations{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .citation-link{display:inline-block;border:1px solid var(--line);border-radius:999px;
+    padding:.3rem .8rem;font-size:.76rem;text-decoration:none;color:var(--brass)}
+  .citation-link:hover{border-color:var(--brass);background:rgba(232,179,106,.08)}
+  .chat-error:empty{display:none}
+  .chat-error{color:#ff8a8a;border:1px solid #612929;background:rgba(182,92,74,.1);border-radius:8px;
+    padding:10px 14px;margin-top:12px;font-size:.85rem}
 </style>
 </head>
 <body>
@@ -97,6 +116,7 @@
   <nav class="crumbs">
     <a href="/console/packages" class="{% block nav_packages %}{% endblock %}">Packages</a>
     <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
+    <a href="/console/chat" class="{% block nav_chat %}{% endblock %}">Ask</a>
   </nav>
   <div class="whoami">
     <span>{{ identity.id }} · {{ identity.roles|map(attribute="value")|join(", ") }}</span>
@@ -112,5 +132,47 @@
 <main>
 {% block content %}{% endblock %}
 </main>
+<script>
+// Query-panel SSE handling (P3.7, see templates/_chat_turn.html). htmx's sse-swap default (a raw
+// innerHTML dump of event.data) is fine for the "message" and "error" events - ap_api/chat_routes.py
+// HTML-escapes both before they go on the wire - but "citations" travels as JSON (building the
+// /console/packages/... link shape is presentation logic that belongs here, not in the
+// format-neutral ap_api layer, see CLAUDE.md's console module-boundary note), so it needs its own
+// render step: intercept it via htmx's pre-swap hook, cancel the default dump, render links instead.
+document.body.addEventListener('htmx:sseBeforeMessage', function (evt) {
+  var native = evt.detail; // the raw SSE MessageEvent; .type is the named event, .data its payload
+  if (!native) return;
+  if (native.type === 'message') {
+    var pending = evt.target.querySelector('.chat-pending');
+    if (pending) pending.remove();
+    return; // let htmx's default beforeend swap append the (already-escaped) token
+  }
+  if (native.type !== 'citations') return;
+  evt.preventDefault();
+  var container = evt.target.querySelector('.chat-citations');
+  if (!container) return;
+  var items;
+  try { items = JSON.parse(native.data); } catch (e) { return; }
+  items.forEach(function (c) {
+    var a = document.createElement('a');
+    a.className = 'citation-link mono';
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.href = '/console/packages/' + encodeURIComponent(c.package_id)
+      + '?version=' + encodeURIComponent(c.package_version)
+      + '#' + encodeURIComponent(c.field_path);
+    a.textContent = c.package_id + ' · ' + c.field_path;
+    container.appendChild(a);
+  });
+});
+// A dropped/failed connection (network error, server crash mid-stream) fires htmx's own sseError
+// rather than our named "error" event - sse.js retries with backoff on its own, but surface a
+// visible note immediately so the panel never just sits at "thinking…" with no explanation.
+document.body.addEventListener('htmx:sseError', function (evt) {
+  var turn = evt.target && evt.target.closest ? evt.target.closest('.chat-turn') : null;
+  var errBox = turn ? turn.querySelector('.chat-error') : null;
+  if (errBox && !errBox.textContent) errBox.textContent = 'Connection interrupted - retrying…';
+});
+</script>
 </body>
 </html>

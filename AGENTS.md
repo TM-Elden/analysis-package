@@ -180,11 +180,10 @@ functions.
 
 ## Phase 3 (in progress): C14 redaction, C4 retrieval index, C4 manager bot
 
-Implements the redaction-before-index, search-index, and manager-bot-backend slices of §20a's
-adopted Phase 3 (`data/fathm-phase3-readiness/report.md` sections 5.3/5.4 in the firstmate repo hold
-the full rationale). Manager console (below) and planner chat (`src/ap_chat/`, below) are both
-consumers of `POST /chat/manager`; the C4 query panel inside the console itself is still later
-work.
+Implements the redaction-before-index, search-index, manager-bot-backend, planner-chat, and
+console-query-panel slices of §20a's adopted Phase 3 (`data/fathm-phase3-readiness/report.md`
+sections 5.1/5.3/5.4/6 in the firstmate repo hold the full rationale). Manager console (below) and
+planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
 
 - **`src/ap_redact/`** (C14): `redact.redact_package(package_dir, manifest, package_id=, package_version=)`
   is the pipeline entry point - `package dir -> (list[Chunk], RedactionReport)`. Person identifiers
@@ -248,6 +247,29 @@ work.
   (`GET /console/packages/table`, `templates/_packages_table.html`) shared between the initial
   full-page render and swap-in-place updates - keep list columns in that one template, not
   duplicated between the full and partial views.
+- **Console query panel** (P3.7, report §6): `GET /chat/manager/stream` (`ap_api/chat_routes.py`,
+  root-mounted alongside `POST /chat/manager`, not under `/console` - same module-boundary reasoning
+  as `/login`/`/logout` above) is the same `ManagerBot` behind an SSE `StreamingResponse`, consumed
+  by `ap_console`'s `GET /console/chat` page (`templates/chat.html` + `_chat_turn.html`) via htmx's
+  vendored `sse` extension (`ap_console/static/sse.js`, same 1.9.12 pin as `htmx.min.js`). It is
+  `GET`, not `POST`: the browser's native `EventSource` can't send a body or custom headers, so the
+  question travels as a query param and auth as the session cookie - GET being a safe method also
+  means `identity_from_request` doesn't require the `X-Csrf` header the POST route does (see
+  `ap_api/deps.py::_UNSAFE_METHODS`). **This is response-chunking, not model-level token streaming**:
+  `ManagerBot.answer` still runs its full tool loop to completion first (nothing in `LLMClient`
+  supports incremental generation), then the answer text is trickled to the client as a sequence of
+  `message` events so the panel fills in progressively rather than blocking on the whole response -
+  don't describe this as "streaming from the LLM" in future docs. Message/error event text is
+  HTML-escaped server-side (`html.escape`) so htmx's default `sse-swap` (a raw innerHTML dump of
+  `event.data`) can render it directly without executing anything a package's own content might
+  contain; `citations` deliberately stays JSON on the wire rather than pre-rendered markup - building
+  the `/console/packages/{id}?version=...#{field_path}` link shape is presentation logic that belongs
+  to `ap_console`, not the format-neutral `ap_api` layer - so `base.html`'s one delegated
+  `htmx:sseBeforeMessage` listener intercepts that named event, cancels htmx's default swap, and
+  renders the citation links itself. A backend failure mid-request (LLM call raises) is caught in
+  `chat_routes.py::_stream_answer` and reported as an `error` SSE event followed by `done`, never a
+  hung connection or a bare 500 - `test_console_chat_stream.py` covers this against the same
+  `_manager_bot_corpus` eval-set fixture P3.3's tests use, not synthetic UI-only content.
 - **`src/ap_manager_bot/`** (C4 manager bot) + `src/ap_api/chat_routes.py` (`POST /chat/manager`):
   a **tool-using loop, not embed-and-stuff RAG** (report 5.3) - `service.py::ManagerBot.answer`
   hands the LLM three read tools (`search_packages`, `get_package_summary`, `get_gate_report` -
