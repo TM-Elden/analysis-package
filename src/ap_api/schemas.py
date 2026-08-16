@@ -13,6 +13,21 @@ from pydantic import BaseModel, Field
 from ap_store.models import PackageRecord
 
 
+class LoginRequest(BaseModel):
+    user_id: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Returned once at login. `csrf_token` is not a secret the way the session cookie is (it's a
+    public function of it, see ap_auth.csrf) but it never travels in a cookie, so the client must
+    hold onto it and echo it back as the `X-Csrf` header on every state-changing request."""
+
+    user_id: str
+    roles: list[str]
+    csrf_token: str
+
+
 class ValidateRequest(BaseModel):
     package_dir: str = Field(description="Filesystem path to a package directory the server can read")
 

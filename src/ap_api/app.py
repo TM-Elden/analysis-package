@@ -21,10 +21,17 @@ honest about running locally without foreclosing a later hosted deployment - a r
 would swap `package_dir` for an upload step ahead of these endpoints, not change any endpoint shape
 here.
 
-AuthN/AuthZ: see `ap_auth.identity` - callers identify themselves via `X-Ap-Actor-Id` /
-`X-Ap-Actor-Roles` headers, unauthenticated in this phase (documented placeholder for phase 3's real
-session auth - every route below only ever sees the resulting `Identity`, so that swap changes
-`ap_api.deps.identity_from_request`'s internals, not these handlers).
+AuthN/AuthZ: see `ap_auth.store.AuthStore` and `ap_api.deps` - callers authenticate with a real
+session cookie (`POST /login`, `ap_api.auth_routes`) or a service-account `Authorization: Bearer`
+token; every route below depends on `identity_from_request` and only ever sees the resulting
+`Identity` (unchanged from phase 2's shape). Every route requires *some* authenticated identity -
+there is no anonymous access, including to reads - matching C11's "every API call tenant-scoped".
+Write routes additionally require a specific role via `require_any_role` (see each route below);
+`ReviewWorkflow` enforces the rest of the matrix itself (analyst-only submit, reviewer-only
+approve/reject, distinct-reviewer policy - see `ap_review.workflow`). Read routes (`GET /packages*`)
+deliberately do not further restrict by role: with no team/company scoping implemented yet
+(single-tenant, see CLAUDE.md), any authenticated identity may read - team-scoped reads are a
+`ap_index`-era scoping concern (see the phase-3 report's C4 section), not this layer's job today.
 """
 
 from __future__ import annotations
@@ -34,7 +41,8 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 
-from ap_api.deps import get_store, get_workflow, identity_from_request
+from ap_api.auth_routes import router as auth_router
+from ap_api.deps import get_store, get_workflow, identity_from_request, require_any_role
 from ap_api.schemas import (
     AuditEntryOut,
     ListResponse,
@@ -45,6 +53,7 @@ from ap_api.schemas import (
     package_record_to_out,
 )
 from ap_auth.identity import Identity
+from ap_auth.roles import Role
 from ap_gate.checks.context import CheckContext
 from ap_gate.checks.registry import run_all
 from ap_gate.load_manifest import ManifestLoadError, load_manifest
@@ -57,6 +66,7 @@ app = FastAPI(
     description="fathm phase-2 interface layer - package store (C3) + package review (C10) backend",
     version="0.1.0",
 )
+app.include_router(auth_router)
 
 
 def _run_gate(package_path: Path) -> dict:
@@ -77,7 +87,10 @@ def _run_gate(package_path: Path) -> dict:
 
 
 @app.post("/packages/validate")
-def validate_package(body: ValidateRequest) -> dict:
+def validate_package(
+    body: ValidateRequest,
+    _actor: Annotated[Identity, Depends(identity_from_request)],
+) -> dict:
     package_path = Path(body.package_dir)
     if not package_path.is_dir():
         raise HTTPException(status_code=400, detail=f"'{body.package_dir}' is not a directory")
@@ -87,7 +100,7 @@ def validate_package(body: ValidateRequest) -> dict:
 @app.post("/packages", response_model=PackageOut, status_code=201)
 def publish_package(
     body: PublishRequest,
-    actor: Annotated[Identity, Depends(identity_from_request)],
+    actor: Annotated[Identity, Depends(require_any_role(Role.ANALYST))],
     store: Annotated[PackageStore, Depends(get_store)],
 ) -> PackageOut:
     package_path = Path(body.package_dir)
@@ -129,6 +142,7 @@ def review_package(
 def get_package(
     package_id: str,
     store: Annotated[PackageStore, Depends(get_store)],
+    _actor: Annotated[Identity, Depends(identity_from_request)],
     version: str | None = Query(default=None, description="Specific package_version; omit for the latest"),
 ) -> PackageOut:
     record = store.get(package_id, version)
@@ -141,6 +155,7 @@ def get_package(
 def get_package_audit(
     package_id: str,
     store: Annotated[PackageStore, Depends(get_store)],
+    _actor: Annotated[Identity, Depends(identity_from_request)],
     version: str = Query(description="package_version to fetch the audit trail for"),
 ) -> list[AuditEntryOut]:
     entries = store.audit_trail(package_id, version)
@@ -160,6 +175,7 @@ def get_package_audit(
 @app.get("/packages", response_model=ListResponse)
 def list_packages(
     store: Annotated[PackageStore, Depends(get_store)],
+    _actor: Annotated[Identity, Depends(identity_from_request)],
     profile: str | None = None,
     status: str | None = None,
     owner: str | None = Query(default=None, description="Matches owners.analyst.id or owners.reviewer.id"),

@@ -1,20 +1,20 @@
-"""Identity model and caller identification (C11 scaffold).
+"""Identity model and caller identification (C11).
 
-Phase 2 has no login/session system - there is no UI to authenticate against yet (see
-docs/DESIGN-FATHM-SYSTEM.md C11 and section 20a, which explicitly defers web authentication to
-phase 3). What phase 2 DOES fix is the *shape* identity takes everywhere in the codebase, so phase
-3's web authentication has something concrete to plug into rather than retrofitting one under a UI
-deadline:
+Phase 2 built the *shape* identity takes everywhere in the codebase, precisely so phase 3's real
+web authentication had something concrete to plug into instead of retrofitting one under a UI
+deadline. Phase 3 (`ap_auth.store.AuthStore` + `ap_api/deps.py::identity_from_request`) is that
+plug-in: real scrypt-hashed passwords, server-side sessions, and service-account bearer tokens
+replace the old `X-Ap-Actor-*` header placeholder - see CLAUDE.md's "C11 auth model" section for the
+concrete mechanism. Every call site downstream of identity extraction is unchanged across that swap
+because they only ever see this same `Identity` dataclass:
 
 - Library callers (agent scripts, tests) construct an `Identity` directly.
 - CLI / agent callers identify themselves via the `AP_ACTOR_ID` and `AP_ACTOR_ROLES`
-  (comma-separated) environment variables - see `identity_from_env()`.
-- HTTP callers (`ap_api`) identify themselves via the `X-Ap-Actor-Id` / `X-Ap-Actor-Roles` headers
-  - see `ap_api.deps.identity_from_request()`. This is a **placeholder, not authentication**: any
-    caller can claim any identity by setting the header, there is no signature or session behind
-    it. Phase 3 replaces the header source with an identity derived from a real authenticated
-    session/token; every call site downstream of identity extraction keeps working unchanged
-    across that swap because they only ever see this same `Identity` dataclass.
+  (comma-separated) environment variables - see `identity_from_env()`. This stays for same-machine
+  tooling that never crosses a trust boundary (it never claims to be authentication).
+- HTTP callers (`ap_api`) authenticate for real: a browser session cookie (`POST /login`) or an
+  `Authorization: Bearer <token>` service-account token, both resolved by
+  `ap_api.deps.identity_from_request` via `ap_auth.store.AuthStore`.
 
 Every state-changing action in `ap_store` / `ap_review` takes an `Identity` and records its `id` +
 `roles` in the audit trail - never a bare string.

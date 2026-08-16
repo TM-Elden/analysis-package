@@ -22,6 +22,7 @@ dev = ["pytest>=7.0", "httpx>=0.27"]
 [project.scripts]
 ap-gate = "ap_gate.cli:main"
 ap-api = "ap_api.__main__:main"
+ap-auth = "ap_auth.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

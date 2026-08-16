@@ -114,14 +114,37 @@ functions.
   role and self-review checks). `ReviewWorkflow` owns policy; `PackageStore.set_status` owns
   mechanism (compare-and-swap + audit row) - it enforces no policy itself.
 - **Identity model** (`src/ap_auth/`): `Identity(id, roles: frozenset[Role])`, roles taken verbatim
-  from the design doc's C11 minimum set. No login/session system exists yet (phase 3's job) - CLI
-  callers self-identify via `AP_ACTOR_ID` / `AP_ACTOR_ROLES` env vars
-  (`ap_auth.identity.identity_from_env`); HTTP callers via the `X-Ap-Actor-Id` / `X-Ap-Actor-Roles`
-  headers (`ap_api/deps.py::identity_from_request`). **This is a documented placeholder, not
-  authentication** - any caller can claim any identity by setting the header/env var. Phase 3 swaps
-  the header source for a real session-derived identity; every downstream call site only ever sees
-  the same `Identity` dataclass, so nothing else changes. Every state-changing action in `ap_store` /
-  `ap_review` takes an `Identity` and records `id` + `roles` in `package_audit` - never a bare string.
+  from the design doc's C11 minimum set. CLI/library callers self-identify via `AP_ACTOR_ID` /
+  `AP_ACTOR_ROLES` env vars (`ap_auth.identity.identity_from_env`) - this stays for same-machine
+  tooling that never crosses a trust boundary. HTTP callers authenticate for real (the old
+  `X-Ap-Actor-Id` / `X-Ap-Actor-Roles` header placeholder is gone, not left as a fallback): every
+  downstream call site only ever sees the same `Identity` dataclass, exactly as phase 2 set up for
+  this swap. Every state-changing action in `ap_store` / `ap_review` takes an `Identity` and records
+  `id` + `roles` in `package_audit` - never a bare string.
+- **C11 auth model** (`src/ap_auth/store.py`, `src/ap_auth/db.py`, `src/ap_auth/cli.py`): a sibling
+  `auth.sqlite3` (own connect/lock pattern mirroring `ap_store.PackageStore`; kept separate from the
+  package index deliberately - a leaked credentials DB and a leaked package index are different
+  incidents) holds `users` (scrypt password hash via stdlib `hashlib.scrypt` - zero new
+  dependencies, see `ap_auth/passwords.py`) and `sessions` (used for both browser sessions and
+  service-account bearer tokens - same table shape, same validation path, `kind` column is
+  informational only). No admin UI exists yet, so `ap-auth adduser/passwd/disable/enable/token/list`
+  (`src/ap_auth/cli.py`) is the only provisioning path; it resolves the same default DB location
+  (`$AP_AUTH_DB`, else `~/.fathm/auth.sqlite3`) `ap_api` does, so a newly-adduser'd user is
+  immediately visible to a running server. `POST /login` (`ap_api/auth_routes.py`) verifies the
+  password and sets an HttpOnly/SameSite=Lax/**Secure** session cookie plus returns a `csrf_token`
+  the client must echo as `X-Csrf` on every state-changing request thereafter (derived from the
+  session token itself via `ap_auth.csrf.csrf_token_for` - no server-side CSRF storage needed, since
+  the HttpOnly cookie means no page script can compute a forged match). `POST /logout` revokes the
+  session row. Service accounts (agents/CI) send `Authorization: Bearer <token>` instead and are
+  exempt from the CSRF check (browsers never attach that header automatically, so there's no
+  ambient-authority risk to defend against). `ap_api/deps.py::identity_from_request` is the single
+  resolution point (bearer checked first, then cookie); `ap_api/deps.py::require_any_role` is the
+  route-level role-matrix gate (e.g. `POST /packages` requires `analyst`) - `ReviewWorkflow` still
+  owns the rest of the matrix (analyst-only submit, reviewer-only decide, distinct-reviewer policy).
+  No JWTs, deliberately: server-side sessions are trivially revocable and there's exactly one
+  server. Sharp edge for tests: a `Secure` cookie is only stored/replayed by httpx's cookie jar over
+  an `https://` origin, so `TestClient(app, base_url="https://testserver")` is required (plain
+  `TestClient(app)` silently drops the session cookie) - see `tests/test_api.py`.
 - **Agent runtime slice** (`src/ap_agent_tools/`): `TOOL_SCHEMAS` documents `package.create` /
   `package.check` / `package.publish`; `package_check()` is a thin wrapper over the same
   `ap_gate.checks.registry.run_all` function everything else uses. `templates/commodity_commit_forecast/`
