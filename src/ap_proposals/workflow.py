@@ -88,8 +88,14 @@ class ProposalWorkflow:
                 f"(allowed: {sorted(TRANSITIONS)})"
             )
 
+        if edited_diff is not None:
+            if to_status != "approved":
+                raise ProposalPolicyError("edited_diff is only meaningful on an approve decision")
+            # approve-with-edits: the edit must itself be a well-formed diff for this proposal's kind.
+            validate_diff(record.kind, edited_diff)
+
         if to_status in ("approved", "rejected"):
-            self._check_decide(record, actor, to_status, reason, edited_diff)
+            self._check_decide(record, actor, to_status, reason)
         # pending_hitl -> withdrawn carries no extra policy beyond appearing in TRANSITIONS, mirroring
         # ap_review.ReviewWorkflow's withdraw/revise transitions - withdrawn is for dedup-supersede
         # and admin housekeeping (§5.4), not restricted to the original creator here.
@@ -109,7 +115,6 @@ class ProposalWorkflow:
         actor: Identity,
         to_status: str,
         reason: str | None,
-        edited_diff: dict[str, Any] | None,
     ) -> None:
         if not actor.has_role(Role.STANDARD_APPROVER):
             raise ProposalPolicyError(
@@ -118,8 +123,3 @@ class ProposalWorkflow:
             )
         if to_status == "rejected" and not (reason and reason.strip()):
             raise ProposalPolicyError("rejecting a proposal requires a non-empty decision_reason")
-        if edited_diff is not None:
-            if to_status != "approved":
-                raise ProposalPolicyError("edited_diff is only meaningful on an approve decision")
-            # approve-with-edits: the edit must itself be a well-formed diff for this proposal's kind.
-            validate_diff(record.kind, edited_diff)
