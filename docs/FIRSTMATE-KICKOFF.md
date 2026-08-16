@@ -20,7 +20,7 @@ See capability tables C1-C19 and B1-B8 in DESIGN-FATHM-SYSTEM.md.
 Complete product = acceptance list in DESIGN-FATHM-SYSTEM.md §18.
 
 ## Brand
-- Product: **fathm** (always lowercase wordmark; sunk brass "a")
+- Product: **fathm** (F sounding-line mark + serif "athm")
 - Format: **Analysis Package (ap)**
 - Visual system: `brand/fathm-brand-final.html` (F = sounding-line instrument)
 - Metaphor: **chart room**
