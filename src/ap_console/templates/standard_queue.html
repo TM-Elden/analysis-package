@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Standard{% endblock %}
+{% block nav_standard %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Standard</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Standard-change proposals (C6/C7) waiting on a human decision, plus a look back at what has
+  already been decided. Approve, approve-with-edits, or reject from a proposal's detail page.
+</p>
+
+<form hx-post="/console/standard/sweep" hx-target="#proposal-queue-table" hx-swap="outerHTML"
+  hx-headers='{"X-Csrf": "{{ csrf_token }}"}' style="margin-top:16px">
+  <input type="hidden" name="status" value="{{ status }}">
+  {% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
+  <button type="submit" class="btn" title="fathm-p4-sweep (the drafting bot) is not built yet - this reports honestly, it does not fabricate a run">
+    Run planner sweep
+  </button>
+</form>
+
+<div class="tabs">
+  {% for s in statuses %}
+  <a href="/console/standard?status={{ s }}{% if kind %}&kind={{ kind }}{% endif %}"
+     class="{{ 'active' if s == status else '' }}"
+     hx-get="/console/standard/table?status={{ s }}{% if kind %}&kind={{ kind }}{% endif %}"
+     hx-target="#proposal-queue-table" hx-swap="outerHTML" hx-push-url="/console/standard?status={{ s }}">
+    {{ s }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  {% include "_proposal_queue_table.html" %}
+</div>
+
+<p style="margin-top:18px">
+  <a href="/console/standard/changelog">View decided-proposal changelog →</a>
+</p>
+{% endblock %}

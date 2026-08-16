@@ -488,6 +488,27 @@ and the dry-run engine (§5.6) are all separate, later tasks - this slice is sto
   lets `ReviewWorkflow` own the role matrix instead of double-gating at the route.
   `ap_console` will read `ProposalStore` directly once a console tab exists, same module-boundary
   pattern as the P3.5 review queue - no console UI is built by this slice.
+- **Console "Standard" tab** (P4 first cut, `src/ap_console/routes.py` `/standard*` routes +
+  `templates/standard_*.html` / `_proposal_*.html` / `_dry_run_panel.html`): reads `ProposalStore`
+  and calls `ProposalWorkflow.decide` directly, same module-boundary and
+  `verify_console_csrf`-plus-inline-`.flash` pattern as the P3.5 review queue
+  (`console_review_action`) - not a second copy of `ap_api/proposal_routes.py`'s JSON logic.
+  `GET /console/standard` is the pending queue (status tabs swap `_proposal_queue_table.html` via
+  htmx, mirroring `_review_queue_table.html`); `GET /console/standard/proposals/{id}` is the detail
+  page (evidence links only render for the `{"package_ids": [...]}` evidence shape the P4 sweep
+  detectors actually produce - `_evidence_summary` falls back to a bare count for any other shape);
+  decisions (approve / approve-with-edits / reject) post to
+  `POST /console/standard/proposals/{id}/decision`, which parses the edit textarea's JSON itself
+  and re-renders `_proposal_detail_body.html` in place. Two things are deliberately-honest stubs,
+  not fake functionality, pending later tasks: `POST /console/standard/sweep` (the "Run planner
+  sweep" button) is a no-op that renders a `.notice` explaining `fathm-p4-sweep` isn't built yet,
+  and the dry-run panel (`_dry_run_panel.html`, driven by `POST .../dry-run`) only ever echoes the
+  proposal's existing `dry_run_json` - always null today since `fathm-p4-registry-dryrun` hasn't
+  landed - and says so rather than fabricating a result; both routes already call the real data
+  path, so landing those tasks is a data change, not a UI rewrite. `GET
+  /console/standard/changelog` is an explicit interim substitute for the real
+  `GET /standard/versions` surface (also a later task): it lists every non-`pending_hitl` proposal
+  from `ProposalStore.list`, not a computed version history.
 
 ## Gold-pack regression
 

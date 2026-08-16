@@ -10,16 +10,17 @@ to be server-composed pages" (phase-3 report section 5.1).
 
 from __future__ import annotations
 
+import json
 import math
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ap_api.deps import get_store, get_workflow
+from ap_api.deps import get_proposal_store, get_proposal_workflow, get_store, get_workflow
 from ap_auth.identity import Identity
 from ap_console.deps import (
     ConsoleAuthRequired,
@@ -29,6 +30,10 @@ from ap_console.deps import (
     verify_console_csrf,
 )
 from ap_console.gate_report import render_gate_report_html
+from ap_proposals.kinds import ProposalValidationError
+from ap_proposals.store import ListFilter as ProposalListFilter
+from ap_proposals.store import ProposalStore, ProposalStoreError
+from ap_proposals.workflow import ProposalPolicyError, ProposalWorkflow
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import ListFilter, PackageStore, StoreError
 
@@ -193,6 +198,234 @@ def console_review_action(
         error = str(exc)
     ctx = _review_queue_context(store, error=error)
     return templates.TemplateResponse(request, "_review_queue_table.html", {"csrf_token": console_csrf_token(request), **ctx})
+
+
+#: Status vocabulary for the Standard tab's tabs - matches ap_proposals.workflow's live set.
+_PROPOSAL_STATUSES = ["pending_hitl", "approved", "rejected", "withdrawn"]
+_PROPOSAL_KINDS = ["standard_change", "profile_change", "reason_code_add", "check_add"]
+
+
+def _evidence_summary(evidence: dict[str, Any]) -> dict[str, Any]:
+    """Evidence is a free-form dict (`ap_proposals.models.ProposalRecord.evidence()`) - today's
+    only producer (the P4 sweep detectors) writes `{"package_ids": [...]}`, so that's rendered as
+    real links into the existing package detail pages; anything else falls back to a raw count so a
+    future evidence shape doesn't silently disappear from the UI."""
+    package_ids = evidence.get("package_ids") if isinstance(evidence, dict) else None
+    if isinstance(package_ids, list) and package_ids:
+        return {"package_ids": package_ids, "count": len(package_ids)}
+    return {"package_ids": [], "count": len(evidence) if isinstance(evidence, dict) else 0}
+
+
+def _diff_view(diff: dict[str, Any]) -> dict[str, Any]:
+    """Generic per-kind diff rendering (task brief: "a reasonable generic rendering ... is fine if
+    per-kind polish isn't available yet"): a before/after column pair when the diff has both keys
+    (profile_change's shape today), else a raw pretty-printed JSON fallback that works for any kind,
+    including the ones the drafting bot hasn't started producing real content for yet."""
+    if isinstance(diff, dict) and "before" in diff and "after" in diff:
+        extra = {k: v for k, v in diff.items() if k not in ("before", "after")}
+        return {
+            "mode": "before_after",
+            "before": json.dumps(diff.get("before"), indent=2, sort_keys=True),
+            "after": json.dumps(diff.get("after"), indent=2, sort_keys=True),
+            "extra": json.dumps(extra, indent=2, sort_keys=True) if extra else None,
+        }
+    return {"mode": "raw", "raw": json.dumps(diff, indent=2, sort_keys=True)}
+
+
+def _proposal_queue_context(
+    store: ProposalStore, *, status: str | None, kind: str | None, notice: str | None = None
+) -> dict:
+    filt = ProposalListFilter(status=status or None, kind=kind or None, page=1, page_size=200)
+    result = store.list(filt)
+    return {
+        "items": [(r, _evidence_summary(r.evidence())) for r in result.items],
+        "total": result.total,
+        "status": status,
+        "kind": kind,
+        "statuses": _PROPOSAL_STATUSES,
+        "kinds": _PROPOSAL_KINDS,
+        "notice": notice,
+    }
+
+
+@router.get("/standard", response_class=HTMLResponse)
+def standard_queue(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    status: str = "pending_hitl",
+    kind: str | None = None,
+) -> HTMLResponse:
+    ctx = _proposal_queue_context(store, status=status, kind=kind)
+    return _render(request, "standard_queue.html", identity=identity, **ctx)
+
+
+@router.get("/standard/table", response_class=HTMLResponse)
+def standard_table(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    status: str = "pending_hitl",
+    kind: str | None = None,
+) -> HTMLResponse:
+    """htmx partial: the status/kind tabs re-GET this and swap it in for #proposal-queue-table,
+    mirroring `packages_table`'s pattern above."""
+    ctx = _proposal_queue_context(store, status=status, kind=kind)
+    return templates.TemplateResponse(request, "_proposal_queue_table.html", ctx)
+
+
+@router.post("/standard/sweep", response_class=HTMLResponse)
+def standard_sweep(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    status: str = "pending_hitl",
+    kind: str | None = None,
+) -> HTMLResponse:
+    """"Run planner sweep" button target. The drafting bot (`fathm-p4-sweep`) that would actually
+    scan the corpus and create proposals is a separate, not-yet-built task (see this task's brief) -
+    this route is a documented no-op rather than a fake success, so the button is honestly wired to
+    something real today and only needs its body swapped for a real call once that bot lands. CSRF
+    is still verified since it's a POST reachable via the ambient session cookie."""
+    error = None
+    try:
+        verify_console_csrf(request)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    notice = (
+        None
+        if error
+        else "Planner sweep is not yet wired up (fathm-p4-sweep is a separate task) - no proposals "
+        "were generated. This button will run the real drafting bot once that lands."
+    )
+    ctx = _proposal_queue_context(store, status=status, kind=kind, notice=notice)
+    return templates.TemplateResponse(
+        request, "_proposal_queue_table.html", {"csrf_token": console_csrf_token(request), "error": error, **ctx}
+    )
+
+
+@router.get("/standard/changelog", response_class=HTMLResponse)
+def standard_changelog(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+) -> HTMLResponse:
+    """Interim version-history view: `GET /standard/versions` (a later task's real changelog
+    surface, once the versioned profile registry exists) doesn't exist yet, so this renders every
+    decided proposal (approved/rejected/withdrawn) as the closest honest substitute - decisions the
+    proposal audit trail can already show today, not a fabricated version list."""
+    result = store.list(ProposalListFilter(page=1, page_size=200))
+    decided = [r for r in result.items if r.status != "pending_hitl"]
+    decided.sort(key=lambda r: r.decided_at or "", reverse=True)
+    return _render(request, "standard_changelog.html", identity=identity, items=decided)
+
+
+@router.get("/standard/proposals/{proposal_id}", response_class=HTMLResponse)
+def proposal_detail(
+    request: Request,
+    proposal_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+) -> HTMLResponse:
+    ctx = _proposal_detail_body_context(store, proposal_id, error=None)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail=f"no such proposal: {proposal_id}")
+    return _render(request, "standard_proposal_detail.html", identity=identity, **ctx)
+
+
+def _proposal_detail_body_context(store: ProposalStore, proposal_id: str, *, error: str | None) -> dict | None:
+    record = store.get(proposal_id)
+    if record is None:
+        return None
+    dry_run = record.dry_run()
+    return {
+        "prop": record,
+        "evidence": _evidence_summary(record.evidence()),
+        "diff_view": _diff_view(record.diff()),
+        "edited_diff_view": _diff_view(record.edited_diff()) if record.edited_diff() is not None else None,
+        "edited_diff_text": json.dumps(record.diff(), indent=2, sort_keys=True),
+        "audit_entries": store.audit_trail(proposal_id),
+        "dry_run": dry_run,
+        "dry_run_text": json.dumps(dry_run, indent=2, sort_keys=True) if dry_run is not None else None,
+        "error": error,
+    }
+
+
+@router.post("/standard/proposals/{proposal_id}/decision", response_class=HTMLResponse)
+def standard_decision(
+    request: Request,
+    proposal_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[ProposalWorkflow, Depends(get_proposal_workflow)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    to_status: Annotated[str, Form()],
+    reason: Annotated[str | None, Form()] = None,
+    edited_diff: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """The detail page's approve / approve-with-edits / reject forms all post here (htmx,
+    `hx-target="#proposal-detail-body" hx-swap="outerHTML"`) - calls the real
+    `ProposalWorkflow.decide` (standard_approver role, reject-requires-reason, edited_diff schema
+    validation) and re-renders the detail body in place, mirroring `console_review_action` above
+    exactly (same CSRF-verified-here-not-in-the-dependency reasoning, same inline-flash-not-raw-error
+    handling)."""
+    error = None
+    parsed_edit: dict | None = None
+    try:
+        verify_console_csrf(request)
+        if edited_diff is not None and edited_diff.strip():
+            try:
+                parsed_edit = json.loads(edited_diff)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"edited diff is not valid JSON: {exc}") from exc
+        workflow.decide(proposal_id, to_status=to_status, actor=identity, reason=reason, edited_diff=parsed_edit)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except ValueError as exc:
+        error = str(exc)
+    except (ProposalPolicyError, ProposalValidationError, ProposalStoreError) as exc:
+        error = str(exc)
+
+    ctx = _proposal_detail_body_context(store, proposal_id, error=error)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail=f"no such proposal: {proposal_id}")
+    return templates.TemplateResponse(
+        request, "_proposal_detail_body.html", {"csrf_token": console_csrf_token(request), **ctx}
+    )
+
+
+@router.post("/standard/proposals/{proposal_id}/dry-run", response_class=HTMLResponse)
+def standard_dry_run(
+    request: Request,
+    proposal_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+) -> HTMLResponse:
+    """"Run dry-run" button target. Renders whatever `dry_run_json` already exists on the proposal
+    record (the real field `ap_proposals` stores it under) rather than computing anything itself -
+    the dry-run engine (`fathm-p4-registry-dryrun`) is a separate, not-yet-built task. Today that
+    field is always null, so this honestly reports "not yet available" instead of faking a result;
+    once that engine lands and starts populating `dry_run_json` (e.g. via a proposal-store write
+    this route triggers), this same rendering path picks up real results with no template changes."""
+    error = None
+    try:
+        verify_console_csrf(request)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    record = store.get(proposal_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"no such proposal: {proposal_id}")
+    dry_run = record.dry_run()
+    return templates.TemplateResponse(
+        request,
+        "_dry_run_panel.html",
+        {
+            "prop": record,
+            "dry_run": dry_run,
+            "dry_run_text": json.dumps(dry_run, indent=2, sort_keys=True) if dry_run is not None else None,
+            "csrf_token": console_csrf_token(request),
+            "error": error,
+        },
+    )
 
 
 def _owners_rows(owners: dict) -> list[tuple[str, str | None]]:

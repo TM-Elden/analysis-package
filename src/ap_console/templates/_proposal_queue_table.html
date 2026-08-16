@@ -1,0 +1,40 @@
+{# Partial: swapped in place (outerHTML) by the status tabs and the sweep button, and reused as
+   the initial render for the full queue page - one markup, one place to change columns (mirrors
+   _packages_table.html / _review_queue_table.html's pattern). #}
+<div id="proposal-queue-table">
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+  {% if notice %}
+  <div class="notice">{{ notice }}</div>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Proposal</th>
+        <th>Kind</th>
+        <th>Summary</th>
+        <th>Created</th>
+        <th>Evidence</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for prop, ev in items %}
+      <tr>
+        <td class="mono"><a href="/console/standard/proposals/{{ prop.proposal_id }}">{{ prop.proposal_id }}</a></td>
+        <td class="mono">{{ prop.kind }}</td>
+        <td>{{ prop.summary }}</td>
+        <td class="mono">{{ prop.created_at }}</td>
+        <td class="mono">{{ ev.count }} package{{ "" if ev.count == 1 else "s" }}</td>
+        <td><span class="badge {{ prop.status }}">{{ prop.status }}</span></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">Nothing here for this filter.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="mono" style="color:var(--drift);font-size:.78rem;margin-top:10px">
+    {{ total }} proposal{{ "" if total == 1 else "s" }}{% if status %} · status: {{ status }}{% endif %}
+  </p>
+</div>
