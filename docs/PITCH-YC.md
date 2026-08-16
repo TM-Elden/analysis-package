@@ -1,7 +1,9 @@
 # fathm - YC / seed pitch spine
 
 **Status:** Interview-backed · readiness graded · 2026-08-16  
-**Audience:** YC application + interview; seed partners  
+**Primary path (likely):** **Internal tool at Meta** - less risk, less reward. See `docs/PATH-INTERNAL-META.md` + `docs/PITCH-INTERNAL-META.md`.  
+**This doc:** YC / external company narrative - **secondary / stretch only**.  
+**Audience:** YC application + interview; seed partners (if ever)  
 **Product mark:** fathm (working; not TM-cleared - see research scan)  
 **Format:** Analysis Package (`ap`)  
 **Rubric:** `docs/PITCH-YC-READINESS.md`  
@@ -149,11 +151,12 @@ SaaS subscription for standard tooling, CI gate, and chart room; upgrade path fo
 
 | ID | Answer |
 |----|--------|
-| **T1 Seed $** | **Not raising yet.** Does not need money yet. Ask = design partner (+ YC as stretch). |
-| **T2 ICP** | **Lambda AI** (datacenter company) as first design-partner target. |
-| **T3 Demo** | **Nothing clickable until next week.** Target loop (unchanged): full UI publish → manager query; full standard revision → HITL approve. |
-| **T4 First hire** | **Sales** (not eng). Tom is eng; needs someone with connections into corp planning teams. |
+| **T1 Seed $** | **Not raising yet.** Likely **internal Meta build** (less risk less reward) over company/YC-first. |
+| **T2 ICP** | **Door 0: Meta internal pilot.** External named interest: Lambda AI (datacenter) if/when external. |
+| **T3 Demo** | **Nothing clickable until next week.** Target: publish → manager query; standard HITL. |
+| **T4 First hire** | External story: **Sales** for corp planning access. Internal story: **sponsor + champion** (not AE). |
 | **T5 Advisors** | **Not yet.** |
+| **T6 Path** | **Meta internal tool likely primary.** YC = stretch only. |
 
 ---
 

@@ -40,7 +40,12 @@
 | C (2.5–3.4) | Story holes |
 | D (<2.5) | Not a pitch |
 
-**Current: B** overall · **A-** on ask clarity (not raising) · **demo is the gate to A**.
+**Current: B** external narrative · **Internal Meta path preferred** - success = sponsor + pilot, not YC.  
+**Demo next week** still gates credibility on either path.
+
+## Path note (2026-08-16)
+Tom: build likely as **internal tool at Meta** - less risk, less reward.  
+Primary pitch: `docs/PITCH-INTERNAL-META.md`. YC deck = stretch.
 
 ---
 
