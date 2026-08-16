@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-16  
 **Build authority:** `docs/DESIGN-FATHM-SYSTEM.md`  
-**Repo:** https://github.com/TM-Elden/analysis-package  
+**Repo:** https://github.com/TM-Elden/fathm  
 
 ## Scope
 Full fathm system is in scope:
@@ -28,6 +28,6 @@ Complete product = acceptance list in DESIGN-FATHM-SYSTEM.md §18.
 
 ## Start
 ```bash
-cd ~/firstmate/projects/analysis-package && git pull
+cd ~/firstmate/projects/fathm && git pull
 # read docs/DESIGN-FATHM-SYSTEM.md and build
 ```

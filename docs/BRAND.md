@@ -17,7 +17,7 @@
 | Tagline / definition | to understand something fully, down to its source |
 | Support line | Powered by the Analysis Package standard |
 | Spelling | Intentional: *fathm* not *fathom* |
-| GitHub repo (technical) | `TM-Elden/analysis-package` until a fathm org/domain is chosen |
+| GitHub repo (technical) | `TM-Elden/fathm` until a fathm org/domain is chosen |
 
 ## Visual system (v1 summary)
 

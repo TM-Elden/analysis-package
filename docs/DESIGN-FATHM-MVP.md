@@ -5,8 +5,8 @@
 **Handoff ID:** `fathm-mvp-2026-08-16`  
 **To:** firstmate / captain (PiSD)  
 **From:** Hermes (spec + product join)  
-**Repo (source of truth):** https://github.com/TM-Elden/analysis-package  
-**Local clone target on Pi:** `~/firstmate/projects/analysis-package` (or `~/projects/analysis-package`)  
+**Repo (source of truth):** https://github.com/TM-Elden/fathm  
+**Local clone target on Pi:** `~/firstmate/projects/fathm` (or `~/projects/analysis-package`)  
 **Product brand:** **fathm** - understand fully, down to its source  
 **Format name:** **Analysis Package (ap/0.2)** - do not rename the format to fathm in code identifiers  
 
@@ -368,13 +368,13 @@ Optional: `docs/html/gate-sample-report.html` generated from example.
 ## 15. Git / PR rules (operator craft)
 
 - Branch: `feat/ap-gate-l1`  
-- PR into `main` on `TM-Elden/analysis-package`  
+- PR into `main` on `TM-Elden/fathm`  
 - Commits: imperative, focused; **no** `Co-authored-by` agent lines  
 - Do not force-push `main`  
 - Prefer HTTPS + existing `gh` auth on Pi  
 
 ```bash
-git clone https://github.com/TM-Elden/analysis-package.git
+git clone https://github.com/TM-Elden/fathm.git
 cd analysis-package
 git checkout -b feat/ap-gate-l1
 # ... build ...
@@ -391,7 +391,7 @@ After firstmate pulls the design (this file will be on `main` once Hermes pushes
 # On PiSD
 mkdir -p ~/firstmate/data/portfolio-build/fathm-mvp
 cd ~/firstmate/projects 2>/dev/null || mkdir -p ~/firstmate/projects && cd ~/firstmate/projects
-git clone https://github.com/TM-Elden/analysis-package.git
+git clone https://github.com/TM-Elden/fathm.git
 cp analysis-package/docs/DESIGN-FATHM-MVP.md ~/firstmate/data/portfolio-build/fathm-mvp/
 # Write a one-page kickoff for captain
 ```
@@ -400,7 +400,7 @@ Kickoff note for captain (suggested `~/firstmate/data/portfolio-build/fathm-mvp/
 
 ```markdown
 # fathm MVP kickoff
-Build per docs/DESIGN-FATHM-MVP.md in TM-Elden/analysis-package.
+Build per docs/DESIGN-FATHM-MVP.md in TM-Elden/fathm.
 Scope: ap-gate L1 only. Brand: fathm. Format: Analysis Package.
 Done = example passes + CI green + HTML report.
 ```

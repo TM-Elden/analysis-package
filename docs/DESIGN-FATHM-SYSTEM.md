@@ -3,8 +3,8 @@
 **Handoff ID:** `fathm-system-2026-08-16`  
 **To:** firstmate / captain (PiSD)  
 **From:** Hermes  
-**Repo:** https://github.com/TM-Elden/analysis-package  
-**Pi clone:** `~/firstmate/projects/analysis-package`  
+**Repo:** https://github.com/TM-Elden/fathm  
+**Pi clone:** `~/firstmate/projects/fathm`  
 **Pi bundle:** `~/firstmate/data/portfolio-build/fathm-mvp/` (name retained; content is full system)
 
 **Phasing, milestones, and cut lines are firstmate's call.** This doc defines *what the system is*, constraints, interfaces, and acceptance of a complete product - not a Hermes-mandated build order.
@@ -643,7 +643,7 @@ firstmate may ship partial increments; "done for full system" means 1-20 above.
 ## 21. Kickoff for firstmate
 
 ```bash
-cd ~/firstmate/projects/analysis-package && git pull
+cd ~/firstmate/projects/fathm && git pull
 # Read docs/DESIGN-FATHM-SYSTEM.md (this file)
 # You own sequencing, architecture packaging, and sprint cuts.
 # Deliver toward complete product acceptance §18 (items 1-20).

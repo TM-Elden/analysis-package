@@ -17,7 +17,7 @@
 | **fathm** | Company / product brand |
 | **Analysis Package (AP)** | Portable interchange unit + open-style standard |
 | **ap-gate** | L1 structural CI (planned) |
-| **Repo** | `TM-Elden/analysis-package` (technical home; brand rename of GH org later) |
+| **Repo** | `TM-Elden/fathm` (technical home; brand rename of GH org later) |
 
 Spelling is intentional (no *o*). One-line origin: *fathom* the depths - we drop the *o* for the mark.
 
