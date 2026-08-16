@@ -21,8 +21,10 @@ Full fathm system is in scope:
 Complete product = acceptance list in DESIGN-FATHM-SYSTEM.md §18.
 
 ## Brand
-- Product: **fathm**
+- Product: **fathm** (always lowercase wordmark; sunk brass "a")
 - Format: **Analysis Package (ap)**
+- Visual system: `brand/fathm-brand-system-v1.html`
+- Metaphor: **chart room**
 - CLI/library preference: `ap-gate` for validation
 
 ## Start

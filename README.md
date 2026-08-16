@@ -55,7 +55,8 @@ research/                 Prior art and source materials
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/BRAND.md](docs/BRAND.md) | fathm brand lock |
+| [docs/BRAND.md](docs/BRAND.md) | fathm brand lock + tokens |
+| [brand/fathm-brand-system-v1.html](brand/fathm-brand-system-v1.html) | **Brand system v1 (logo, color, type, copy)** |
 | [docs/DESIGN-FATHM-SYSTEM.md](docs/DESIGN-FATHM-SYSTEM.md) | **firstmate build authority (full system)** |
 | [docs/DESIGN-FATHM-MVP.md](docs/DESIGN-FATHM-MVP.md) | Historical L1-only draft (superseded for scope) |
 | [docs/FIRSTMATE-KICKOFF.md](docs/FIRSTMATE-KICKOFF.md) | Short kickoff card |

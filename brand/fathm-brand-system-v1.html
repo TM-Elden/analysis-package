@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fathm — Brand System v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#07090D;
+    --slate:#121826;
+    --brass:#E8B36A;
+    --drift:#93856F;
+    --bone:#F4EFE6;
+    --line:rgba(147,133,111,.25);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--ink);color:var(--bone);
+    font-family:'Archivo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:'Newsreader',serif}
+  .mono{font-family:'IBM Plex Mono',monospace}
+
+  section{padding:70px 6vw;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--brass);margin-bottom:14px}
+  h1{font-size:clamp(32px,5vw,56px);font-weight:640;letter-spacing:-.02em;line-height:1.08;font-variation-settings:"wdth" 88}
+  h2{font-size:clamp(22px,3.2vw,34px);font-weight:600;letter-spacing:-.015em;margin-bottom:10px;font-variation-settings:"wdth" 90}
+  .sub{color:var(--drift);max-width:58ch;font-size:15px}
+
+  .grid{display:grid;gap:20px;margin-top:32px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .card{border:1px solid var(--line);border-radius:10px;background:rgba(18,24,38,.5);padding:26px}
+  .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--drift);
+    text-transform:uppercase;display:block;margin-bottom:16px}
+
+  /* ---------- logo ---------- */
+  .stage{display:flex;align-items:center;justify-content:center;background:#04060A;
+    border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .stage.big{height:220px}
+  .stage.small{height:130px}
+  .stage.light{background:var(--bone)}
+  .wordmark{font-family:'Archivo';font-weight:680;font-variation-settings:"wdth" 84;
+    letter-spacing:.01em;color:var(--bone);display:flex;align-items:baseline}
+  .wordmark .sunk{transform:translateY(.19em);color:var(--brass)}
+  .wordmark.xl{font-size:72px}
+  .wordmark.md{font-size:40px}
+  .wordmark.dark{color:var(--ink)}
+  .spec{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--drift);margin-top:14px;line-height:1.8}
+  .spec b{color:var(--bone);font-weight:500}
+
+  /* ---------- palette ---------- */
+  .tokens{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-top:32px}
+  .token{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .token .chip{height:84px}
+  .token .meta{padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.7}
+  .token .meta b{display:block;font-family:'Archivo';font-size:13.5px;font-weight:600;letter-spacing:0}
+  .token .meta span{color:var(--drift)}
+
+  /* ---------- type ---------- */
+  .typerow{border-top:1px solid var(--line);padding:26px 0;display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:baseline}
+  .typerow:first-of-type{border-top:none}
+  .typerow .role{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--drift);text-transform:uppercase}
+  @media(max-width:600px){.typerow{grid-template-columns:1fr;gap:6px}}
+
+  /* ---------- copy templates ---------- */
+  .tmpl{border:1px solid var(--line);border-radius:10px;padding:34px;background:rgba(18,24,38,.5);margin-top:22px}
+  .tmpl .headline{font-family:'Newsreader',serif;font-weight:420;font-size:clamp(22px,2.8vw,32px);line-height:1.3}
+  .tmpl .headline em{color:var(--brass);font-style:italic}
+  .tmpl .body{color:var(--drift);font-size:14.5px;margin-top:14px;max-width:56ch}
+  .tmpl .cta{display:inline-block;margin-top:20px;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--brass);
+    border:1px solid rgba(232,179,106,.45);padding:9px 16px;border-radius:6px}
+  .formula{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--drift);
+    background:#04060A;border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin-top:18px;line-height:1.8}
+  .formula b{color:var(--brass);font-weight:500}
+
+  .lexicon{margin-top:28px;border-top:1px solid var(--line)}
+  .lex-entry{border-bottom:1px solid var(--line);padding:20px 0;display:grid;grid-template-columns:220px 1fr;gap:20px}
+  .lex-entry .term{font-family:'Newsreader',serif;font-size:19px}
+  .lex-entry .term em{color:var(--brass);font-size:14px}
+  .lex-entry .def{color:var(--drift);font-size:14px;align-self:center}
+  @media(max-width:600px){.lex-entry{grid-template-columns:1fr;gap:4px}}
+
+  footer{padding:56px 6vw;color:var(--drift);font-size:13.5px;max-width:72ch}
+  footer strong{color:var(--bone)}
+</style>
+</head>
+<body>
+
+<section>
+  <div class="eyebrow">Brand system · v1 · locked</div>
+  <h1>fathm — the chart room.</h1>
+  <p class="sub" style="margin-top:14px">One system, four parts: logo, color, type, and copy formulas. Everything below is production-ready — hex codes, font names, and fill-in-the-blank templates your whole team can use without a designer in the room.</p>
+</section>
+
+<section>
+  <div class="eyebrow">01 · Logo</div>
+  <h2>Primary wordmark — the sunk vowel</h2>
+  <p class="sub">Lowercase Archivo, condensed width, heavy weight. The "a" drops .19em below the baseline and takes the brass accent — one letter, sitting deeper than the rest.</p>
+
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">Primary · dark backgrounds</span>
+      <div class="stage big"><div class="wordmark xl">f<span class="sunk">a</span>thm</div></div>
+      <div class="spec">
+        Font: <b>Archivo · wght 680 · wdth 84</b><br>
+        Case: <b>always lowercase</b><br>
+        Sunk vowel: <b>translateY(.19em) · #E8B36A</b><br>
+        Clearspace: <b>height of the "f" on all sides</b>
+      </div>
+    </div>
+    <div class="card">
+      <span class="tag">Inverse · light backgrounds</span>
+      <div class="stage big light"><div class="wordmark xl dark">f<span class="sunk">a</span>thm</div></div>
+      <div class="spec">
+        Ink on bone. Brass vowel stays brass —<br>it passes contrast on both grounds.<br>
+        Never: gradients, outlines, all-caps,<br>or un-sinking the vowel.
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g2" style="margin-top:20px">
+    <div class="card">
+      <span class="tag">Secondary mark · sounding line</span>
+      <div class="stage small">
+        <svg width="30" height="66" viewBox="0 0 34 72" fill="none" aria-label="Fathm sounding line mark">
+          <line x1="17" y1="2" x2="17" y2="58" stroke="#E8B36A" stroke-width="2"/>
+          <line x1="9" y1="14" x2="25" y2="14" stroke="#F4EFE6" stroke-width="2"/>
+          <line x1="11" y1="28" x2="23" y2="28" stroke="#F4EFE6" stroke-width="2"/>
+          <line x1="13" y1="42" x2="21" y2="42" stroke="#F4EFE6" stroke-width="2"/>
+          <circle cx="17" cy="63" r="4.5" fill="#E8B36A"/>
+        </svg>
+      </div>
+      <div class="spec">Use for: <b>favicon, app icon, social avatar,<br>slide corners, loading states</b>.<br>Never lockup with the wordmark side-by-side<br>in body content — one mark per surface.</div>
+    </div>
+    <div class="card">
+      <span class="tag">Wordmark · small sizes</span>
+      <div class="stage small"><div class="wordmark md">f<span class="sunk">a</span>thm</div></div>
+      <div class="spec">Below 24px the sunk vowel loses legibility —<br>use the sounding-line mark instead.<br>Minimum wordmark size: <b>24px height</b>.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">02 · Color</div>
+  <h2>Brass &amp; Depth — palette tokens</h2>
+  <p class="sub">Dark chart-room base, one brass accent used like lamplight: only where meaning lives. If a page is more than ~10% brass, it's too much.</p>
+
+  <div class="tokens">
+    <div class="token"><div class="chip" style="background:#07090D"></div>
+      <div class="meta"><b>Ink</b>#07090D<br><span>page background</span></div></div>
+    <div class="token"><div class="chip" style="background:#121826"></div>
+      <div class="meta"><b>Slate</b>#121826<br><span>cards, panels, elevated surfaces</span></div></div>
+    <div class="token"><div class="chip" style="background:#E8B36A"></div>
+      <div class="meta"><b>Brass</b>#E8B36A<br><span>accent — links, CTAs, the sunk vowel</span></div></div>
+    <div class="token"><div class="chip" style="background:#93856F"></div>
+      <div class="meta"><b>Driftwood</b>#93856F<br><span>secondary text, captions</span></div></div>
+    <div class="token"><div class="chip" style="background:#F4EFE6"></div>
+      <div class="meta"><b>Bone</b>#F4EFE6<br><span>primary text, light-mode ground</span></div></div>
+    <div class="token"><div class="chip" style="background:#B65C4A"></div>
+      <div class="meta"><b>Signal Rust</b>#B65C4A<br><span>errors, destructive actions only</span></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">03 · Type</div>
+  <h2>Type system</h2>
+  <p class="sub">Three faces, three jobs. The serif is the voice; the grotesk is the workhorse; the mono is the instrument panel.</p>
+
+  <div style="margin-top:28px">
+    <div class="typerow">
+      <div class="role">Display / Voice<br>Newsreader</div>
+      <div class="serif" style="font-size:clamp(24px,3.4vw,38px);font-weight:420;line-height:1.25">fathm <em style="color:var(--brass)">(v.)</em> — to understand something fully, down to its source.</div>
+    </div>
+    <div class="typerow">
+      <div class="role">UI / Body<br>Archivo</div>
+      <div style="font-size:16px;max-width:60ch">Headlines, navigation, body copy, buttons. Condensed width (wdth 84–92) for headers, full width for body. Never italicized — italics belong to the serif.</div>
+    </div>
+    <div class="typerow">
+      <div class="role">Utility / Data<br>IBM Plex Mono</div>
+      <div class="mono" style="font-size:13.5px;color:var(--drift)">EYEBROWS · LABELS · TIMESTAMPS · provenance chains · depth: 4.2 · verified 2026-08-16</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">04 · Copy formulas</div>
+  <h2>The definition device</h2>
+  <p class="sub">The signature move. Every major surface — hero, feature, announcement — can open with a dictionary entry. Here's the formula and a starter lexicon.</p>
+
+  <div class="formula">
+    <b>[term]</b> <b>(n./v.)</b> — [plain-spoken definition, ≤14 words, no jargon].<br>
+    Rules: always lowercase · serif face · part-of-speech in brass italic · one entry per surface · definition must be true of the product, not just poetic.
+  </div>
+
+  <div class="lexicon">
+    <div class="lex-entry"><div class="term">fathm <em>(v.)</em></div><div class="def">to understand something fully, down to its source.</div></div>
+    <div class="lex-entry"><div class="term">sounding <em>(n.)</em></div><div class="def">a single verified measurement. the unit of trust.</div></div>
+    <div class="lex-entry"><div class="term">provenance <em>(n.)</em></div><div class="def">where a claim came from, and how it got here.</div></div>
+    <div class="lex-entry"><div class="term">the standard <em>(n.)</em></div><div class="def">one structure for every analysis. enforced, not suggested.</div></div>
+    <div class="lex-entry"><div class="term">chart room <em>(n.)</em></div><div class="def">where all your data packages can be questioned at once.</div></div>
+  </div>
+
+  <h2 style="margin-top:56px">Templates by surface</h2>
+
+  <div class="tmpl">
+    <span class="tag">Template A · Site hero</span>
+    <div class="headline">fathm <em>(v.)</em> — to understand something fully, down to its source.</div>
+    <p class="body">The provenance standard for AI-driven analysis. Every data package structured, every method traceable, every agent able to show its work.</p>
+    <span class="cta">Read the standard →</span>
+    <div class="formula">[definition entry] + [one-sentence category claim] + [three-beat elaboration: structured / traceable / accountable] + [CTA verb in mono caps]</div>
+  </div>
+
+  <div class="tmpl">
+    <span class="tag">Template B · Feature block</span>
+    <div class="headline" style="font-size:22px">sounding <em>(n.)</em> — a single verified measurement.</div>
+    <p class="body">Every claim in a Fathm package carries its own line to the bottom: source, method, transformation history. Pull any number and see exactly what it rests on.</p>
+    <div class="formula">[lexicon entry] + [what the feature literally does, 2 sentences max] — no adjectives without evidence, no "revolutionary," no "seamless"</div>
+  </div>
+
+  <div class="tmpl">
+    <span class="tag">Template C · Pitch deck</span>
+    <p class="body" style="margin-top:0"><b style="color:var(--bone)">Title slide:</b> wordmark alone on ink, definition entry beneath, nothing else.<br><br>
+    <b style="color:var(--bone)">Problem slide:</b> "Most analysis is a surface reading." — one serif sentence, then three mono-labeled pains.<br><br>
+    <b style="color:var(--bone)">Solution slide:</b> the sounding-line mark, animated dropping, ticks labeling your three layers (standard → CI enforcement → agent layer).<br><br>
+    <b style="color:var(--bone)">Ask slide:</b> "Help us reach the bottom." + the number.</p>
+  </div>
+
+  <div class="tmpl">
+    <span class="tag">Template D · Social / launch post</span>
+    <p class="body" style="margin-top:0">First line is always a lexicon entry. Second line is the news, plainly. Last line is the link. No hashtags, no emoji, no exclamation points — the restraint <em>is</em> the brand.</p>
+    <div class="formula">provenance (n.) — where a claim came from, and how it got here.<br><br>Today we're opening the Fathm standard to everyone. → fathm.ai</div>
+  </div>
+
+  <div class="tmpl">
+    <span class="tag">Template E · Cold outreach / email</span>
+    <div class="formula">Subject: a sounding on [their company]'s data<br><br>[Name] — most analysis stacks can't answer "where did this number come from?" in under an hour. Fathm makes it one click: a standard for data packages with provenance enforced in CI, and agents that reason across all of them. Worth 20 minutes?<br><br>[sig: name · fathm · to understand something fully, down to its source.]</div>
+  </div>
+</section>
+
+<footer>
+  <strong>Handoff notes:</strong> fonts are all free on Google Fonts (Newsreader, Archivo, IBM Plex Mono). The wordmark is live type, not an image — anyone on the team can reproduce it with the spec in section 01. Next natural steps when you're ready: SVG logo exports, the landing page itself built in this system, or the pitch deck. — your 20-something designer who is definitely not asking for equity
+</footer>
+
+</body>
+</html>
