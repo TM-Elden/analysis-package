@@ -29,7 +29,7 @@ Block or flag publish when an Analysis Package fails machine-checkable completen
 | `qa_status_enum` | required | `qa.status` is one of `draft` / `in_review` / `approved` / `rejected` |
 | `training_eligibility_present` | required | `training_eligibility` is present and boolean |
 | `qa_approved_implies_pass` | required | If `qa.status == approved`, no other required check (except `no_unlabeled_diff`) failed. Evaluates the gate's own freshly computed results, never the manifest's `qa.checks[]` historical record. Skips when status isn't `approved`. |
-| `no_unlabeled_diff` | required | **Stubbed in phase 1 - always `skip`.** Engine replay (output delta vs. `labels/overrides.jsonl`) needs real deterministic engine implementations, which are out of phase-1 scope (a phase-2 candidate). |
+| `no_unlabeled_diff` | required | **Stubbed - always `skip`.** Engine replay (output delta vs. `labels/overrides.jsonl`) needs real deterministic engine implementations; phase 2 (see `AGENTS.md`) didn't add these, so this stays future work with no phase assigned yet. |
 
 Waivers: `qa.waivers[]` entries `{check_id, reason, author}` turn a failing check into `result: pass, waived: true`. Waiver `author` is never surfaced in gate output (report evidence or results) - see the report shape below.
 
@@ -63,7 +63,7 @@ entrypoint (D6C) - there is no second soft path.
 - "Does the prose conclusion follow from the data?" -> L2
 - Model quality of free-text reason_text
 - Full cryptographic supply chain of ERP extracts beyond declared hashes
-- Real engine implementations / `no_unlabeled_diff` engine replay (phase-2 candidate)
+- Real engine implementations / `no_unlabeled_diff` engine replay (future work, not yet phase-scheduled)
 
 ## Pilot success metrics
 

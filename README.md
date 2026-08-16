@@ -121,7 +121,7 @@ pip install -e ".[dev]"
 cd examples/commodity-commit-v1
 cat MANIFEST.yaml
 cat labels/overrides.jsonl
-python code/run_commit_pack.py   # stub entrypoint today - real engines are a phase-2 candidate
+python code/run_commit_pack.py   # stub entrypoint today - real engines are future work, not yet phase-scheduled
 ```
 
 Validator CLI:
@@ -153,7 +153,7 @@ canonical check-ID list and the gate's layered report shape.
 - [ ] YAML → RO-Crate compiler  
 - [ ] One real (redacted) design-partner pack  
 - [ ] Second pack type (prove universal fit)
-- [ ] Real deterministic engines for `examples/commodity-commit-v1` (phase-2 candidate; unblocks `no_unlabeled_diff`)  
+- [ ] Real deterministic engines for `examples/commodity-commit-v1` (future work, not yet phase-scheduled; unblocks `no_unlabeled_diff`)  
 
 ---
 
