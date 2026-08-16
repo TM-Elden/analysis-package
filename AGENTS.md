@@ -357,6 +357,48 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
   no real Telegram bot/chat credentials exist in this sandbox; `test_chat_telegram_e2e.py` is the
   full simulated round-trip, `test_chat_runner.py` is the reconnect/backoff acceptance test.
 
+## Phase 4 (in progress): C6 planner-bot evidence layer (`ap_planner_bot`)
+
+Design authority: `data/fathm-phase4-readiness/report.md` section 5.2 in the firstmate repo. This
+is stage 1 only (deterministic scan + detectors) - the LLM-drafting stage that turns a `Finding`
+into a proposal, and the `ap_proposals` storage/workflow it writes to, are later chunks (P4.1/P4.4)
+and do not exist yet.
+
+- **`src/ap_planner_bot/scan.py`**: `scan_corpus(store)` pages through every `status == "approved"`
+  package in a `PackageStore`, extracts each (`store.extract`, the same pattern as
+  `ap_console.gate_report.render_gate_report_html` - read that module first), reruns the gate
+  in-process (`ap_gate.checks.registry.run_all`, post-waiver outcomes), and parses
+  `labels/overrides.jsonl` into `PackageScan`s. No persisted telemetry, no incremental state - a
+  full scan recomputes from the store on every call (sub-second per package at pilot scale).
+- **`src/ap_planner_bot/detectors.py`**: `run_all_detectors(scan)` runs the five v0 detectors
+  (unknown/OTHER-heavy reason codes, repeated waivers, repeated override patterns, gate-failure
+  hotspots including advisory-check fail rates, profile-version drift) over a `CorpusScan`,
+  producing typed `Finding`s (`detector`, `kind` - a candidate proposal kind: `reason_code_add` |
+  `profile_change` | `check_add` | `standard_change` -, `summary`, `package_ids`, `detail`). Pure
+  functions, no I/O, no LLM call - the LLM (a later chunk) only narrates findings this module
+  already computed. Thresholds are named constants at the top of the file, documented as tunable
+  in place (same honesty pattern as the entropy threshold in `ap_redact/secrets_scan.py`). A
+  "dead-end questions" detector is deliberately **not** built - no question log exists yet, and
+  logging planner questions is itself inside the still-open
+  `fathm-plan-review-decision-planner-incentive-stance` hold's territory (see below).
+- **Hard invariant, non-negotiable: no detector aggregates by `author` or any `owners.*`
+  identifier.** This is the mitigation the phase-4 plan adopts for that same open hold (report
+  section 7): a bot whose input is "repeated overrides" is one `GROUP BY author` away from a
+  planner league table. Enforced structurally, not just by convention -
+  `scan.py`'s `OverrideRow` keeps only `field_path` / `reason_code` / `reason_text` from each
+  parsed override row (`author`, `ts`, `before`, `after`, `evidence_refs`, `agent_draft` are
+  dropped at parse time), so a detector cannot key off an author it was never handed.
+  `tests/test_planner_bot_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings`
+  asserts this on both the scan's own data and every `Finding.detail`. Extend this type or that
+  test together if a future detector needs a new field.
+- **Fixtures**: `tests/_planner_bot_corpus.py` builds two small seeded corpora off
+  `ap_agent_tools.package_create` (mirroring `tests/_manager_bot_corpus.py`'s pattern) - a
+  drift corpus with one injected instance of each of the five signals, and a clean corpus with
+  none. Both use `ReviewPolicy(gate_before_review=False)` deliberately: several drift packages
+  carry an intentionally-failing, unwaived check (the gate-failure-hotspot signal), which a real
+  team only reaches `approved` for under that documented policy override - see the fixture
+  module's docstring.
+
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 
 Concretizes C8's "Tool/API defs agents can call" acceptance item, plus the P4 `agent_draft` capture
