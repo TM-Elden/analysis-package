@@ -1,0 +1,145 @@
+{# Partial: everything below the h1 on the proposal detail page. Re-rendered in place (outerHTML)
+   after a decision POST so a decided proposal's status/audit-trail update without a full page
+   reload, mirroring _review_queue_table.html's swap pattern. #}
+<div id="proposal-detail-body">
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <div class="meta">
+      <div><span>Status</span><span class="badge {{ prop.status }}">{{ prop.status }}</span></div>
+      <div><span>Kind</span><span class="mono">{{ prop.kind }}</span></div>
+      <div><span>Created</span>{{ prop.created_at }}</div>
+      <div><span>Created by</span><span class="mono">{{ prop.created_by_id }}</span> ({{ prop.created_by_roles }})</div>
+      {% if prop.decided_by_id %}
+      <div><span>Decided by</span><span class="mono">{{ prop.decided_by_id }}</span></div>
+      <div><span>Decided at</span>{{ prop.decided_at }}</div>
+      {% endif %}
+      {% if prop.applied_version %}
+      <div><span>Applied version</span><span class="mono">{{ prop.applied_version }}</span></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-bottom:6px">Rationale</div>
+    <p style="margin:0">{{ prop.rationale }}</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-bottom:6px">Evidence</div>
+    {% if evidence.package_ids %}
+    <div class="evidence-links">
+      {% for pid in evidence.package_ids %}
+      <a class="citation-link" href="/console/packages/{{ pid }}" target="_blank" rel="noopener">{{ pid }}</a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty" style="margin:0">No package-level evidence recorded on this proposal.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="eyebrow" style="margin-bottom:6px">Diff ({{ prop.kind }})</div>
+    {% if diff_view.mode == "before_after" %}
+    <div class="diff-cols">
+      <div>
+        <div class="mono" style="color:var(--drift);font-size:.75rem;margin-bottom:4px">BEFORE</div>
+        <pre class="diff-json">{{ diff_view.before }}</pre>
+      </div>
+      <div>
+        <div class="mono" style="color:var(--drift);font-size:.75rem;margin-bottom:4px">AFTER</div>
+        <pre class="diff-json">{{ diff_view.after }}</pre>
+      </div>
+    </div>
+    {% if diff_view.extra %}
+    <div class="mono" style="color:var(--drift);font-size:.75rem;margin:12px 0 4px">OTHER FIELDS</div>
+    <pre class="diff-json">{{ diff_view.extra }}</pre>
+    {% endif %}
+    {% else %}
+    <pre class="diff-json">{{ diff_view.raw }}</pre>
+    {% endif %}
+
+    {% if edited_diff_view %}
+    <div class="eyebrow" style="margin:18px 0 6px">Approved-with-edits diff</div>
+    {% if edited_diff_view.mode == "before_after" %}
+    <div class="diff-cols">
+      <div>
+        <div class="mono" style="color:var(--drift);font-size:.75rem;margin-bottom:4px">BEFORE</div>
+        <pre class="diff-json">{{ edited_diff_view.before }}</pre>
+      </div>
+      <div>
+        <div class="mono" style="color:var(--drift);font-size:.75rem;margin-bottom:4px">AFTER</div>
+        <pre class="diff-json">{{ edited_diff_view.after }}</pre>
+      </div>
+    </div>
+    {% else %}
+    <pre class="diff-json">{{ edited_diff_view.raw }}</pre>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  {% include "_dry_run_panel.html" %}
+
+  {% if prop.status == "pending_hitl" %}
+  <div class="card">
+    <div class="eyebrow" style="margin-bottom:6px">Decision</div>
+
+    <form class="decision-form"
+      hx-post="/console/standard/proposals/{{ prop.proposal_id }}/decision"
+      hx-target="#proposal-detail-body" hx-swap="outerHTML"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+      <input type="hidden" name="to_status" value="approved">
+      <button type="submit" class="btn approve">Approve</button>
+    </form>
+
+    <form class="decision-form"
+      hx-post="/console/standard/proposals/{{ prop.proposal_id }}/decision"
+      hx-target="#proposal-detail-body" hx-swap="outerHTML"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+      <input type="hidden" name="to_status" value="approved">
+      <label class="mono" style="font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em">
+        Approve with edits - edit the diff below before submitting
+        <textarea class="diff-edit mono" name="edited_diff">{{ edited_diff_text }}</textarea>
+      </label>
+      <button type="submit" class="btn approve">Approve with edits</button>
+    </form>
+
+    <form class="decision-form"
+      hx-post="/console/standard/proposals/{{ prop.proposal_id }}/decision"
+      hx-target="#proposal-detail-body" hx-swap="outerHTML"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+      <input type="hidden" name="to_status" value="rejected">
+      <label class="mono" style="font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em">
+        Reject - reason required
+        <input type="text" name="reason" placeholder="reason (required)" required
+          style="margin-top:6px;background:#04060A;border:1px solid var(--line);border-radius:6px;
+            color:var(--bone);padding:8px 10px;font-family:'Archivo',sans-serif;font-size:14px;width:100%">
+      </label>
+      <button type="submit" class="btn reject">Reject</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="eyebrow" style="margin-bottom:6px">Audit trail</div>
+    <ul class="timeline">
+      {% for entry in audit_entries %}
+      <li>
+        <div>
+          <span class="badge {{ entry.to_status }}">{{ entry.from_status or "created" }} → {{ entry.to_status }}</span>
+          <span class="mono"> by {{ entry.actor_id }}</span>
+          <span style="color:var(--drift);font-size:.8rem"> ({{ entry.actor_roles }})</span>
+        </div>
+        <div class="ts">{{ entry.ts }}</div>
+        {% if entry.reason %}
+        <div class="reason">{{ entry.reason }}</div>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="empty">No audit history yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

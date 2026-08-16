@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ prop.proposal_id }}{% endblock %}
+{% block nav_standard %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">standard-change proposal</div>
+<h1>{{ prop.summary }}</h1>
+<p class="mono" style="color:var(--drift);font-size:13px;margin:0">
+  {{ prop.proposal_id }} · {{ prop.kind }}
+</p>
+
+{% include "_proposal_detail_body.html" %}
+
+<p style="margin-top:18px"><a href="/console/standard">← Back to queue</a></p>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Standard changelog{% endblock %}
+{% block nav_standard %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Standard changelog</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Interim view: <span class="mono">GET /standard/versions</span> (the real version-history surface,
+  once the versioned profile registry exists) hasn't been built yet, so this lists every decided
+  proposal from the C6/C7 proposal audit trail instead - not the final changelog surface.
+</p>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Proposal</th>
+        <th>Kind</th>
+        <th>Summary</th>
+        <th>Decision</th>
+        <th>Decided by</th>
+        <th>Decided at</th>
+        <th>Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for prop in items %}
+      <tr>
+        <td class="mono"><a href="/console/standard/proposals/{{ prop.proposal_id }}">{{ prop.proposal_id }}</a></td>
+        <td class="mono">{{ prop.kind }}</td>
+        <td>{{ prop.summary }}</td>
+        <td><span class="badge {{ prop.status }}">{{ prop.status }}</span></td>
+        <td class="mono">{{ prop.decided_by_id or "—" }}</td>
+        <td class="mono">{{ prop.decided_at or "—" }}</td>
+        <td>{{ prop.decision_reason or "—" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">No decided proposals yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<p style="margin-top:18px"><a href="/console/standard">← Back to queue</a></p>
+{% endblock %}

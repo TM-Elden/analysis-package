@@ -51,6 +51,8 @@
   .badge.rejected,.badge.fail{background:#3a1616;color:#ff8a8a;border:1px solid #612929}
   .badge.draft{background:#2a2410;color:var(--brass);border:1px solid rgba(232,179,106,.35)}
   .badge.in_review{background:#12233a;color:#7db8e8;border:1px solid #204a6e}
+  .badge.pending_hitl{background:#2a2410;color:var(--brass);border:1px solid rgba(232,179,106,.35)}
+  .badge.withdrawn{background:#242424;color:var(--drift);border:1px solid var(--line)}
   form.filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:18px}
   form.filters label{display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);
     text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace}
@@ -64,6 +66,26 @@
     background:#14161a}
   .flash{border:1px solid var(--rust);background:rgba(182,92,74,.12);color:#ffb6a8;border-radius:8px;
     padding:10px 14px;margin-bottom:16px;font-size:.85rem}
+  .notice{border:1px solid var(--brass-dim);background:rgba(232,179,106,.08);color:var(--brass);
+    border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:.85rem}
+  .tabs{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap}
+  .tabs a{text-decoration:none;color:var(--drift);font-family:'IBM Plex Mono',monospace;font-size:.76rem;
+    letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border:1px solid var(--line);border-radius:999px}
+  .tabs a.active{color:var(--ink);background:var(--brass);border-color:var(--brass)}
+  .tabs a:hover:not(.active){color:var(--bone);border-color:var(--brass-dim)}
+  .diff-json{background:#04060A;border:1px solid var(--line);border-radius:8px;padding:14px;
+    overflow-x:auto;font-family:'IBM Plex Mono',monospace;font-size:12.5px;white-space:pre-wrap;word-break:break-word}
+  .diff-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .diff-cols .diff-json{max-height:320px;overflow-y:auto}
+  @media (max-width:700px){.diff-cols{grid-template-columns:1fr}}
+  textarea.diff-edit{width:100%;min-height:200px;background:#04060A;border:1px solid var(--line);
+    border-radius:6px;color:var(--bone);padding:10px;font-family:'IBM Plex Mono',monospace;
+    font-size:13px}
+  button.btn:disabled{opacity:.4;cursor:not-allowed}
+  .evidence-links{display:flex;flex-wrap:wrap;gap:8px}
+  .decision-form{display:flex;flex-direction:column;gap:10px;margin-top:14px;padding-top:14px;
+    border-top:1px solid var(--line)}
+  .decision-form:first-child{border-top:none;padding-top:0}
   .review-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   form.review-action{display:flex;gap:6px;align-items:center;margin:0}
   form.review-action input[type="text"]{background:#04060A;border:1px solid var(--line);border-radius:6px;
@@ -116,6 +138,7 @@
   <nav class="crumbs">
     <a href="/console/packages" class="{% block nav_packages %}{% endblock %}">Packages</a>
     <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
+    <a href="/console/standard" class="{% block nav_standard %}{% endblock %}">Standard</a>
     <a href="/console/chat" class="{% block nav_chat %}{% endblock %}">Ask</a>
   </nav>
   <div class="whoami">
