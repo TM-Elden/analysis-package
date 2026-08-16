@@ -112,7 +112,7 @@ Prefer plain hyphen `-` in markdown/specs. Brand HTML may use its own punctuatio
 **Working mark:** fathm (keep for repo, brand kit, design-partner decks).  
 **Not cleared:** do not claim exclusive rights or use ®. Pair always with category line (*analysis package provenance* / *chart room*).
 
-Full scan (not legal advice): [`research/TRADEMARK-SCAN-fathm-2026-08-16.md`](../research/TRADEMARK-SCAN-fathm-2026-08-16.md)
+Full scan (not legal advice): [`brand/research/TRADEMARK-SCAN-fathm-2026-08-16.md`](research/TRADEMARK-SCAN-fathm-2026-08-16.md)
 
 | Watch | Why |
 |-------|-----|
@@ -121,7 +121,7 @@ Full scan (not legal advice): [`research/TRADEMARK-SCAN-fathm-2026-08-16.md`](..
 | Fathom HQ | Finance reporting adjacency |
 
 **Format name** Analysis Package (`ap`) is rename-safe if the product mark must change.  
-**Backup names:** [`research/BACKUP-NAMES-sounding.md`](../research/BACKUP-NAMES-sounding.md)
+**Backup names:** [`brand/research/BACKUP-NAMES-sounding.md`](research/BACKUP-NAMES-sounding.md)
 
 ## Domain
 Do not print a public URL until registrar WHOIS is checked. fathm.ai / fathm.co / fathom.ai are taken or resolving.

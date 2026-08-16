@@ -1,13 +1,13 @@
 # fathm - YC / seed pitch spine
 
 **Status:** Interview-backed · readiness graded · 2026-08-16  
-**Primary path (likely):** **Internal tool at Meta** - less risk, less reward. See `docs/PATH-INTERNAL-META.md` + `docs/PITCH-INTERNAL-META.md`.  
+**Primary path (likely):** **Internal tool at Meta** - less risk, less reward. See `brand/PATH-INTERNAL-META.md` + `brand/PITCH-INTERNAL-META.md`.  
 **This doc:** YC / external company narrative - **secondary / stretch only**.  
 **Audience:** YC application + interview; seed partners (if ever)  
 **Product mark:** fathm (working; not TM-cleared - see research scan)  
 **Format:** Analysis Package (`ap`)  
-**Rubric:** `docs/PITCH-YC-READINESS.md`  
-**Deck:** `docs/html/fathm-pitch-yc.html`
+**Rubric:** `brand/PITCH-YC-READINESS.md`  
+**Deck:** `brand/fathm-pitch-yc.html`
 
 Numbers/labels marked **[TOM]** need founder lock. Everything else is draftable without you.
 
@@ -165,7 +165,7 @@ SaaS subscription for standard tooling, CI gate, and chart room; upgrade path fo
 ---
 
 ## Related
-- Long pitch: `docs/PITCH.md`  
-- Readiness scores: `docs/PITCH-YC-READINESS.md`  
-- HTML: `docs/html/fathm-pitch-yc.html`  
-- TM: `research/TRADEMARK-SCAN-fathm-2026-08-16.md`
+- Long pitch: `brand/PITCH.md`  
+- Readiness scores: `brand/PITCH-YC-READINESS.md`  
+- HTML: `brand/fathm-pitch-yc.html`  
+- TM: `brand/research/TRADEMARK-SCAN-fathm-2026-08-16.md`

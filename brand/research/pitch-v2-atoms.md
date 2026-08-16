@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-16  
 **Source file:** `pitch-v2-source.pdf`  
-**Status:** superseded by `docs/PITCH.md` v3 for narrative; retained for provenance.
+**Status:** superseded by `brand/PITCH.md` v3 for narrative; retained for provenance.
 
 ## Extracted thesis atoms
 
@@ -19,4 +19,4 @@
 
 ## v3 deltas applied
 
-See docs/PITCH.md "Changes from pitch v2".
+See brand/PITCH.md "Changes from pitch v2".

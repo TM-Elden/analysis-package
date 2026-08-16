@@ -45,7 +45,7 @@
 
 ## Path note (2026-08-16)
 Tom: build likely as **internal tool at Meta** - less risk, less reward.  
-Primary pitch: `docs/PITCH-INTERNAL-META.md`. YC deck = stretch.
+Primary pitch: `brand/PITCH-INTERNAL-META.md`. YC deck = stretch.
 
 ---
 
@@ -53,7 +53,7 @@ Primary pitch: `docs/PITCH-INTERNAL-META.md`. YC deck = stretch.
 
 - Rubric file (this)  
 - Hardened `PITCH-YC.md` (speaker lines, app answers, solo frame, name note, use-of-funds template)  
-- Shipped `docs/html/fathm-pitch-yc.html` - 11-slide skim deck  
+- Shipped `brand/fathm-pitch-yc.html` - 11-slide skim deck  
 - Deployed to Pi static preview  
 
 ## Critical Tom inputs only (see end of PITCH-YC)

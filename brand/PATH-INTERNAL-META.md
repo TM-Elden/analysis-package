@@ -72,8 +72,8 @@ This does **not** kill the standard or brand work. It changes **GTM, ask, IP, an
 |----------|----------------------------|
 | `standard/ap-0.2` | Personal/public craft + future portability |
 | `docs/DESIGN-FATHM-SYSTEM.md` | Blueprint for internal build |
-| `docs/PITCH-YC.*` | Secondary; stretch |
-| `docs/PITCH-INTERNAL-META.md` | **Primary GTM narrative** (this file's sibling ask) |
+| `brand/PITCH-YC.*` | Secondary; stretch |
+| `brand/PITCH-INTERNAL-META.md` | **Primary GTM narrative** (this file's sibling ask) |
 | Public demo data | Synthetic only |
 
 ---

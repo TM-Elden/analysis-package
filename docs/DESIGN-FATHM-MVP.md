@@ -34,14 +34,14 @@ This is **not** Team Model, Planner Model, full SaaS, or RO-Crate compile yet.
 | Priority | Path in repo |
 |----------|----------------|
 | 1 | `README.md` |
-| 2 | `docs/BRAND.md` |
+| 2 | `brand/BRAND.md` |
 | 3 | `docs/ARCHITECTURE.md` |
 | 4 | `standard/ap-0.2/STANDARD.md` |
 | 5 | `product/CI-L1.md` |
 | 6 | `product/TRUST.md` |
 | 7 | `profiles/commodity_commit_forecast/README.md` |
 | 8 | `examples/commodity-commit-v1/` (entire tree) |
-| 9 | `docs/PITCH.md` (product why; do not implement L3/L4) |
+| 9 | `brand/PITCH.md` (product why; do not implement L3/L4) |
 | 10 | `docs/DECISIONS.md` |
 
 Polished HTML (reference only): `docs/html/spec-guide.html`

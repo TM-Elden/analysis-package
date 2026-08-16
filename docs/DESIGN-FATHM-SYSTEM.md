@@ -125,14 +125,14 @@ firstmate decides order and packaging. Hermes does not mandate phases.
 
 ## 4. Read order (context)
 
-1. `docs/BRAND.md` + `brand/fathm-brand-final.html`  
+1. `brand/BRAND.md` + `brand/fathm-brand-final.html`  
 2. `README.md`  
 3. `docs/ARCHITECTURE.md`  
 4. `standard/ap-0.2/STANDARD.md`  
 5. `product/CI-L1.md`, `product/CI-L2.md`, `product/TRUST.md`  
 6. `profiles/commodity_commit_forecast/README.md`  
 7. `examples/commodity-commit-v1/`  
-8. `docs/PITCH.md`  
+8. `brand/PITCH.md`  
 9. `docs/DECISIONS.md`  
 10. This file  
 
@@ -664,7 +664,7 @@ firstmate may ship partial increments; "done for full system" means 1-21 above.
 - Webhook payload richness vs trust (default: ids only)  
 - Self-approve packages allowed for tiny teams?  
 - "Bot creation" for team members: scoped chat/query handles onto the shared team bot vs. per-member planning-agent instances (C8 client + provisioning) vs. phased (scoped handles now, per-member instances later) - blocks scoping of any bot-provisioning work beyond C20's single shared channel  
-- "Review soundings" meaning: package-level review queue (C10, the reading §20a's phase-3 scope is built to) vs. individual override/judgment-row review (brand-lexicon reading, `docs/BRAND.md`), or both - affects console review-surface scope only
+- "Review soundings" meaning: package-level review queue (C10, the reading §20a's phase-3 scope is built to) vs. individual override/judgment-row review (brand-lexicon reading, `brand/BRAND.md`), or both - affects console review-surface scope only
 
 ---
 
@@ -711,7 +711,7 @@ cd ~/firstmate/projects/fathm && git pull
 |------|------|
 | `docs/DESIGN-FATHM-MVP.md` | Earlier L1-only draft (superseded for scope; keep for historical checklists) |
 | `docs/FIRSTMATE-KICKOFF.md` | Short card - update to point here |
-| `docs/PITCH.md` | Narrative |
+| `brand/PITCH.md` | Narrative |
 | `docs/ARCHITECTURE.md` | Diagram-level join |
 
 **This document is the build authority for system scope.**
