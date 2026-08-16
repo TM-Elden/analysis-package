@@ -664,7 +664,8 @@ firstmate may ship partial increments; "done for full system" means 1-21 above.
 - Webhook payload richness vs trust (default: ids only)  
 - Self-approve packages allowed for tiny teams?  
 - "Bot creation" for team members: scoped chat/query handles onto the shared team bot vs. per-member planning-agent instances (C8 client + provisioning) vs. phased (scoped handles now, per-member instances later) - blocks scoping of any bot-provisioning work beyond C20's single shared channel  
-- "Review soundings" meaning: package-level review queue (C10, the reading §20a's phase-3 scope is built to) vs. individual override/judgment-row review (brand-lexicon reading, `brand/BRAND.md`), or both - affects console review-surface scope only
+
+Resolved: "review soundings" means package-level review (whole packages awaiting review, not individual override/judgment rows) - see §20a.
 
 ---
 
@@ -680,14 +681,14 @@ firstmate may ship partial increments; "done for full system" means 1-21 above.
 - **Manager console v0** (the phase-3 half of the C19 split, §13j): package list/detail + rendered gate report, C10 review queue, LLM query panel over `POST /chat/manager`. Explicitly *not* in v0: the gate-analytics dashboard, the Standard-HITL proposal queue (impossible before phase 4 regardless, since C6/C7 don't exist yet), and admin/lifecycle screens.  
 - **Planner chat v0** (C20, §13k): one channel, DM/mention → `POST /chat/manager` → cited answer in-thread.  
 - Full C11 enforcement, including web authentication (login/sessions) that a CLI-only phase 3 would not have needed.  
-- **Scope note flagged by the open "review soundings" decision (§20):** the C10 review queue above is built to the package-level reading of "review soundings." If the captain confirms the individual override/judgment-row reading instead (or both), the review queue needs label-row drill-down in addition to the package-level queue - the underlying data (`labels/*.jsonl` with `author`, `ts`, `reason_code`) already supports it, but the queue's scope should not be assumed either way until that hold clears.  
+- **"Review soundings" resolved (was §20):** package-level review queue - the C10 review queue above shows whole packages awaiting review, not individual override/judgment rows, and phase 3 shipped to that reading (`src/ap_console/` review queue, no row-level drill-down).  
 - **Cut-priority order if phase 3 must shrink** (it is materially bigger than a phase that ships "just a bot"): planner chat v0 keeps priority over the console query panel; the console review queue keeps priority over everything else in the console (it is the first thing C10 makes demoable); the gate-analytics dashboard is the safest deferral, since no pilot user is waiting on it.
 
 **Phase 4 - unchanged in content.** C6 proposals + C7 HITL land as designed. The console gains the "Updating the Standard" tab (proposal queue, approve/edit/reject, dry-run diff), which cannot land earlier since it renders C6's output.
 
 **Phase 5 - the C19 remainder.** Gate-analytics dashboard, operator/admin views, lifecycle screens (C12: supersede/recall/retention), plus whatever the open "bot creation for team members" decision (§20) adds once it resolves.
 
-**Not resolved here (open captain holds, unchanged by this amendment):** what "bot creation for team members" means (scoped handles on the shared bot, per-member planning-agent instances, or phased), what "review soundings" means (package-level vs. individual-measurement review), and the manager console's specific hosting model (hosted SaaS vs. Pi/on-prem-first). All three are held in §20; nothing in this section should be read as answering any of them.
+**Not resolved here (open captain holds, unchanged by this amendment):** what "bot creation for team members" means (scoped handles on the shared bot, per-member planning-agent instances, or phased), and the manager console's specific hosting model (hosted SaaS vs. Pi/on-prem-first). Both are held in §20; nothing in this section should be read as answering either of them. ("Review soundings" is resolved - see above.)
 
 ---
 

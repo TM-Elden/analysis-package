@@ -38,6 +38,27 @@
 </div>
 
 <div class="card">
+  <div class="eyebrow" style="margin-bottom:6px">Audit trail</div>
+  <ul class="timeline">
+    {% for entry in audit_entries %}
+    <li>
+      <div>
+        <span class="badge {{ entry.to_status }}">{{ entry.from_status or "created" }} → {{ entry.to_status }}</span>
+        <span class="mono"> by {{ entry.actor_id }}</span>
+        <span style="color:var(--drift);font-size:.8rem"> ({{ entry.actor_roles }})</span>
+      </div>
+      <div class="ts">{{ entry.ts }}</div>
+      {% if entry.reason %}
+      <div class="reason">{{ entry.reason }}</div>
+      {% endif %}
+    </li>
+    {% else %}
+    <li class="empty">No audit history yet.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<div class="card">
   <div class="eyebrow" style="margin-bottom:6px">Gate report</div>
   <p style="color:var(--drift);font-size:13px;margin:0 0 4px">
     Re-run against this version's stored bytes (`ap_gate` structural checks).

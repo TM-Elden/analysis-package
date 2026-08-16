@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block nav_review_queue %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Review queue</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Packages awaiting a package-level review decision. Approve or reject re-runs the real C10
+  workflow (gate-before-review, distinct-reviewer policy) - a rejection requires a reason.
+</p>
+
+<div class="card">
+  {% include "_review_queue_table.html" %}
+</div>
+{% endblock %}

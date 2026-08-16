@@ -1,0 +1,60 @@
+{# Partial: swapped in place (outerHTML) after every approve/reject action, and reused as the
+   initial render for the full queue page - one markup, one place to change columns (mirrors
+   _packages_table.html's pattern). #}
+<div id="review-queue-table">
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Package</th>
+        <th>Title</th>
+        <th>Profile</th>
+        <th>As of</th>
+        <th>Analyst</th>
+        <th>Gate</th>
+        <th>Decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for pkg in items %}
+      <tr>
+        <td class="mono"><a href="/console/packages/{{ pkg.package_id }}">{{ pkg.package_id }}</a><br>
+          <span style="color:var(--drift);font-size:.78rem">{{ pkg.package_version }}</span></td>
+        <td>{{ pkg.title }}</td>
+        <td class="mono">{{ pkg.profile }}</td>
+        <td class="mono">{{ pkg.as_of }}</td>
+        <td class="mono">{{ pkg.analyst_id or "—" }}</td>
+        <td><span class="badge {{ pkg.gate_overall }}">{{ pkg.gate_overall }}</span></td>
+        <td>
+          <div class="review-actions">
+            <form class="review-action"
+              hx-post="/console/packages/{{ pkg.package_id }}/review"
+              hx-target="#review-queue-table" hx-swap="outerHTML"
+              hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+              <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+              <input type="hidden" name="to_status" value="approved">
+              <button type="submit" class="btn approve">Approve</button>
+            </form>
+            <form class="review-action"
+              hx-post="/console/packages/{{ pkg.package_id }}/review"
+              hx-target="#review-queue-table" hx-swap="outerHTML"
+              hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+              <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+              <input type="hidden" name="to_status" value="rejected">
+              <input type="text" name="reason" placeholder="reason (required)" required>
+              <button type="submit" class="btn reject">Reject</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7" class="empty">Nothing waiting for review.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="mono" style="color:var(--drift);font-size:.78rem;margin-top:10px">
+    {{ total }} package{{ "" if total == 1 else "s" }} awaiting review
+  </p>
+</div>

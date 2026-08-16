@@ -35,10 +35,13 @@ PYTHONPATH=src python3 -m ap_mcp.server   # fathm-ap MCP server, stdio JSON-RPC
 
 No PyPI publish (git install only, per `docs/DECISIONS.md`-adjacent open-question defaults). This sandbox
 has no `pip`; system `apt` packages `python3-yaml`, `python3-jsonschema`, `python3-pytest`,
-`python3-fastapi`, `python3-uvicorn`, `python3-httpx`, `python3-jinja2` cover local dev without a venv
-(`sudo apt-get install <pkg>` if missing) - `PYTHONPATH=src` is enough to run `ap-gate`, `ap-api`, or
-`pytest` without an editable install. On a real (non-apt) machine / in CI, `pip install -e ".[dev]"`
-pulls the same set from PyPI via `pyproject.toml`.
+`python3-fastapi`, `python3-uvicorn`, `python3-httpx`, `python3-jinja2`, `python3-python-multipart`
+(the last needed by `ap_console`'s `Form()`-based routes, e.g. the review-queue actions) cover local
+dev without a venv (`sudo apt-get install <pkg>` if missing) - `PYTHONPATH=src` is enough to run
+`ap-gate`, `ap-api`, or `pytest` without an editable install. On a real (non-apt) machine / in CI,
+`pip install -e ".[dev]"` pulls the same set from PyPI via `pyproject.toml` (which lists
+`python-multipart` explicitly since FastAPI treats it as an optional soft-dependency it won't pull in
+transitively).
 
 ## `ap-gate` architecture
 
@@ -284,6 +287,22 @@ still later work.
     acceptance eval (each answer's citation checked against the known-correct package, plus an
     explicit no-match-in-corpus refusal case); `test_manager_bot_scoping.py` is the scoping and
     citation-contract acceptance tests.
+- **Review queue** (P3.5, `GET /console/review-queue`): package-level review only (the resolved
+  "review soundings = whole packages" reading) - `GET /packages?status=in_review` rendered as a
+  queue with inline approve/reject, no row-level drill-down. Approve/reject post to a
+  console-owned `POST /console/packages/{id}/review` (`routes.py::console_review_action`, distinct
+  from `ap_api.app`'s own `POST /packages/{id}/review` - same underlying `ReviewWorkflow.transition`
+  call, just reached via a form post instead of JSON) which re-renders
+  `templates/_review_queue_table.html` in place (htmx `outerHTML` swap, mirroring the packages-list
+  partial pattern) - a decided package simply drops out of the list. Because `get_console_identity`
+  only resolves the session and never checks CSRF (unlike `ap_api.deps.identity_from_request`), the
+  route calls `ap_console.deps.verify_console_csrf` itself before transitioning. `ConsoleCsrfInvalid`,
+  `ReviewPolicyError` (self-review, gate-before-review failure, missing reject reason, wrong role),
+  and `StoreError` are all caught in the route and rendered as an inline `.flash` message on the
+  still-open queue, never a raw 500/403 - `ap_review`'s policy itself is untouched, this is purely a
+  UI layer over it. The package detail page
+  (`package_detail.html`) renders `PackageStore.audit_trail(...)` as a timeline - reads the same
+  audit rows `GET /packages/{id}/audit` returns, no separate audit computation.
 
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 
