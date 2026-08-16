@@ -14,16 +14,28 @@ from ap_api.app import app
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
+from ap_index.index_store import IndexStore
 from ap_proposals.store import ProposalStore
 from ap_proposals.workflow import ProposalWorkflow
+from ap_store.store import PackageStore
+
+from _planner_bot_corpus import build_drift_corpus_with_index
+from _planner_bot_fake_llm import ScriptedDraftingLLMClient
 
 
 @pytest.fixture()
 def client_and_store(tmp_path):
     proposal_store = ProposalStore(tmp_path / "store")
+    package_store = PackageStore(tmp_path / "store")
+    index_store = IndexStore(tmp_path / "index")
     auth_store = AuthStore(tmp_path / "auth.sqlite3")
     app.dependency_overrides[deps.get_proposal_store] = lambda: proposal_store
+    app.dependency_overrides[deps.get_store] = lambda: package_store
+    app.dependency_overrides[deps.get_index] = lambda: index_store
     app.dependency_overrides[deps.get_auth_store] = lambda: auth_store
+    # No real ANTHROPIC_API_KEY in tests - the sweep button's llm_client dependency is overridden
+    # with the same harness-exercising fake test_planner_bot_service.py uses, not a real API call.
+    app.dependency_overrides[deps.get_llm_client] = lambda: ScriptedDraftingLLMClient()
 
     auth_store.create_user("sweep.bot", display_name="Sweep", roles=frozenset({Role.ANALYST}), password="pw-sweep")
     auth_store.create_user(
@@ -37,6 +49,8 @@ def client_and_store(tmp_path):
     finally:
         app.dependency_overrides.clear()
         proposal_store.close()
+        package_store.close()
+        index_store.close()
         auth_store.close()
 
 
@@ -101,15 +115,33 @@ def test_standard_queue_status_tab_filters_out_pending(client_and_store):
     assert "Nothing here" in r.text
 
 
-def test_sweep_button_is_honestly_a_stub(client_and_store):
+def test_sweep_button_runs_the_real_scan_on_an_empty_store(client_and_store):
+    """`fathm-p4-sweep`: the button now runs the real scan/detect/draft pipeline (previously a
+    documented no-op) - against the default overridden (empty) package store/index, so it finds
+    nothing and creates nothing, but the notice reflects a real run, not a "not wired up" stub."""
     client, store, _auth = client_and_store
     csrf = _login(client, "cap.tan", "pw-cap")
 
     r = client.post("/console/standard/sweep", data={"status": "pending_hitl"}, headers={"X-Csrf": csrf})
     assert r.status_code == 200
-    assert "not yet wired" in r.text.lower()
-    # no proposal was fabricated by the stub
+    assert "0 finding" in r.text.lower()
+    assert "0 proposal" in r.text.lower()
     assert store.list().total == 0
+
+
+def test_sweep_button_drafts_real_proposals_from_a_seeded_drift_corpus(client_and_store, tmp_path):
+    client, proposal_store, _auth = client_and_store
+    package_store, index_store = build_drift_corpus_with_index(tmp_path)
+    app.dependency_overrides[deps.get_store] = lambda: package_store
+    app.dependency_overrides[deps.get_index] = lambda: index_store
+    csrf = _login(client, "cap.tan", "pw-cap")
+
+    r = client.post("/console/standard/sweep", data={"status": "pending_hitl"}, headers={"X-Csrf": csrf})
+    assert r.status_code == 200
+    assert proposal_store.list().total > 0
+    assert "proposal(s) created" in r.text
+    package_store.close()
+    index_store.close()
 
 
 def test_proposal_detail_renders_diff_evidence_and_dry_run_not_available(client_and_store):

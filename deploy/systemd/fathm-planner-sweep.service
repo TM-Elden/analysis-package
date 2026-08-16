@@ -1,0 +1,21 @@
+[Unit]
+Description=fathm C6 planner-bot sweep (one-shot; triggered by fathm-planner-sweep.timer)
+
+[Service]
+Type=oneshot
+# Adjust User/WorkingDirectory/env for the real deployment path - mirrors
+# fathm-chat-telegram.service's assumptions (a venv, or PYTHONPATH=src checkout, owned by a
+# dedicated "fathm" service user).
+User=fathm
+WorkingDirectory=/opt/fathm
+Environment=PYTHONPATH=/opt/fathm/src
+# AP_ACTOR_ID / AP_ACTOR_ROLES (identity_from_env - the same-machine CLI/agent identification path,
+# see ap_auth/identity.py) and ANTHROPIC_API_KEY (the captain-approved C6 egress client, see
+# ap_manager_bot/llm_client.py and product/TRUST.md's exception paragraph) live here, not inline.
+EnvironmentFile=/etc/fathm/planner-sweep.env
+ExecStart=/opt/fathm/.venv/bin/python3 -m ap_planner_bot.sweep
+
+# Light sandboxing - this process only needs outbound HTTPS (the LLM call) and its own state files.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/fathm/.fathm

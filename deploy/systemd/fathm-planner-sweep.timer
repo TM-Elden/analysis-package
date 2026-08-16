@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly trigger for fathm-planner-sweep.service (C6 planner bot)
+
+[Timer]
+# Weekly (design report section 5.1: "at ~50 packages/year the signals accrete over weeks, a
+# per-event trigger would add exactly the coupling the reindex_package precedent avoids").
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target
