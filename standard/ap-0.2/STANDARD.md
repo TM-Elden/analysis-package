@@ -1,6 +1,7 @@
 # Analysis Package Standard (draft v0.2)
 
-> **Canonical home:** this file lives in the `analysis-package` repo under `standard/ap-0.2/`.  
+> **Canonical home:** `analysis-package` repo · `standard/ap-0.2/`.  
+> **Product brand:** **fathm** - understand fully, down to its source (`docs/BRAND.md`).  
 > Product pitch and architecture: `docs/PITCH.md`, `docs/ARCHITECTURE.md`.
 
 ## Status and intent

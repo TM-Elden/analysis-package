@@ -1,14 +1,20 @@
-# Pitch v3 - Analysis Package
+# Pitch - fathm
 
 **Date:** 2026-08-16  
-**Status:** Internal joint project draft (updated from pitch-v2.pdf)  
-**Working name:** Analysis Package (AP)
+**Status:** Internal joint project draft  
+**Product name:** **fathm** *(v.)* - to understand something fully, down to its source.  
+**Format:** Analysis Package (`ap/0.2`)
+
+> Understand every analysis fully, down to its source.  
+> Powered by the Analysis Package standard.
 
 ---
 
 ## Hook
 
 Every company doing data analysis has the same hidden liability: nobody can reliably trace a conclusion back to the data and method that produced it. As AI agents generate more of that analysis, the liability compounds - because the analyst you cannot audit may not even be human.
+
+**fathm** exists so every published analysis can be understood fully - down to its source.
 
 ## Why now
 
@@ -25,14 +31,14 @@ Schema CI could always check "is there a methodology field." Structural provenan
 
 Not "all data analysis." A narrow, budget-holding buyer.
 
-**Works with agent + Excel as UI.** The package is the publish artifact - not a demand to abandon spreadsheets on day one.
+**Works with agent + Excel as UI.** The Analysis Package is the publish artifact - not a demand to abandon spreadsheets on day one.
 
 ## How it works
 
 | # | Layer | Role | Pilot? |
 |---|--------|------|--------|
-| 1 | **Standard** | Opinionated core schema for what a package must contain (data, method, provenance, human deltas, QA). Pack-type **profiles** extend the core - customers do not redesign MUST fields. | Yes |
-| 2 | **L1 CI** | Every published package validated structurally; non-conforming packages flagged/blocked. | Yes |
+| 1 | **Standard (AP)** | Opinionated core schema for what a package must contain (data, method, provenance, human deltas, QA). Pack-type **profiles** extend the core - customers do not redesign MUST fields. | Yes |
+| 2 | **L1 CI (fathm gate)** | Every published package validated structurally; non-conforming packages flagged/blocked. | Yes |
 | 3 | **L2 Semantic CI** | LLM-assisted flags: does the write-up follow the package evidence? | After L1 |
 | 4 | **Team Model** | Per-customer model/RAG over *their* validated corpus; management Q&A. | After corpus exists |
 | 5 | **Planner Model + HITL** | Reasons across corpus + CI flags; proposes Standard/profile changes; human owner approves. | Later tier |
@@ -51,13 +57,13 @@ See `standard/ap-0.2/STANDARD.md` and `examples/commodity-commit-v1/`.
 
 ## Moat
 
-Not the software alone - a well-funded competitor can clone schema-and-CI. The moat is the **proprietary, standardized, provenance-tagged corpus and conformance behavior** that only accumulates by running the pipeline over real customer usage.
+Not the software alone - a well-funded competitor can clone schema-and-CI. The moat is the **proprietary, standardized, provenance-tagged corpus and conformance behavior** that only accumulates by running the fathm pipeline over real customer usage.
 
 Software is the wedge that earns the data; the data (and structure-level learning under trust constraints) is the long-term asset. Closer to Bloomberg/Palantir position defense than typical point SaaS.
 
 ## Business model - one primary path
 
-**Primary:** SaaS from day one - Standard tooling + L1 CI + (later) Team Model. Real, fundable revenue.
+**Primary:** SaaS from day one - fathm Standard tooling + L1 CI + (later) Team Model. Real, fundable revenue.
 
 As corpus compounds **within** a customer (and structure-level patterns across customers under trust rules), Planner Model and pattern learning become the differentiated upgrade tier - not a separate business.
 
@@ -76,7 +82,7 @@ This is the only stance that lets us sell to competitors in the same industry wi
 
 ## Traction plan (next 90 days)
 
-Ship **Standard + L1 CI** for one document/pack type (start: commodity commit / forecast or partner's closest equivalent) with **1 design-partner team**.
+Ship **Analysis Package Standard + fathm L1 CI** for one pack type (start: commodity commit / forecast or partner's closest equivalent) with **1 design-partner team**.
 
 **Success bar:**
 
@@ -97,7 +103,7 @@ Adjacent data governance / data quality software is a multi-billion category and
 
 ## The ask
 
-Seeking **one design-partner** - a finance or ops analytics team already using AI agents for reporting/planning - to pilot Standard + L1 CI over one quarter.
+Seeking **one design-partner** - a finance or ops analytics team already using AI agents for reporting/planning - to pilot fathm (Standard + L1 CI) over one quarter.
 
 Capital follows proof. Not opening a funding conversation until the pilot shows the flag-rate / audit-completeness result above.
 
@@ -106,18 +112,14 @@ Capital follows proof. Not opening a funding conversation until the pilot shows 
 - Bottoms-up TAM/SAM for the finance/ops-analytics wedge  
 - Standard versioning/migration strategy as profiles evolve  
 - Final in-customer HITL authority model (who approves Standard/profile changes)  
-- Final public brand name (repo uses Analysis Package)
+- Domain / GH org under the fathm mark  
 
-## Changes from pitch v2
+## Naming history
 
-| Topic | v2 | v3 |
-|-------|----|----|
-| Name | [Working Name] | Analysis Package (working) |
-| CI | One blob | **L1 structural vs L2 semantic** |
-| Schema flexibility | Customers don't design their own | **Opinionated MUST core + profiles** |
-| Pilot SKU | Standard+CI+Team Model | **Standard + L1 CI only** |
-| Market cites | Placeholder cite tags | Removed until verified; directional only |
-| Excel/agents | Implicit | Explicit: package is publish artifact |
-| Spec | Abstract | Points at ap/0.2 + example in-repo |
+| Version | Name |
+|---------|------|
+| pitch-v2.pdf | [Working Name] |
+| joint repo v1 | Analysis Package (product + format collapsed) |
+| **locked** | **fathm** (product) + **Analysis Package** (format) |
 
-Source PDF retained at `research/pitch-v2-source.pdf`.
+Source PDF retained at `research/pitch-v2-source.pdf`. Brand file: `docs/BRAND.md`.

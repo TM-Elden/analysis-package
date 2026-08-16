@@ -1,10 +1,11 @@
-# Decision log - Analysis Package Standard
+# Decision log - fathm / Analysis Package
 
-Frozen: 2026-08-16  
-Source: captain agreed to all Hermes recommendations on findings-v2.
+Frozen product brand: **fathm** (2026-08-16).  
+Format/standard name remains **Analysis Package (ap)**.
 
 | ID | Topic | Choice | Meaning |
 |----|--------|--------|---------|
+| D0 | Product brand | **fathm** | v. understand fully, down to its source; AP stays the format |
 | D1 | Root envelope | **A** | RO-Crate profile; YAML convenience manifest compiles to `ro-crate-metadata.json` |
 | D2 | First pack type | **A** | Supplier / commodity commit–forecast pack |
 | D3 | Publicity | **C** | Blog/essay narrative OK now; public schema repo after 1+ real packs |
@@ -14,4 +15,5 @@ Source: captain agreed to all Hermes recommendations on findings-v2.
 | D7 | Training default | **A** | `training_eligibility` opt-in (default false) |
 | D8 | Build | **C** | Profile/schema stub + example real-shaped pack |
 
-Locked earlier: L1–L7 in findings (formal agent–planner contract, compose standards, ap/0.2).
+Also locked: L1–L7 formal agent–planner contract, compose standards, ap/0.2.  
+Brand detail: `docs/BRAND.md`.

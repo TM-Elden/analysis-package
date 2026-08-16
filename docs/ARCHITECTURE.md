@@ -1,13 +1,18 @@
-# Architecture - Standard + Product
+# Architecture - fathm + Analysis Package
 
-## One project, two surfaces
+## One project, two names
+
+| Name | Role |
+|------|------|
+| **fathm** | Product / company - make every analysis understandable down to its source |
+| **Analysis Package (AP)** | Format + standard - the portable unit agents and planners must publish |
 
 | Surface | Audience | Artifact |
 |---------|----------|----------|
 | **Standard (AP)** | Agents, planners, auditors, integrators | Package format + profiles + gate semantics |
-| **Product** | Design partners, later customers | Hosted CI, corpus, Team/Planner models |
+| **Product (fathm)** | Design partners, later customers | Hosted CI, corpus, Team/Planner models |
 
-The Standard is open-spec oriented. The Product earns a data moat by running the Standard over real publish cycles.
+The Standard is open-spec oriented. fathm earns a data moat by running the Standard over real publish cycles.
 
 ```
                     ┌─────────────────────────────┐

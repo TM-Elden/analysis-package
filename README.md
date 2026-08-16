@@ -1,14 +1,32 @@
-# Analysis Package
+# fathm
 
-**Working product name:** Analysis Package (AP)  
-**Tagline:** The publish contract for AI-assisted planning and finance analysis.
+**fathm** *(v.)* - to understand something fully, down to its source.
 
-Every package carries pinned data, method, human overrides, and a CI gate - so provenance is queryable by default, not reconstructed in an audit.
+**Product:** fathm  
+**Format / standard:** Analysis Package (`ap/0.2`)
+
+> Understand every analysis fully, down to its source.  
+> Powered by the Analysis Package standard.
+
+---
+
+## Brand vs format
+
+| Name | Role |
+|------|------|
+| **fathm** | Company / product brand |
+| **Analysis Package (AP)** | Portable interchange unit + open-style standard |
+| **ap-gate** | L1 structural CI (planned) |
+| **Repo** | `TM-Elden/analysis-package` (technical home; brand rename of GH org later) |
+
+Spelling is intentional (no *o*). One-line origin: *fathom* the depths - we drop the *o* for the mark.
+
+---
 
 This repo is the **joint home** for:
 
 1. **The Standard** (`standard/`) - formal interchange contract for human planners + planning agents  
-2. **The Product** (`product/`, `docs/PITCH.md`) - Standard + L1 CI wedge, then Team Model / Planner Model  
+2. **The Product** (`product/`, `docs/PITCH.md`) - fathm: Standard + L1 CI wedge, then Team Model / Planner Model  
 3. **Research** (`research/`) - landscape, standards foundation, source pitch  
 
 Status: **early draft**. Pilot scope is Standard + L1 structural CI for one pack type - not the full platform.
@@ -19,7 +37,8 @@ Status: **early draft**. Pilot scope is Standard + L1 structural CI for one pack
 
 Analysis conclusions often cannot be traced to the data and method that produced them. As AI agents draft more planning and finance analysis, that liability compounds. Spreadsheets and chat are not an audit trail.
 
-**Analysis Package** is the portable unit of work: inputs, method, engines, labeled human deltas, outputs, QA.
+**Analysis Package** is the portable unit of work: inputs, method, engines, labeled human deltas, outputs, QA.  
+**fathm** is the product that makes every publish *fathmable* - complete provenance by default.
 
 ---
 
@@ -30,16 +49,17 @@ standard/ap-0.2/          Normative Standard (ap/0.2)
 profiles/                 Pack-type profiles (first: commodity commit forecast)
 examples/                 Concrete packages
 product/                  Product layers (CI L1/L2, trust, roadmap)
-docs/                     Pitch, architecture, decisions, HTML guides
+docs/                     Pitch, architecture, decisions, brand, HTML guides
 research/                 Prior art and source materials
 ```
 
 | Doc | Purpose |
 |-----|---------|
+| [docs/BRAND.md](docs/BRAND.md) | fathm brand lock |
 | [standard/ap-0.2/STANDARD.md](standard/ap-0.2/STANDARD.md) | Normative contract |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Product + Standard join; L1/L2 CI |
-| [docs/PITCH.md](docs/PITCH.md) | Pitch v3 (updated) |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Frozen D1-D8 |
+| [docs/PITCH.md](docs/PITCH.md) | Pitch (fathm) |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Frozen decisions |
 | [docs/html/spec-guide.html](docs/html/spec-guide.html) | Polished HTML spec guide |
 | [examples/commodity-commit-v1/](examples/commodity-commit-v1/) | Example package |
 
