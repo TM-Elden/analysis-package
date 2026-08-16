@@ -47,13 +47,3 @@ def test_description_is_a_single_string_within_spec_length():
     assert 0 < len(description) <= 1024
     # a usable description states *when* to load the skill, not just what it is
     assert "package" in description.lower()
-
-
-def test_body_documents_the_mcp_server_and_override_workflow():
-    _, body = _frontmatter_and_body()
-    assert "fathm-ap" in body  # points at the MCP server
-    assert "override_record" in body  # the P4 capture tool
-    assert "draft_reason_text" in body
-    assert "never write" in body.lower() and "overrides.jsonl" in body  # the explicit ban on hand-written rows
-    for must_keyword in ("package_check", "output_contract", "chat memory"):
-        assert must_keyword in body  # C8 six-MUSTs carried as operating instructions

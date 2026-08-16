@@ -49,8 +49,8 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         result = impl(**arguments)
     except ToolValidationError as exc:
         return {"content": [{"type": "text", "text": str(exc)}], "isError": True}
-    except (FileNotFoundError, FileExistsError, ValueError) as exc:
-        return {"content": [{"type": "text", "text": f"{name}: {exc}"}], "isError": True}
+    except Exception as exc:
+        return {"content": [{"type": "text", "text": f"{name}: {type(exc).__name__}: {exc}"}], "isError": True}
 
     text = result if isinstance(result, str) else json.dumps(result, default=str, indent=2)
     return {"content": [{"type": "text", "text": text}], "isError": False}
