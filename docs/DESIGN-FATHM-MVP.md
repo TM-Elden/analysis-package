@@ -1,0 +1,447 @@
+# fathm MVP - Design Doc for Firstmate Build
+
+**Handoff ID:** `fathm-mvp-2026-08-16`  
+**To:** firstmate / captain (PiSD)  
+**From:** Hermes (spec + product join)  
+**Repo (source of truth):** https://github.com/TM-Elden/analysis-package  
+**Local clone target on Pi:** `~/firstmate/projects/analysis-package` (or `~/projects/analysis-package`)  
+**Product brand:** **fathm** - understand fully, down to its source  
+**Format name:** **Analysis Package (ap/0.2)** - do not rename the format to fathm in code identifiers  
+
+---
+
+## 1. Mission
+
+Build the **smallest shippable engine** that makes fathm real for one design-partner loop:
+
+1. An Analysis Package is a **directory on disk** with a known layout  
+2. **`ap-gate check <dir>`** validates L1 structural rules and exits non-zero on failure  
+3. The gate runs cleanly on the in-repo example: `examples/commodity-commit-v1`  
+4. A short **human HTML report** can be emitted for each check run  
+5. Agents and humans use the **same CLI** (no second soft path)
+
+This is **not** Team Model, Planner Model, full SaaS, or RO-Crate compile yet.
+
+**Success phrase:**  
+> Packages that pass ap-gate have complete, queryable provenance fields; packages that fail do not publish.
+
+---
+
+## 2. Context firstmate must load (read in order)
+
+| Priority | Path in repo |
+|----------|----------------|
+| 1 | `README.md` |
+| 2 | `docs/BRAND.md` |
+| 3 | `docs/ARCHITECTURE.md` |
+| 4 | `standard/ap-0.2/STANDARD.md` |
+| 5 | `product/CI-L1.md` |
+| 6 | `product/TRUST.md` |
+| 7 | `profiles/commodity_commit_forecast/README.md` |
+| 8 | `examples/commodity-commit-v1/` (entire tree) |
+| 9 | `docs/PITCH.md` (product why; do not implement L3/L4) |
+| 10 | `docs/DECISIONS.md` |
+
+Polished HTML (reference only): `docs/html/spec-guide.html`
+
+---
+
+## 3. Non-goals (explicit)
+
+Do **not** build in this MVP:
+
+- Team Model / RAG  
+- Planner Model / HITL Standard editor  
+- L2 semantic LLM judging (stub interface OK, no implementation required)  
+- Multi-tenant SaaS, auth, billing  
+- Full RO-Crate JSON-LD compiler (design hook only)  
+- Excel add-in  
+- Kinaxis/Anaplan connectors  
+- Training pipeline on customer content  
+- Renaming GitHub repo to fathm  
+- Rewriting essay/blog substance  
+
+If tempted: log as `docs/BACKLOG.md` item and stay on L1 gate.
+
+---
+
+## 4. User stories (MVP)
+
+### US1 - Validator CLI
+As a planner or agent, I run:
+
+```bash
+ap-gate check examples/commodity-commit-v1
+```
+
+and get pass/fail with a machine-readable list of check results.
+
+### US2 - JSON output
+```bash
+ap-gate check examples/commodity-commit-v1 --json > report.json
+```
+
+Exit code: `0` all required checks pass (or waived); `1` failures; `2` usage/IO error.
+
+### US3 - HTML report
+```bash
+ap-gate check examples/commodity-commit-v1 --html out/report.html
+```
+
+Readable dark/light simple report: package id, status, each check, paths.
+
+### US4 - Init skeleton (nice-to-have if time)
+```bash
+ap-gate init ./my-pack --profile commodity_commit_forecast
+```
+
+Creates empty dirs + stub MANIFEST.yaml from template.
+
+### US5 - Example stays golden
+CI or `make test` fails if the committed example no longer passes gate (unless intentionally marked draft).
+
+---
+
+## 5. Package layout (normative for gate)
+
+A package directory **MUST** contain at minimum:
+
+```
+<package>/
+  MANIFEST.yaml          # required (authoring form)
+  GUIDELINE.md           # required (or path declared in manifest.method.guideline_path)
+  inputs/                # required dir (may be empty only if all inputs are external_ref)
+  outputs/               # required dir
+  labels/
+    overrides.jsonl      # required file (may be empty)
+    judgments.jsonl      # required file (may be empty)
+    truths_applied.jsonl # required file (may be empty)
+  qa/                    # required dir; gate may write checks.json
+  code/                  # optional for MVP if entrypoint is external; warn if missing when entrypoint set
+```
+
+**Note:** Example already matches this. Gate should tolerate optional `ro-crate-metadata.json` without requiring it.
+
+---
+
+## 6. MANIFEST MUST fields (validate these)
+
+Implement JSON Schema draft 2020-12 under `standard/ap-0.2/schemas/manifest.schema.json` covering at least:
+
+```
+standard_version          # string, const or enum including "ap/0.2"
+profile                   # string
+package_id                # string, minLength 1
+package_version           # string
+title                     # string
+created_at                # string (ISO-8601 preferred; format uri-agnostic string OK v0)
+as_of                     # string
+owners.analyst            # object with id
+owners.reviewer           # object or null
+purpose                   # string
+output_contract           # array minItems 1 of {name, consumer, path, ...}
+inputs                    # array (minItems 0 allowed only with warning; profile may require >=1)
+method.guideline_version  # string
+method.entrypoint         # string
+engines                   # array of {name, version, deterministic: bool}
+labels.overrides_path     # string
+labels.judgments_path     # string
+labels.truths_applied_path# string
+qa.status                 # enum: draft | in_review | approved | rejected
+intended_use              # string
+out_of_scope              # string
+confidentiality           # string
+training_eligibility      # boolean (default false if missing -> fail or coerce? **fail if missing** for clarity)
+```
+
+**Input item rules:**
+
+- Either (`path` is non-null string AND file exists) OR (`availability: external_ref` AND `external_ref` non-empty)  
+- Prefer requiring `source_system` and `as_of` always  
+
+**output_contract item rules:**
+
+- `path` relative to package root must exist and be non-empty file when `qa.status` is `approved`  
+- For `draft` / `in_review`, missing outputs → **warn** or **fail**?  
+  - **MVP rule:** fail `output_contract_files` only if status is `approved` OR flag `--strict-outputs`. Default: **fail if any contract path missing** (example is complete).  
+
+---
+
+## 7. L1 checks to implement (IDs stable)
+
+Match `product/CI-L1.md`. Stable check IDs:
+
+| ID | Severity | Logic |
+|----|----------|--------|
+| `must_fields` | fail | Schema validate MANIFEST.yaml |
+| `standard_version` | fail | `standard_version` in supported set `{"ap/0.2"}` |
+| `layout_dirs` | fail | required dirs/files exist |
+| `output_contract_files` | fail | each output_contract.path exists, size > 0 |
+| `inputs_pinned` | fail | each input: file+hash optional v0 OR external_ref block; path exists if set |
+| `engines_pinned` | fail | each engine has name, version, deterministic bool |
+| `labels_paths` | fail | three jsonl paths exist |
+| `labels_jsonl_parse` | fail | each non-empty line is JSON object |
+| `reason_codes_known` | fail | if profile known, override reason_code ∈ allow-list; `OTHER` requires reason_text |
+| `qa_status_enum` | fail | status in enum |
+| `qa_approved_implies_pass` | fail | if status==approved, no failed checks among required set (evaluate last or two-phase) |
+| `training_eligibility_present` | fail | boolean present |
+| `guideline_exists` | fail | GUIDELINE.md or method.guideline_path exists |
+| `no_unlabeled_diff` | **skip v0** unless `--with-replay` | document stub; return `skip` |
+
+**Profile pack:** if `profile` starts with `commodity_commit_forecast`:
+
+- require output_contract names including `supplier_forecast`, `exception_list` (run_summary recommended)  
+- reason allow-list from `profiles/commodity_commit_forecast/README.md`
+
+Waivers: optional `qa.waivers[]` with `{check_id, reason, author}` - waived checks count as pass with `waived: true`.
+
+---
+
+## 8. Recommended repo implementation layout
+
+Add to the existing GitHub repo (do not create a second product repo):
+
+```
+analysis-package/
+  pyproject.toml              # package name: ap-gate (console_script ap-gate)
+  README.md                   # already exists; add Install/CLI section
+  src/ap_gate/
+    __init__.py
+    cli.py                    # argparse or typer
+    load_manifest.py          # YAML load + normalize
+    schema.py                 # jsonschema validate
+    checks/
+      __init__.py
+      registry.py
+      layout.py
+      manifest_fields.py
+      inputs.py
+      outputs.py
+      labels.py
+      profile_commodity.py
+    report/
+      json_report.py
+      html_report.py
+    init_pkg.py               # optional scaffold
+  standard/ap-0.2/schemas/
+    manifest.schema.json      # NEW
+  profiles/commodity_commit_forecast/
+    reason_codes.json         # NEW machine-readable allow-list
+    profile.schema.json       # optional extras
+  tests/
+    test_example_passes.py
+    test_missing_output_fails.py
+    test_bad_reason_code_fails.py
+    fixtures/                 # minimal broken packs
+  .github/workflows/ci.yml    # pytest on push
+  docs/DESIGN-FATHM-MVP.md    # this file
+```
+
+**Language:** Python 3.11+  
+**Deps (keep tiny):** `pyyaml`, `jsonschema`, `rich` (optional pretty CLI). No heavy ML stack.
+
+**CLI UX:**
+
+```text
+ap-gate check PATH [--json] [--html PATH] [--strict-outputs] [--profile NAME]
+ap-gate version
+ap-gate init PATH [--profile commodity_commit_forecast]   # if US4 in scope
+```
+
+Print a one-line summary to stderr/stdout:
+
+```text
+ap-gate: FAIL pkg_01hq...  3 failed, 10 passed
+  - output_contract_files: missing outputs/foo.csv
+  ...
+```
+
+Brand: CLI may print `fathm L1 gate (ap-gate)` in `--version` / header; command name stays **`ap-gate`** for format neutrality.
+
+---
+
+## 9. HTML report (minimal)
+
+Single self-contained HTML file (inline CSS), readable on mobile:
+
+- Title: fathm L1 report  
+- package_id, title, as_of, qa.status, profile  
+- Table of checks: id | result | message  
+- overall PASS/FAIL badge  
+- No external fonts required (system stack)  
+- Aesthetic: dark neutral OK; match seriousness of spec-guide, not marketing fluff  
+
+---
+
+## 10. Testing requirements
+
+Must have:
+
+1. `tests/test_example_passes.py` - gate exit 0 on `examples/commodity-commit-v1`  
+2. Fixture: delete one output → `output_contract_files` fails  
+3. Fixture: bad reason_code → `reason_codes_known` fails  
+4. Fixture: invalid YAML / missing standard_version → `must_fields` or `standard_version` fails  
+5. `labels` empty files → pass parse  
+6. external_ref-only input without path → pass `inputs_pinned`  
+
+Run:
+
+```bash
+pip install -e ".[dev]"
+pytest -q
+ap-gate check examples/commodity-commit-v1
+```
+
+---
+
+## 11. CI
+
+GitHub Actions on `main` and PRs:
+
+- checkout  
+- setup Python 3.12  
+- `pip install -e ".[dev]"`  
+- `pytest`  
+- `ap-gate check examples/commodity-commit-v1`  
+
+---
+
+## 12. Documentation deliverables (in-repo)
+
+Update as part of the PR:
+
+1. Root `README.md` - Install + CLI quickstart  
+2. `product/CI-L1.md` - point at real check IDs implemented  
+3. `CHANGELOG.md` - create with `## Unreleased` / first entry **only if repo does not forbid hand-edit** - this repo is not auto-changelog; **creating CHANGELOG.md is OK**  
+4. Keep brand rules: fathm product, ap format  
+
+Optional: `docs/html/gate-sample-report.html` generated from example.
+
+---
+
+## 13. Acceptance criteria (definition of done)
+
+- [ ] `pyproject.toml` installs console script `ap-gate`  
+- [ ] `manifest.schema.json` exists and is used by gate  
+- [ ] `reason_codes.json` for commodity profile  
+- [ ] All L1 checks in §7 implemented except `no_unlabeled_diff` (skipped with explicit skip result)  
+- [ ] Example package passes  
+- [ ] At least 3 negative fixtures fail appropriately  
+- [ ] `--json` and `--html` work  
+- [ ] GH Actions CI green on the PR  
+- [ ] README documents install + usage  
+- [ ] No em dash characters in new prose (house style: use `-`)  
+- [ ] No AI co-author git trailer  
+- [ ] Trust stance unchanged: no telemetry of package contents to external services  
+
+---
+
+## 14. Implementation phases (suggested order)
+
+### Phase A - Skeleton (half day)
+- pyproject + package layout  
+- YAML load + schema stub  
+- CLI `check` with 2-3 checks  
+- test example loads  
+
+### Phase B - Full L1 (1 day)
+- all checks §7  
+- profile reason codes  
+- json report  
+
+### Phase C - HTML + CI (half day)
+- html report  
+- fixtures  
+- GitHub Actions  
+
+### Phase D - Polish (optional same PR)
+- `ap-gate init`  
+- sample HTML committed  
+- tighten schema enums  
+
+**Stop after Phase C** unless told otherwise.
+
+---
+
+## 15. Git / PR rules (operator craft)
+
+- Branch: `feat/ap-gate-l1`  
+- PR into `main` on `TM-Elden/analysis-package`  
+- Commits: imperative, focused; **no** `Co-authored-by` agent lines  
+- Do not force-push `main`  
+- Prefer HTTPS + existing `gh` auth on Pi  
+
+```bash
+git clone https://github.com/TM-Elden/analysis-package.git
+cd analysis-package
+git checkout -b feat/ap-gate-l1
+# ... build ...
+gh pr create --title "feat: ap-gate L1 structural validator" --body "Implements fathm MVP design docs/DESIGN-FATHM-MVP.md"
+```
+
+---
+
+## 16. Handoff bundle on Pi
+
+After firstmate pulls the design (this file will be on `main` once Hermes pushes):
+
+```bash
+# On PiSD
+mkdir -p ~/firstmate/data/portfolio-build/fathm-mvp
+cd ~/firstmate/projects 2>/dev/null || mkdir -p ~/firstmate/projects && cd ~/firstmate/projects
+git clone https://github.com/TM-Elden/analysis-package.git
+cp analysis-package/docs/DESIGN-FATHM-MVP.md ~/firstmate/data/portfolio-build/fathm-mvp/
+# Write a one-page kickoff for captain
+```
+
+Kickoff note for captain (suggested `~/firstmate/data/portfolio-build/fathm-mvp/KICKOFF.md`):
+
+```markdown
+# fathm MVP kickoff
+Build per docs/DESIGN-FATHM-MVP.md in TM-Elden/analysis-package.
+Scope: ap-gate L1 only. Brand: fathm. Format: Analysis Package.
+Done = example passes + CI green + HTML report.
+```
+
+---
+
+## 17. Open questions (do not block Phase A-C)
+
+| Q | Default if unanswered |
+|---|------------------------|
+| Exact hash algorithm enforcement for inputs | Optional field; if present verify; if absent warn not fail |
+| Should `approved` be forbidden when any check skipped? | Allow skip for `no_unlabeled_diff` only |
+| Publish Python package to PyPI? | No - git install only |
+| Node vs Python? | **Python** |
+
+---
+
+## 18. Quality bar
+
+- Simple over clever  
+- One CLI entrypoint  
+- Tests first for fail fixtures (TDD welcome)  
+- Error messages tell the human **which path / which field**  
+- Deterministic gate (no network calls)  
+
+---
+
+## 19. Out-of-scope stretch (BACKLOG only)
+
+- `ap-gate replay` engine runner  
+- RO-Crate export  
+- Web UI upload pack  
+- VS Code / Cursor extension  
+- fathm.com marketing site (separate from this MVP unless captain directed)
+
+---
+
+## 20. Sign-off
+
+| Role | Responsibility |
+|------|----------------|
+| Hermes | Spec, design doc, brand lock, example pack |
+| firstmate/captain | Implement ap-gate per this doc, PR, CI green |
+| Tom | Accept PR; design-partner timing |
+
+**Build this. Do not expand scope without explicit OK.**

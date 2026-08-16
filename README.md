@@ -56,6 +56,8 @@ research/                 Prior art and source materials
 | Doc | Purpose |
 |-----|---------|
 | [docs/BRAND.md](docs/BRAND.md) | fathm brand lock |
+| [docs/DESIGN-FATHM-MVP.md](docs/DESIGN-FATHM-MVP.md) | **firstmate build design (MVP)** |
+| [docs/FIRSTMATE-KICKOFF.md](docs/FIRSTMATE-KICKOFF.md) | Short kickoff card |
 | [standard/ap-0.2/STANDARD.md](standard/ap-0.2/STANDARD.md) | Normative contract |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Product + Standard join; L1/L2 CI |
 | [docs/PITCH.md](docs/PITCH.md) | Pitch (fathm) |
