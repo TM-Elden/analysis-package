@@ -284,6 +284,19 @@ still later work.
     acceptance eval (each answer's citation checked against the known-correct package, plus an
     explicit no-match-in-corpus refusal case); `test_manager_bot_scoping.py` is the scoping and
     citation-contract acceptance tests.
+- **Review queue** (P3.5, `GET /console/review-queue`): package-level review only (the resolved
+  "review soundings = whole packages" reading) - `GET /packages?status=in_review` rendered as a
+  queue with inline approve/reject, no row-level drill-down. Approve/reject post to a
+  console-owned `POST /console/packages/{id}/review` (`routes.py::console_review_action`, distinct
+  from `ap_api.app`'s own `POST /packages/{id}/review` - same underlying `ReviewWorkflow.transition`
+  call, just reached via a form post instead of JSON) which re-renders
+  `templates/_review_queue_table.html` in place (htmx `outerHTML` swap, mirroring the packages-list
+  partial pattern) - a decided package simply drops out of the list. `ReviewPolicyError` (self-
+  review, gate-before-review failure, missing reject reason, wrong role) is caught in the route and
+  rendered as an inline `.flash` message on the still-open queue, never a raw 500/403 - `ap_review`'s
+  policy itself is untouched, this is purely a UI layer over it. The package detail page
+  (`package_detail.html`) renders `PackageStore.audit_trail(...)` as a timeline - reads the same
+  audit rows `GET /packages/{id}/audit` returns, no separate audit computation.
 
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 

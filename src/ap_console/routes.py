@@ -14,15 +14,16 @@ import math
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ap_api.deps import get_store
+from ap_api.deps import get_store, get_workflow, identity_from_request
 from ap_auth.identity import Identity
 from ap_console.deps import ConsoleAuthRequired, console_csrf_token, get_console_identity
 from ap_console.gate_report import render_gate_report_html
+from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import ListFilter, PackageStore, StoreError
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -128,6 +129,58 @@ def packages_table(
     return templates.TemplateResponse(request, "_packages_table.html", ctx)
 
 
+def _review_queue_context(store: PackageStore, *, error: str | None = None) -> dict:
+    """In-review packages, oldest-first-ish per the store's default ordering - a queue, not the
+    general filterable list, so no pagination controls: the whole point (per the phase-3 report's
+    section 4/6 "first genuinely demoable piece") is a reviewer sees everything waiting at a glance.
+    """
+    result = store.list(ListFilter(status="in_review", page=1, page_size=200))
+    return {"items": result.items, "total": result.total, "error": error}
+
+
+@router.get("/review-queue", response_class=HTMLResponse)
+def review_queue(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[PackageStore, Depends(get_store)],
+) -> HTMLResponse:
+    ctx = _review_queue_context(store)
+    return _render(request, "review_queue.html", identity=identity, **ctx)
+
+
+@router.post("/packages/{package_id}/review", response_class=HTMLResponse)
+def console_review_action(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(identity_from_request)],
+    workflow: Annotated[ReviewWorkflow, Depends(get_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    package_version: Annotated[str, Form()],
+    to_status: Annotated[str, Form()],
+    reason: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    """The queue's approve/reject buttons post here (htmx, `hx-target="#review-queue-table"
+    hx-swap="outerHTML"`) - calls the real `ReviewWorkflow.transition` (same policy: gate-before-
+    review, distinct-reviewer, reject-requires-reason) and re-renders the queue table in place, so
+    a decided package simply drops out of the list rather than needing a page reload. A
+    `ReviewPolicyError` (self-review, missing gate pass, empty reject reason, wrong role) is caught
+    here and rendered as an inline flash message on the still-open queue - never a raw 500/403 the
+    reviewer has to decode from a JSON body."""
+    error = None
+    try:
+        workflow.transition(
+            package_id,
+            package_version,
+            to_status=to_status,
+            actor=identity,
+            reason=reason,
+        )
+    except (ReviewPolicyError, StoreError) as exc:
+        error = str(exc)
+    ctx = _review_queue_context(store, error=error)
+    return templates.TemplateResponse(request, "_review_queue_table.html", {"csrf_token": console_csrf_token(request), **ctx})
+
+
 def _owners_rows(owners: dict) -> list[tuple[str, str | None]]:
     rows: list[tuple[str, str | None]] = []
     for role, value in owners.items():
@@ -153,6 +206,7 @@ def package_detail(
         identity=identity,
         pkg=record,
         owners_rows=_owners_rows(record.owners()),
+        audit_entries=store.audit_trail(record.package_id, record.package_version),
     )
 
 

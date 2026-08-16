@@ -59,6 +59,21 @@
     background:#14161a}
   .flash{border:1px solid var(--rust);background:rgba(182,92,74,.12);color:#ffb6a8;border-radius:8px;
     padding:10px 14px;margin-bottom:16px;font-size:.85rem}
+  .review-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  form.review-action{display:flex;gap:6px;align-items:center;margin:0}
+  form.review-action input[type="text"]{background:#04060A;border:1px solid var(--line);border-radius:6px;
+    color:var(--bone);padding:5px 8px;font-family:'Archivo',sans-serif;font-size:13px;width:150px}
+  button.btn{border-radius:6px;padding:6px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+    letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border:1px solid var(--line);background:none}
+  button.btn.approve{color:var(--ok);border-color:#29613f}
+  button.btn.approve:hover{background:rgba(111,227,160,.1)}
+  button.btn.reject{color:#ff8a8a;border-color:#612929}
+  button.btn.reject:hover{background:rgba(182,92,74,.12)}
+  .timeline{list-style:none;margin:0;padding:0}
+  .timeline li{padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+  .timeline li:last-child{border-bottom:none}
+  .timeline .ts{color:var(--drift);font-size:.76rem;font-family:'IBM Plex Mono',monospace}
+  .timeline .reason{color:var(--drift);font-size:.82rem;margin-top:2px}
 </style>
 </head>
 <body>
@@ -67,6 +82,7 @@
   <a href="/console/packages" style="text-decoration:none"><div class="wordmark">f<span class="sunk">a</span>thm</div></a>
   <nav class="crumbs">
     <a href="/console/packages" class="{% block nav_packages %}{% endblock %}">Packages</a>
+    <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
   </nav>
   <div class="whoami">
     <span>{{ identity.id }} · {{ identity.roles|map(attribute="value")|join(", ") }}</span>
