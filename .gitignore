@@ -11,3 +11,6 @@ venv/
 .vscode/
 *.tar.gz
 .ap-gate-cache/
+.pytest_cache/
+build/
+dist/

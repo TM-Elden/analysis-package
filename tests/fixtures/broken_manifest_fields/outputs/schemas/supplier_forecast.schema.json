@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ap/0.2/schemas/supplier_forecast.schema.json",
+  "title": "supplier_forecast",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["supplier", "part", "week", "qty"],
+    "properties": {
+      "supplier": {"type": "string"},
+      "part": {"type": "string"},
+      "week": {"type": "string", "pattern": "^[0-9]{4}-W[0-9]{2}$"},
+      "qty": {"type": "number", "minimum": 0}
+    }
+  }
+}

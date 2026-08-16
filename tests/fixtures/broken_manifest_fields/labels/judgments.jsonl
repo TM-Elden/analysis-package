@@ -1,0 +1,2 @@
+{"judgment_id":"jdg_001","claim":"BETA lead times likely slip 1 week in Oct based on last 2 cycles","confidence":"medium","bucket":2,"author":"planner.example","ts":"2025-09-12T20:00:00Z","applies_to":["supplier_forecast.BETA.*"]}
+{"judgment_id":"jdg_002","claim":"No site FLC change expected this quarter for demand geo mix","confidence":"high","bucket":2,"author":"planner.example","ts":"2025-09-12T20:05:00Z","applies_to":["pack"]}

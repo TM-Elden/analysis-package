@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ap/0.2/schemas/exception_list.schema.json",
+  "title": "exception_list",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["exception_id", "code", "detail"],
+    "properties": {
+      "exception_id": {"type": "string"},
+      "supplier": {"type": "string"},
+      "part": {"type": "string"},
+      "week": {"type": "string"},
+      "code": {"type": "string"},
+      "detail": {"type": "string"}
+    }
+  }
+}
