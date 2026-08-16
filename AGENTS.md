@@ -14,7 +14,10 @@ layer; see "Phase 2" below). Brand is **fathm**; the portable format is **Analys
 CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
-L1 implementation detail).
+L1 implementation detail). `docs/` holds technical/design docs only; brand and pitch material lives in
+`brand/` (`brand/BRAND.md`, `brand/PITCH.md`, `brand/PITCH-YC.md`, decks, and `brand/research/` for
+naming/trademark research); `research/` holds only genuine research (findings, landscape, standards
+foundation) - keep new marketing/brand material in `brand/`, not `docs/` or `research/`.
 
 ## Build / test
 
