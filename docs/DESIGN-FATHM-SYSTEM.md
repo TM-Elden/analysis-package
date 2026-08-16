@@ -90,7 +90,7 @@ fathm makes AI-assisted planning and finance/ops analysis **trustworthy to publi
 | C8 | **Agent runtime contract** | Planning agents read/write packages; same gate as CI |
 | C9 | **Trust / tenancy** | Isolation, training eligibility, no cross-customer content pooling |
 
-#### Load-bearing product capabilities (C10-C19) - required for complete product
+#### Load-bearing product capabilities (C10-C20) - required for complete product
 
 | # | Capability | Description |
 |---|------------|-------------|
@@ -103,7 +103,8 @@ fathm makes AI-assisted planning and finance/ops analysis **trustworthy to publi
 | C16 | **Notify / webhooks** | Gate fail, HITL pending, publish, supersede → Slack/email/agent hooks |
 | C17 | **Cycle diff** | Compare package vs prior cycle (manager/planner fuel) |
 | C18 | **Gold / regression packs** | First-class reference packages for gate + engine replay |
-| C19 | **Operator surface** | Minimal admin UI and/or CLI: search packs, HITL queue, gate dashboard |
+| C19 | **Operator surface** | Admin/manager UI and/or CLI: search packs, package review, HITL queue, gate dashboard (ships in two waves - manager console v0 in phase 3, remainder in phase 5; see §13j, §20a) |
+| C20 | **Chat delivery surface** | Bidirectional Slack/Teams bot fronting C4 manager-bot Q&A for planners; one channel first (see §13k, §20a) |
 
 #### Backlog (in scope as product may need later - not required for §18 complete)
 
@@ -488,20 +489,43 @@ HITL on the **Standard** (C7) is not enough. Weekly packs need a human lead path
 
 ## 13j. C19 - Operator surface
 
+Ships in two waves, not as one late-phase deliverable (adopted per `fathm-ui-review`; see §20a for full phase sequencing and cut-priority order): a **manager console v0** subset lands in phase 3 as the manager persona's primary surface, alongside chat delivery (C20) for planners; the operator/admin remainder lands in phase 5. Both waves are this one capability entry.
+
 ### Behavior
 Minimal **chart room** console and/or CLI:
-- Search/list packages (filters: status, profile, as_of, team)  
-- Open package detail + gate report  
-- HITL queue (Standard proposals)  
-- Package review queue  
-- Gate dashboard (pass rate, top failing checks)  
+- Search/list packages (filters: status, profile, as_of, team) - manager console v0, phase 3  
+- Open package detail + gate report - manager console v0, phase 3  
+- Package review queue (C10 approve/reject with reason) - manager console v0, phase 3  
+- LLM query panel over `POST /chat/manager` (C4), the same backend planners reach via chat (C20) - manager console v0, phase 3  
+- HITL queue (Standard proposals) - console tab added in phase 4, once C6/C7 exist; cannot exist earlier since proposals don't exist before then  
+- Gate dashboard (pass rate, top failing checks) - remainder, phase 5  
+- Admin/config and lifecycle screens (C12) - remainder, phase 5  
 - Brand: follow `brand/fathm-brand-system-v1.html` for any web UI  
 
-CLI-only is acceptable for early complete if all actions exist; web UI preferred for design partner.
+CLI-only is acceptable for early complete for the operator/engineer persona; for the manager persona the web console is primary, not merely preferred (see §20a).
 
 ### Acceptance
 - Operator can complete review + HITL without raw DB access.  
+- Manager console v0 (phase-3 subset above) is usable by the manager persona without CLI access.  
 - Surfaces respect AuthZ (C11).
+
+---
+
+## 13k. C20 - Chat delivery surface
+
+Bidirectional Slack/Teams bot fronting C4's manager-bot Q&A, for the **planner** persona (see §20a persona split). Distinct from C16, which is one-way notify only.
+
+### Behavior
+- One channel first: Slack *or* Teams, whichever the design partner already uses. Do not build both for v0.  
+- DM or @mention → routes to `POST /chat/manager` → cited answer posted back into the thread.  
+- Same citation, access-control, and tenancy rules as C4 (C11 caller-scoped authz; no ACL bypass via chat).  
+- Answer-content-vs-ids-only posting policy is a deliberate build-time call, documented against `product/TRUST.md`'s no-third-party-ship default (chat traffic transits the customer's own Slack/Teams tenant); do not default silently either way.  
+- Out of scope for C20 itself: provisioning a distinct bot identity per team member. That is contingent on the open "bot creation for team members" decision (§20). C20 ships one shared team channel under existing C11 scoping regardless of how that decision resolves.
+
+### Acceptance
+- A DM or mention in the configured channel returns a cited answer, or an explicit "not in corpus," sourced from `POST /chat/manager`.  
+- Access control enforced identically to C4.  
+- Chat-platform app registration and citation message-formatting documented for the design partner's platform.
 
 ---
 
@@ -525,6 +549,7 @@ analysis-package/           # existing GH repo
   src/ap_notify/            # webhooks
   src/ap_eval/              # eval harness
   src/ap_ops/               # operator CLI/UI
+  src/ap_chat/              # chat delivery bot (C20), fronts ap_bots' manager-bot Q&A
   tests/
   docs/
 ```
@@ -541,13 +566,13 @@ Define and version these (OpenAPI/JSON Schema/whatever firstmate prefers):
 |-----------|----------|
 | `POST /packages/validate` | CI, agents, UI |
 | `POST /packages` (publish) | agents, humans |
-| `POST /packages/{id}/review` | package HITL (C10) |
+| `POST /packages/{id}/review` | package HITL (C10), UI |
 | `POST /packages/{id}/supersede` | lifecycle |
 | `POST /packages/{id}/recall` | lifecycle |
 | `GET /packages/{id}` | bots, UI |
 | `GET /packages?query=` | bots, UI |
 | `GET /packages/{id}/diff?prior=` | cycle diff |
-| `POST /chat/manager` | manager bot |
+| `POST /chat/manager` | manager bot, UI (console v0 query panel), chat delivery (C20) |
 | `POST /chat/company` | company bot |
 | `GET/POST /proposals` | planner bot, Standard HITL |
 | `POST /proposals/{id}/decision` | Standard HITL |
@@ -594,7 +619,7 @@ A build is **complete** when all are true:
 9. **Reference agent** can complete a cycle end-to-end  
 10. Docs allow a new engineer to run the stack locally or on Pi  
 
-**Load-bearing (C10-C19)**
+**Load-bearing (C10-C20)**
 11. **Package review** workflow works (draft → review → approved) with audit  
 12. **AuthZ** enforced (role matrix + cross-tenant deny tests)  
 13. **Lifecycle:** supersede + recall + retention/hold path exists  
@@ -605,10 +630,11 @@ A build is **complete** when all are true:
 18. **Cycle diff** API (or CLI) works on example lineage  
 19. **Gold pack** in CI regression  
 20. **Operator surface** can review packs + HITL without DB poking  
+21. **Chat delivery** (C20) returns cited planner answers in-thread  
 
 Backlog B1-B8 is **not** required for this complete bar.
 
-firstmate may ship partial increments; "done for full system" means 1-20 above.
+firstmate may ship partial increments; "done for full system" means 1-21 above.
 
 ---
 
@@ -633,10 +659,35 @@ firstmate may ship partial increments; "done for full system" means 1-20 above.
 - Manager vs company bot policy matrix defaults  
 - Semantic L2 block vs flag defaults  
 - Store technology  
-- Hosted SaaS vs on-prem/Pi-first for design partner  
+- Hosted SaaS vs on-prem/Pi-first for design partner - now also covers the manager console specifically (§20a); escalated rather than silently resolved, since a primary manager-facing web surface makes hosting, TLS, login, and security-review posture buyer-facing, needed before phase-3 console build starts  
 - PyPI publish vs private install only  
 - Webhook payload richness vs trust (default: ids only)  
 - Self-approve packages allowed for tiny teams?  
+- "Bot creation" for team members: scoped chat/query handles onto the shared team bot vs. per-member planning-agent instances (C8 client + provisioning) vs. phased (scoped handles now, per-member instances later) - blocks scoping of any bot-provisioning work beyond C20's single shared channel  
+- "Review soundings" meaning: package-level review queue (C10, the reading §20a's phase-3 scope is built to) vs. individual override/judgment-row review (brand-lexicon reading, `docs/BRAND.md`), or both - affects console review-surface scope only
+
+---
+
+## 20a. Phase sequencing (adopted, 2026-08-16)
+
+§3 leaves phase order to firstmate by design, and phase 1 (Standard schema + L1 structural gate) is unaffected by everything below - it has no UI surface and no dependency on it. What follows is the phase 2-5 sequencing the captain approved after the `fathm-ui-review` scout, recorded here for traceability rather than left as scout-report prose only. firstmate still owns further cuts and reordering within it.
+
+**Why: the manager/planner/operator split.** The product has three distinct human-facing personas, one surface each: the **manager** (buyer persona) works the web dashboard; the **planner** works chat (Slack/Teams, C20); the **operator/engineer** keeps the CLI. C19's original "CLI-only acceptable, web UI preferred" framing was correct for phase 1-2 (the only humans touching the system are the builder and, late in phase 2, an analyst/agent producing packages) and stays correct for the operator/engineer persona throughout - but it was silently doing double duty as a statement about the manager persona, where it never held: the moment C4 exists (phase 3), its consumers are a manager and planners, neither of whom uses a terminal. That gap is what the phase 3 changes below close.
+
+**Phase 2 - unchanged in content, sharpened in intent.** Stays headless; its users remain engineers, agents, and CI. Build the C3 (store) and C10 (package review) APIs against the §15 interface table explicitly as the future manager console's backend, so the phase-3 console is a thin client rather than a redesign - near-zero extra cost since §15 already names UI as a consumer of these endpoints, but endpoint shapes (pagination, filters, review-transition payloads) should be designed for a UI consumer, not just curl.
+
+**Phase 3 - grows to cover both delivery surfaces, not just the RAG backend.** In addition to C4 (manager-bot backend) and C14 (redaction-before-index, still a non-negotiable pairing):
+- **Manager console v0** (the phase-3 half of the C19 split, §13j): package list/detail + rendered gate report, C10 review queue, LLM query panel over `POST /chat/manager`. Explicitly *not* in v0: the gate-analytics dashboard, the Standard-HITL proposal queue (impossible before phase 4 regardless, since C6/C7 don't exist yet), and admin/lifecycle screens.  
+- **Planner chat v0** (C20, §13k): one channel, DM/mention → `POST /chat/manager` → cited answer in-thread.  
+- Full C11 enforcement, including web authentication (login/sessions) that a CLI-only phase 3 would not have needed.  
+- **Scope note flagged by the open "review soundings" decision (§20):** the C10 review queue above is built to the package-level reading of "review soundings." If the captain confirms the individual override/judgment-row reading instead (or both), the review queue needs label-row drill-down in addition to the package-level queue - the underlying data (`labels/*.jsonl` with `author`, `ts`, `reason_code`) already supports it, but the queue's scope should not be assumed either way until that hold clears.  
+- **Cut-priority order if phase 3 must shrink** (it is materially bigger than a phase that ships "just a bot"): planner chat v0 keeps priority over the console query panel; the console review queue keeps priority over everything else in the console (it is the first thing C10 makes demoable); the gate-analytics dashboard is the safest deferral, since no pilot user is waiting on it.
+
+**Phase 4 - unchanged in content.** C6 proposals + C7 HITL land as designed. The console gains the "Updating the Standard" tab (proposal queue, approve/edit/reject, dry-run diff), which cannot land earlier since it renders C6's output.
+
+**Phase 5 - the C19 remainder.** Gate-analytics dashboard, operator/admin views, lifecycle screens (C12: supersede/recall/retention), plus whatever the open "bot creation for team members" decision (§20) adds once it resolves.
+
+**Not resolved here (open captain holds, unchanged by this amendment):** what "bot creation for team members" means (scoped handles on the shared bot, per-member planning-agent instances, or phased), what "review soundings" means (package-level vs. individual-measurement review), and the manager console's specific hosting model (hosted SaaS vs. Pi/on-prem-first). All three are held in §20; nothing in this section should be read as answering any of them.
 
 ---
 
@@ -646,7 +697,7 @@ firstmate may ship partial increments; "done for full system" means 1-20 above.
 cd ~/firstmate/projects/fathm && git pull
 # Read docs/DESIGN-FATHM-SYSTEM.md (this file)
 # You own sequencing, architecture packaging, and sprint cuts.
-# Deliver toward complete product acceptance §18 (items 1-20).
+# Deliver toward complete product acceptance §18 (items 1-21).
 ```
 
 **Hermes responsibility:** standard draft, brand, research, example pack, this design.  
