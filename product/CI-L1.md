@@ -33,6 +33,8 @@ Block or flag publish when an Analysis Package fails machine-checkable completen
 
 Waivers: `qa.waivers[]` entries `{check_id, reason, author}` turn a failing check into `result: pass, waived: true`. Waiver `author` is never surfaced in gate output (report evidence or results) - see the report shape below.
 
+Path safety: `inputs_pinned`, `engines_pinned`, `labels_paths`, `guideline_exists`, and `output_contract_files` resolve every manifest-declared path under the package directory only; a path that escapes it (absolute, or `..` traversal) fails that check rather than being followed.
+
 ## Report shape (layered)
 
 The gate's JSON report separates a content-free layer from a human-facing one, by design, not as an

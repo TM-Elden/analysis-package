@@ -47,6 +47,12 @@ without a venv (`sudo apt-get install python3-pytest` if missing) - `PYTHONPATH=
   `examples/commodity-commit-v1` to replay against - that's a phase-2 candidate, not a bug.
 - The manifest's `qa.checks[]` is a historical record the package carries, separate from what the gate
   computes fresh each run (`qa_approved_implies_pass` evaluates the gate's own results, never `qa.checks[]`).
+- Any check resolving a manifest-declared path must go through `resolve_contained`
+  (`src/ap_gate/checks/pathsafe.py`), not `pkg / rel_path` directly - manifests are planner/agent-submitted
+  and an uncontained join lets a crafted path (absolute, or `..` traversal) escape the package directory.
+- `_apply_waivers` in `registry.py` runs before `qa_approved_implies_pass` (and again after), not just
+  once at the end - the meta check reads prior outcomes, so a waived failure must already read as `pass`
+  by the time it runs.
 
 ## Gold-pack regression
 

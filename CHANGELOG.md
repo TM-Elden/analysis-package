@@ -29,6 +29,10 @@
   `product/CI-L1.md` updated to match.
 - `engines_pinned` now additionally verifies `engines[].path` exists on disk when set (previously a
   dangling path passed silently).
+- Every check that resolves a manifest-declared path (`inputs_pinned`, `engines_pinned`, `labels_paths`,
+  `guideline_exists`, `output_contract_files`) goes through a shared containment check
+  (`src/ap_gate/checks/pathsafe.py`): a path that escapes the package directory (`..` traversal or an
+  absolute path) fails that check instead of being silently followed.
 - `no_unlabeled_diff` is explicitly stubbed - always returns `skip`. Real engine implementations are a
   phase-2 candidate.
 - Gate JSON report is layered: a content-free `results[]` (`{check_id, result, severity, waived}`) that
