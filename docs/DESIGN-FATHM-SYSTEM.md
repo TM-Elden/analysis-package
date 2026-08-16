@@ -104,7 +104,7 @@ fathm makes AI-assisted planning and finance/ops analysis **trustworthy to publi
 | C17 | **Cycle diff** | Compare package vs prior cycle (manager/planner fuel) |
 | C18 | **Gold / regression packs** | First-class reference packages for gate + engine replay |
 | C19 | **Operator surface** | Admin/manager UI and/or CLI: search packs, package review, HITL queue, gate dashboard (ships in two waves - manager console v0 in phase 3, remainder in phase 5; see §13j, §20a) |
-| C20 | **Chat delivery surface** | Bidirectional Slack/Teams bot fronting C4 manager-bot Q&A for planners; one channel first (see §13k, §20a) |
+| C20 | **Chat delivery surface** | Bidirectional chat bot fronting C4 manager-bot Q&A for planners; one channel first, Telegram for v0 (see §13k, §20a) |
 
 #### Backlog (in scope as product may need later - not required for §18 complete)
 
@@ -513,13 +513,13 @@ CLI-only is acceptable for early complete for the operator/engineer persona; for
 
 ## 13k. C20 - Chat delivery surface
 
-Bidirectional Slack/Teams bot fronting C4's manager-bot Q&A, for the **planner** persona (see §20a persona split). Distinct from C16, which is one-way notify only.
+Bidirectional chat bot fronting C4's manager-bot Q&A, for the **planner** persona (see §20a persona split). Distinct from C16, which is one-way notify only.
 
 ### Behavior
-- One channel first: Slack *or* Teams, whichever the design partner already uses. Do not build both for v0.  
+- One channel first, resolved to Telegram for v0 (`fathm-phase3-readiness-decision-chat-platform`, 2026-08-16: "use telegram for now - will add slack later"); Slack/Teams stays the follow-on, not built for v0 - see `src/ap_chat/` (platform-neutral core, Telegram-only adapter) and `docs/telegram-bot-setup.md`.
 - DM or @mention → routes to `POST /chat/manager` → cited answer posted back into the thread.  
 - Same citation, access-control, and tenancy rules as C4 (C11 caller-scoped authz; no ACL bypass via chat).  
-- Answer-content-vs-ids-only posting policy is a deliberate build-time call, documented against `product/TRUST.md`'s no-third-party-ship default (chat traffic transits the customer's own Slack/Teams tenant); do not default silently either way.  
+- Answer-content-vs-ids-only posting policy is a deliberate build-time call, documented against `product/TRUST.md`'s no-third-party-ship default (chat traffic transits the customer's own chat-platform tenant); do not default silently either way.  
 - Out of scope for C20 itself: provisioning a distinct bot identity per team member. That is contingent on the open "bot creation for team members" decision (§20). C20 ships one shared team channel under existing C11 scoping regardless of how that decision resolves.
 
 ### Acceptance
@@ -673,7 +673,7 @@ Resolved: "review soundings" means package-level review (whole packages awaiting
 
 §3 leaves phase order to firstmate by design, and phase 1 (Standard schema + L1 structural gate) is unaffected by everything below - it has no UI surface and no dependency on it. What follows is the phase 2-5 sequencing the captain approved after the `fathm-ui-review` scout, recorded here for traceability rather than left as scout-report prose only. firstmate still owns further cuts and reordering within it.
 
-**Why: the manager/planner/operator split.** The product has three distinct human-facing personas, one surface each: the **manager** (buyer persona) works the web dashboard; the **planner** works chat (Slack/Teams, C20); the **operator/engineer** keeps the CLI. C19's original "CLI-only acceptable, web UI preferred" framing was correct for phase 1-2 (the only humans touching the system are the builder and, late in phase 2, an analyst/agent producing packages) and stays correct for the operator/engineer persona throughout - but it was silently doing double duty as a statement about the manager persona, where it never held: the moment C4 exists (phase 3), its consumers are a manager and planners, neither of whom uses a terminal. That gap is what the phase 3 changes below close.
+**Why: the manager/planner/operator split.** The product has three distinct human-facing personas, one surface each: the **manager** (buyer persona) works the web dashboard; the **planner** works chat (Telegram for v0, C20 - see §13k); the **operator/engineer** keeps the CLI. C19's original "CLI-only acceptable, web UI preferred" framing was correct for phase 1-2 (the only humans touching the system are the builder and, late in phase 2, an analyst/agent producing packages) and stays correct for the operator/engineer persona throughout - but it was silently doing double duty as a statement about the manager persona, where it never held: the moment C4 exists (phase 3), its consumers are a manager and planners, neither of whom uses a terminal. That gap is what the phase 3 changes below close.
 
 **Phase 2 - unchanged in content, sharpened in intent.** Stays headless; its users remain engineers, agents, and CI. Build the C3 (store) and C10 (package review) APIs against the §15 interface table explicitly as the future manager console's backend, so the phase-3 console is a thin client rather than a redesign - near-zero extra cost since §15 already names UI as a consumer of these endpoints, but endpoint shapes (pagination, filters, review-transition payloads) should be designed for a UI consumer, not just curl.
 
