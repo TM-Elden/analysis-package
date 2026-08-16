@@ -1,0 +1,19 @@
+{# Partial: one turn, appended to #chat-transcript on every form submit (see chat.html). Opens its
+   own SSE connection at ap_api's root-mounted /chat/manager/stream (not under /console - see
+   CLAUDE.md's ap_console/ap_api module boundary) so the browser's EventSource carries the session
+   cookie. The vendored htmx-extensions 1.9.12 sse.js does not implement `sse-close` (that attribute
+   only closes on DOM removal, not on a named event) - `sse-close="done"` below is kept as inert
+   documentation of intent only. The connection is actually torn down in base.html's
+   `htmx:sseBeforeMessage` listener, which calls `.close()` on the EventSource once the "done" event
+   arrives (see ap_api/chat_routes.py's _stream_answer, which always emits "done", success or error).
+   Both `sse-swap="done"` and `sse-swap="citations"` below exist purely so htmx's sse extension
+   registers a listener for those named events at all - without one, "htmx:sseBeforeMessage" never
+   fires for them (registerSSE only listens for events named in an element's sse-swap/hx-trigger
+   attribute); `hx-swap="none"` on both keeps the actual rendering in base.html's JS, which always
+   calls evt.preventDefault() for them. #}
+<div class="chat-turn card" hx-ext="sse" sse-connect="/chat/manager/stream?question={{ question|urlencode }}" sse-close="done" sse-swap="done" hx-swap="none">
+  <div class="chat-question mono">{{ question }}</div>
+  <div class="chat-answer" sse-swap="message" hx-swap="beforeend"><span class="chat-pending mono">thinking…</span></div>
+  <div class="chat-citations" sse-swap="citations" hx-swap="none"></div>
+  <div class="chat-error" sse-swap="error" hx-swap="innerHTML"></div>
+</div>

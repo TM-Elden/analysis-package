@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Ask{% endblock %}
+{% block nav_chat %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">manager query</div>
+<h1>Ask the corpus</h1>
+<p style="color:var(--drift);font-size:14px;margin:0 0 18px">
+  Answered only from packages you have access to, with every claim tied to a citation - if nothing
+  in the corpus supports an answer, the bot says so instead of guessing.
+</p>
+
+<form class="chat-form"
+  hx-get="/console/chat/turn"
+  hx-target="#chat-transcript"
+  hx-swap="beforeend"
+  hx-on::after-request="if(event.detail.successful) this.reset()">
+  <input type="text" name="question" placeholder="e.g. Why did we hold ACME BBU-100?" autocomplete="off" required>
+  <button type="submit">Ask</button>
+</form>
+
+<div id="chat-transcript"></div>
+{% endblock %}

@@ -224,6 +224,32 @@ def package_detail(
     )
 
 
+@router.get("/chat", response_class=HTMLResponse)
+def chat_page(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+) -> HTMLResponse:
+    """The P3.7 query panel shell: a message form plus an empty turn list. Each submitted question
+    is rendered by `chat_turn` below as an htmx-swapped-in SSE-connected fragment - this page itself
+    holds no chat state, so a reload just clears the transcript (no server-side session log)."""
+    return _render(request, "chat.html", identity=identity)
+
+
+@router.get("/chat/turn", response_class=HTMLResponse)
+def chat_turn(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    question: str = Query(..., min_length=1, max_length=2000),
+) -> HTMLResponse:
+    """htmx partial: the chat form GETs this on submit and appends the result to the transcript
+    (`hx-swap="beforeend"`, see chat.html). The fragment itself does no LLM work - it wires an
+    `hx-ext="sse"` container at `/chat/manager/stream` (ap_api.chat_routes, root-mounted, not under
+    `/console`) so the browser's own EventSource carries the session cookie for auth. This route
+    stays a thin question-in-fragment-out echo; the streaming and citation contract live entirely in
+    ap_api/ap_manager_bot, per the ap_console/ap_api module boundary in CLAUDE.md."""
+    return templates.TemplateResponse(request, "_chat_turn.html", {"question": question})
+
+
 @router.get("/packages/{package_id}/gate-report", response_class=HTMLResponse)
 def package_gate_report(
     package_id: str,
