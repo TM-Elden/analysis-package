@@ -9,6 +9,8 @@ from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_store.store import ImmutabilityError, ListFilter, PackageStore
 
+from conftest import EXAMPLE_PACKAGE
+
 
 def _analyst(actor_id: str = "tom.analyst") -> Identity:
     return Identity(id=actor_id, roles=frozenset({Role.ANALYST}))
@@ -38,6 +40,17 @@ def test_publish_persist_retrieve_list(tmp_path):
     store.extract(record.package_id, record.package_version, dest)
     assert (dest / "MANIFEST.yaml").is_file()
     assert (dest / "outputs" / "supplier_forecast.csv").is_file()
+    store.close()
+
+
+def test_publish_ignores_manifest_self_declared_qa_status(tmp_path):
+    store = PackageStore(tmp_path / "store")
+    record = store.publish(EXAMPLE_PACKAGE, actor=_analyst())
+    assert record.status == "draft"
+
+    fetched = store.get(record.package_id, record.package_version)
+    assert fetched is not None
+    assert fetched.status == "draft"
     store.close()
 
 
