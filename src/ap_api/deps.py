@@ -19,6 +19,8 @@ from ap_auth.csrf import csrf_token_matches
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import DEFAULT_AUTH_DB, AuthStore
+from ap_index.index_store import IndexStore
+from ap_manager_bot.llm_client import AnthropicHTTPClient, LLMClient
 from ap_review.policy import ReviewPolicy
 from ap_review.workflow import ReviewWorkflow
 from ap_store.store import PackageStore
@@ -27,6 +29,11 @@ from ap_store.store import PackageStore
 #: decision has been made (design doc section 20), this is a local filesystem path because phase 2
 #: runs locally (Pi or dev box) by design, not a foreclosure of a future hosted deployment.
 DEFAULT_STORE_ROOT = Path(os.environ.get("AP_STORE_ROOT", str(Path.home() / ".fathm" / "ap_store")))
+
+#: Default C4 index root - overridable via AP_INDEX_ROOT, same local-first reasoning as the store
+#: root above. Populated by `ap_index.reindex.reindex_package` after review transitions, not by this
+#: module.
+DEFAULT_INDEX_ROOT = Path(os.environ.get("AP_INDEX_ROOT", str(Path.home() / ".fathm" / "ap_index")))
 
 #: Name of the browser session cookie set by POST /login. HttpOnly + SameSite=Lax + Secure - see
 #: ap_api/auth_routes.py::login.
@@ -46,6 +53,19 @@ def get_store() -> PackageStore:
 def get_auth_store() -> AuthStore:
     db_path = Path(os.environ.get("AP_AUTH_DB", str(DEFAULT_AUTH_DB)))
     return AuthStore(db_path)
+
+
+@lru_cache(maxsize=1)
+def get_index() -> IndexStore:
+    return IndexStore(DEFAULT_INDEX_ROOT)
+
+
+@lru_cache(maxsize=1)
+def get_llm_client() -> LLMClient:
+    """Constructed lazily (not at import time) so a server that never gets a /chat/manager request
+    doesn't require ANTHROPIC_API_KEY to boot; tests override this dependency rather than setting a
+    real key - see tests/test_manager_bot_api.py."""
+    return AnthropicHTTPClient()
 
 
 def get_review_policy() -> ReviewPolicy:

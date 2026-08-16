@@ -11,9 +11,10 @@ JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structur
 **phase-2 product** (`src/ap_store/`, `src/ap_review/`, `src/ap_auth/`, `src/ap_agent_tools/`,
 `src/ap_api/`, `src/ap_mcp/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP
 interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress**
-(`src/ap_redact/`, `src/ap_index/` - redaction pipeline and FTS5 search index; `src/ap_console/` - the
-server-rendered manager console; see "Phase 3" below). Brand is **fathm**; the
-CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
+(`src/ap_redact/`, `src/ap_index/`, `src/ap_manager_bot/` - redaction pipeline, FTS5 search index, and
+the C4 manager-bot backend; `src/ap_console/` - the server-rendered manager console; see "Phase 3"
+below). Brand is **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename
+normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
 L1 implementation detail). `docs/` holds technical/design docs only; brand and pitch material lives in
@@ -173,13 +174,12 @@ functions.
   ap_api.app import app` (or the `ap_api.app:app` module-path string uvicorn/the console script use)
   at the call site instead.
 
-## Phase 3 (in progress): C14 redaction + C4 retrieval index
+## Phase 3 (in progress): C14 redaction, C4 retrieval index, C4 manager bot
 
-Implements the redaction-before-index and search-index halves of §20a's adopted Phase 3 slice
-(`data/fathm-phase3-readiness/report.md` sections 5.3/5.4 in the firstmate repo hold the full
-rationale). Neither module builds the manager-bot backend (`POST /chat/manager`), console, or any
-LLM call - those are later work that consumes `ap_index.search`/`get_chunk` as a library, same as
-every phase-2 module consumes `ap_gate`.
+Implements the redaction-before-index, search-index, and manager-bot-backend slices of §20a's
+adopted Phase 3 (`data/fathm-phase3-readiness/report.md` sections 5.3/5.4 in the firstmate repo hold
+the full rationale). Manager console and planner chat (both consumers of `POST /chat/manager`) are
+still later work.
 
 - **`src/ap_redact/`** (C14): `redact.redact_package(package_dir, manifest, package_id=, package_version=)`
   is the pipeline entry point - `package dir -> (list[Chunk], RedactionReport)`. Person identifiers
@@ -243,6 +243,47 @@ every phase-2 module consumes `ap_gate`.
   (`GET /console/packages/table`, `templates/_packages_table.html`) shared between the initial
   full-page render and swap-in-place updates - keep list columns in that one template, not
   duplicated between the full and partial views.
+- **`src/ap_manager_bot/`** (C4 manager bot) + `src/ap_api/chat_routes.py` (`POST /chat/manager`):
+  a **tool-using loop, not embed-and-stuff RAG** (report 5.3) - `service.py::ManagerBot.answer`
+  hands the LLM three read tools (`search_packages`, `get_package_summary`, `get_gate_report` -
+  `tool_backend.py`) and lets it compose its own queries across turns, ending only via a fourth
+  `provide_answer` tool. There is no other way out of the loop: a turn that returns no tool call at
+  all (model stopped without calling anything) is treated as a refusal, not free text shipped
+  uncited - see `service.py::ManagerBot.answer`'s "no tool_uses" branch.
+  - **Scoping is double-checked, not just filtered once** (`scoping.py`): `confidentiality_filter_for(identity)`
+    resolves the caller's role to the set of `confidentiality` values they may see *before* every
+    `ap_index.search` call inside a tool; `chunk_in_scope(identity, chunk)` re-checks every chunk
+    a tool is about to hand back to the model *after* the query - defense in depth against a filter
+    that was built wrong or bypassed, per the bot-architecture research's pattern. Today this is two
+    tiers (`internal` visible to any authenticated caller; `internal_restricted` additionally
+    requires `analyst`/`reviewer`/`standard_approver`/`admin`) since no `team_id` exists yet (report:
+    "team scope once teams exist") - the seam is this module, not its callers.
+  - **Citations are enforced server-side, not just requested in the prompt** (`tool_backend.py`'s
+    `ManagerBotTools._citable` registry + `service.py::ManagerBot._final_answer`): every ref_id a
+    tool hands the model is recorded against the `Citation` it actually corresponds to; a
+    `provide_answer` citation that doesn't resolve against that registry (invented, or dropped by
+    the post-search scope check) is discarded, and if every citation on an answer turns out fake the
+    whole answer downgrades to the same refusal path as an empty retrieval
+    (`NO_EVIDENCE_ANSWER`) - never a partially-grounded answer shipped as if fully grounded.
+  - **LLM egress**: `llm_client.py::AnthropicHTTPClient` speaks the Anthropic Messages API directly
+    over `httpx` (no SDK dependency, per the apt-only sandbox note) - this is the captain-approved
+    posture (resolved decision `fathm-phase3-readiness-decision-llm-egress-posture`, 2026-08-16):
+    retrieved, redacted, in-scope package content may leave the premises to a frontier-model API at
+    query time under that provider's no-training terms, as a documented deliberate inference-time
+    exception to TRUST.md - do not swap providers without a matching captain decision. Model id is
+    `AP_MANAGER_BOT_MODEL`-overridable, no default baked in as "the" approved one.
+  - **Tests never call the real API**: `tests/_manager_bot_fake_llm.py::ScriptedLLMClient` is a
+    second `LLMClient` implementation that plays the model's role deterministically (extract
+    entity-looking tokens from the question, search, cite the top hit or refuse) - it exercises the
+    real retrieval/scoping/citation harness end to end without network access or an API key;
+    `test_manager_bot_llm_client.py` separately covers `AnthropicHTTPClient`'s own request/response
+    shaping against `httpx.MockTransport`. `tests/_manager_bot_corpus.py` builds the C4 eval corpus
+    (~8 packages via `ap_agent_tools.package_create`, rewritten with distinct supplier/part/override
+    content, published+approved through the real `ap_review.ReviewWorkflow`, one package
+    `internal_restricted` for the scoping tests) - `test_manager_bot_eval.py` is P3.3's ~15-question
+    acceptance eval (each answer's citation checked against the known-correct package, plus an
+    explicit no-match-in-corpus refusal case); `test_manager_bot_scoping.py` is the scoping and
+    citation-contract acceptance tests.
 
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 

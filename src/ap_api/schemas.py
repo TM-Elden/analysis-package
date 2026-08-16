@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from ap_manager_bot.models import ChatAnswer
 from ap_store.models import PackageRecord
 
 
@@ -84,6 +85,34 @@ class AuditEntryOut(BaseModel):
     actor_roles: str
     reason: str | None
     ts: str
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(description="Natural-language question over the caller's approved, in-scope package corpus")
+
+
+class CitationOut(BaseModel):
+    package_id: str
+    package_version: str
+    field_path: str
+    chunk_type: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[CitationOut]
+    refused: bool
+
+
+def chat_answer_to_out(answer: ChatAnswer) -> ChatResponse:
+    return ChatResponse(
+        answer=answer.answer,
+        refused=answer.refused,
+        citations=[
+            CitationOut(package_id=c.package_id, package_version=c.package_version, field_path=c.field_path, chunk_type=c.chunk_type)
+            for c in answer.citations
+        ],
+    )
 
 
 def package_record_to_out(record: PackageRecord) -> PackageOut:
