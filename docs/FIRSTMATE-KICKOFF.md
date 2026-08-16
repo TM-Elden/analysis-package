@@ -7,14 +7,13 @@
 ## Scope
 Full fathm system is in scope:
 
-- Analysis Package **standard**
-- **Gate / CI** (structural + semantic capability)
-- **Package store**
-- **Manager bot** (team RAG)
-- **Company bot** (org RAG)
-- **Planner bot** (Standard/profile proposals)
-- **HITL approval** (mandatory before Standard goes live)
-- **Agent runtime contract** + trust/tenancy
+**Core:** standard, gate/CI, store, manager bot, company bot, planner bot, Standard HITL, agent contract, trust  
+
+**Also required for complete:** package review, authz, lifecycle (supersede/recall/retention), standard migration, PII redaction for index, eval harness, webhooks, cycle diff, gold packs, operator surface  
+
+**Backlog (not required for complete bar):** connectors, billing, multi-env, airgap, public docs/SDKs, collab comments, LLM cost caps, i18n  
+
+See capability tables C1-C19 and B1-B8 in DESIGN-FATHM-SYSTEM.md.
 
 ## Phasing
 **You decide.** Hermes does not prescribe sprint order or v0 cuts.  

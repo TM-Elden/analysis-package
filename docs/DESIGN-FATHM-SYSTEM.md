@@ -74,21 +74,51 @@ fathm makes AI-assisted planning and finance/ops analysis **trustworthy to publi
               (versioned; agents must conform)
 ```
 
-### Capability checklist (all required in the complete product)
+### Capability checklist (all required in the complete product unless marked backlog)
+
+#### Core loop (C1-C9)
 
 | # | Capability | Description |
 |---|------------|-------------|
 | C1 | **Standard** | Analysis Package ap contract, profiles, schemas, examples |
-| C2 | **Gate / CI** | Validate packages before "published"; structural required; semantic optional but designed |
+| C2 | **Gate / CI** | Validate packages before "published"; structural required; semantic designed |
 | C3 | **Package store** | Durable storage of packages + metadata index for query |
 | C4 | **Manager bot** | Role/team-scoped RAG Q&A over *that tenant's* validated packages |
-| C5 | **Company bot** | Org-scoped Q&A with stricter policy (aggregation, exec views); still single-tenant content |
-| C6 | **Planner bot** | Meta-agent: recurring gaps, conformance patterns, **proposals** to change Standard/profiles |
-| C7 | **HITL approval** | Human workflow to approve/edit/reject Planner proposals before they go live |
-| C8 | **Agent runtime contract** | Planning agents must read/write packages and call the same gate as CI |
+| C5 | **Company bot** | Org-scoped Q&A with stricter policy; still single-tenant content |
+| C6 | **Planner bot** | Meta-agent: gaps/conformance → **proposals** to change Standard/profiles |
+| C7 | **HITL (Standard)** | Human approve/edit/reject Planner proposals before Standard goes live |
+| C8 | **Agent runtime contract** | Planning agents read/write packages; same gate as CI |
 | C9 | **Trust / tenancy** | Isolation, training eligibility, no cross-customer content pooling |
 
-firstmate decides order, packaging (monorepo vs services), and what ships in v0.1 vs v1.0. Hermes does not mandate phases here.
+#### Load-bearing product capabilities (C10-C19) - required for complete product
+
+| # | Capability | Description |
+|---|------------|-------------|
+| C10 | **Package-level human review** | Lead/reviewer workflow on a *package* (`qa.status`), not only on Standard changes |
+| C11 | **AuthN / AuthZ** | Who can draft, publish, read (team vs company), HITL-approve, admin |
+| C12 | **Package lifecycle** | Supersede, unpublish/recall, retention, legal hold |
+| C13 | **Standard migration** | ap version upgrades; how old packages validate; compat policy |
+| C14 | **PII / redaction before index** | Strip or flag secrets before bot indexing |
+| C15 | **Eval harness** | Bot citation accuracy; gate false-positive metrics; regression packs |
+| C16 | **Notify / webhooks** | Gate fail, HITL pending, publish, supersede → Slack/email/agent hooks |
+| C17 | **Cycle diff** | Compare package vs prior cycle (manager/planner fuel) |
+| C18 | **Gold / regression packs** | First-class reference packages for gate + engine replay |
+| C19 | **Operator surface** | Minimal admin UI and/or CLI: search packs, HITL queue, gate dashboard |
+
+#### Backlog (in scope as product may need later - not required for §18 complete)
+
+| # | Capability | Description |
+|---|------------|-------------|
+| B1 | ERP/APS **connectors** (emit packs; do not replace Kinaxis/Anaplan) |
+| B2 | Billing / entitlements (SaaS) |
+| B3 | Multi-env (dev/stage/prod Standard pins) |
+| B4 | Airgap / on-prem hardened install |
+| B5 | Public docs site / multi-language SDKs |
+| B6 | Collaboration (comments, @mentions on packs) |
+| B7 | LLM cost caps / budget guards on bots |
+| B8 | i18n of UI copy |
+
+firstmate decides order and packaging. Hermes does not mandate phases.
 
 ---
 
@@ -304,6 +334,177 @@ See `product/TRUST.md`.
 
 ---
 
+## 13a. C10 - Package-level human review
+
+HITL on the **Standard** (C7) is not enough. Weekly packs need a human lead path.
+
+### Behavior
+- Package `qa.status`: `draft` → `in_review` → `approved` | `rejected` (align with standard enums).  
+- Reviewer role distinct from analyst (may be same person only if policy allows).  
+- Gate may be required before `in_review` or before `approved` (policy knobs).  
+- Comments/reason on reject.  
+- Approved package is what bots treat as "published corpus" by default (drafts excluded unless caller has elevate).
+
+### Acceptance
+- Cannot mark `approved` without recorded reviewer identity (or explicit self-approve policy flag).  
+- Manager/company bots default to approved packages only.  
+- Audit: who transitioned status when.
+
+---
+
+## 13b. C11 - AuthN / AuthZ
+
+### Roles (minimum model - firstmate may rename)
+
+| Role | Typical powers |
+|------|----------------|
+| `analyst` | create/edit draft packages, run gate, submit for review |
+| `reviewer` | package approve/reject |
+| `team_reader` | manager-bot + read team packages |
+| `company_reader` | company-bot + org rollups per policy |
+| `standard_approver` | HITL on Planner proposals (C7) |
+| `admin` | tenant config, webhooks, retention, API keys |
+
+### Behavior
+- Every API call tenant-scoped.  
+- Bots inherit caller's authz (no privilege escalation via prompt).  
+- Service accounts for CI/agents with least privilege (publish vs read).
+
+### Acceptance
+- Matrix documented and enforced in tests (at least: reader cannot approve; other-tenant deny).  
+- Agent tokens cannot call company bot beyond grant.
+
+---
+
+## 13c. C12 - Package lifecycle
+
+### Behavior
+- **Supersede:** new `package_version` or successor `package_id` links `replaces`.  
+- **Unpublish / recall:** remove from default bot corpus; retain bytes for audit if policy requires.  
+- **Retention:** configurable TTL or legal hold flag blocks delete.  
+- **Export:** full package zip/crate for customer exit.
+
+### Acceptance
+- Superseded packs not cited as current by bots unless asked for history.  
+- Recall is reversible only by admin + audit.  
+- Legal hold prevents destructive delete.
+
+---
+
+## 13d. C13 - Standard migration
+
+### Behavior
+- Registry of supported `standard_version` + profile versions.  
+- Compat policy per version: `validate`, `validate_with_warnings`, `reject`.  
+- Migration notes / optional automated manifest upgraders when safe.  
+- Gate and agents pin versions; unknown required version fails closed if configured.
+
+### Acceptance
+- Documented matrix for ap/0.2 → next.  
+- Old packages remain retrievable.  
+- CI can run gate under multiple standard versions.
+
+---
+
+## 13e. C14 - PII / redaction before index
+
+### Behavior
+- Indexing pipeline for bots runs **redaction stage**: API keys, emails, SSNs-like patterns, custom allow/deny field paths.  
+- Redaction report stored on package (`qa/redaction.json` or store sidecar).  
+- Fail or warn policy if high-severity secret detected in labels/outputs.  
+- Raw package in store may remain complete for authorized humans; **bot index uses redacted view**.
+
+### Acceptance
+- Secret-like strings in fixture pack do not appear in bot retrieval chunks.  
+- Analyst with permission can still open raw package.  
+- Policy documented in TRUST.
+
+---
+
+## 13f. C15 - Eval harness
+
+### Behavior
+- **Gate evals:** fixture packs with expected pass/fail per check id; track false positives.  
+- **Bot evals:** question → expected package_id citations; score recall/precision.  
+- **Gold packs:** C18 packages used as regression anchors for engines/gate.  
+- Run in CI on schedule or every PR affecting bots/gate.
+
+### Acceptance
+- `make eval` or `pytest` path documented.  
+- Baseline scores recorded in repo (or CI artifact).  
+- Regression fails the build when scores drop beyond threshold (threshold firstmate-set).
+
+---
+
+## 13g. C16 - Notify / webhooks
+
+### Events (minimum)
+- `package.gate.failed` / `package.gate.passed`  
+- `package.review.requested` / `package.approved` / `package.rejected`  
+- `package.published` / `package.superseded` / `package.recalled`  
+- `proposal.created` / `proposal.decision`  
+- `standard.version.released`
+
+### Behavior
+- Webhook endpoints with signed payloads (HMAC).  
+- Optional email/Slack adapters.  
+- No package **body** in webhook by default - ids + links + status only (trust).
+
+### Acceptance
+- Test consumer receives signed events.  
+- Retry/backoff documented.  
+- Payload schema versioned.
+
+---
+
+## 13h. C17 - Cycle diff
+
+### Behavior
+- Given package A and prior package B (same profile + lineage key e.g. commodity/team):  
+  - manifest field diff  
+  - output table diff (key rows)  
+  - overrides added/removed  
+- API + manager-bot tool: "what changed vs last cycle?"  
+- Planner bot may consume diffs for proposal evidence.
+
+### Acceptance
+- Diff API returns structured result for example lineage.  
+- Bot can answer a change question with citations to both package ids.
+
+---
+
+## 13i. C18 - Gold / regression packs
+
+### Behavior
+- Packages marked `gold: true` or stored under `examples/gold/` / tenant gold registry.  
+- Gate `no_unlabeled_diff` / engine replay compares against gold when configured.  
+- CI fails if gold pack stops passing gate after code change.
+
+### Acceptance
+- At least one gold pack in repo (commodity example may be promoted).  
+- Document how to mint a new gold (reviewer + admin).
+
+---
+
+## 13j. C19 - Operator surface
+
+### Behavior
+Minimal **chart room** console and/or CLI:
+- Search/list packages (filters: status, profile, as_of, team)  
+- Open package detail + gate report  
+- HITL queue (Standard proposals)  
+- Package review queue  
+- Gate dashboard (pass rate, top failing checks)  
+- Brand: follow `brand/fathm-brand-system-v1.html` for any web UI  
+
+CLI-only is acceptable for early complete if all actions exist; web UI preferred for design partner.
+
+### Acceptance
+- Operator can complete review + HITL without raw DB access.  
+- Surfaces respect AuthZ (C11).
+
+---
+
 ## 14. Suggested code layout (non-binding)
 
 firstmate may reorganize freely. A coherent monorepo sketch:
@@ -311,12 +512,19 @@ firstmate may reorganize freely. A coherent monorepo sketch:
 ```
 analysis-package/           # existing GH repo
   standard/                 # ap schemas, profiles
-  examples/
+  examples/                 # including gold/
+  brand/                    # brand system
   src/ap_gate/              # validation library + CLI
-  src/ap_store/             # package store + index API
+  src/ap_store/             # package store + lifecycle + index
   src/ap_bots/              # manager, company, planner agents
-  src/ap_hitl/              # approval API + simple UI or CLI
+  src/ap_hitl/              # Standard HITL + package review APIs
   src/ap_agent_tools/       # tool schemas for pair agents
+  src/ap_auth/              # authn/z
+  src/ap_redact/            # PII redaction for index
+  src/ap_diff/              # cycle diff
+  src/ap_notify/            # webhooks
+  src/ap_eval/              # eval harness
+  src/ap_ops/               # operator CLI/UI
   tests/
   docs/
 ```
@@ -333,15 +541,21 @@ Define and version these (OpenAPI/JSON Schema/whatever firstmate prefers):
 |-----------|----------|
 | `POST /packages/validate` | CI, agents, UI |
 | `POST /packages` (publish) | agents, humans |
+| `POST /packages/{id}/review` | package HITL (C10) |
+| `POST /packages/{id}/supersede` | lifecycle |
+| `POST /packages/{id}/recall` | lifecycle |
 | `GET /packages/{id}` | bots, UI |
 | `GET /packages?query=` | bots, UI |
+| `GET /packages/{id}/diff?prior=` | cycle diff |
 | `POST /chat/manager` | manager bot |
 | `POST /chat/company` | company bot |
-| `GET/POST /proposals` | planner bot, HITL |
-| `POST /proposals/{id}/decision` | HITL |
+| `GET/POST /proposals` | planner bot, Standard HITL |
+| `POST /proposals/{id}/decision` | Standard HITL |
 | `GET /standard/versions` | gate, agents |
+| `POST /webhooks` / event deliver | notify |
+| `POST /eval/run` or CI-only | eval harness |
 
-Auth model: firstmate choice (API keys, SSO later) - must be tenant-scoped.
+Auth model: tenant-scoped (C11). Webhook payloads: ids/status by default, not full bodies.
 
 ---
 
@@ -368,25 +582,45 @@ Design partner path: one real team producing packages under the Standard.
 
 A build is **complete** when all are true:
 
+**Core loop**
 1. **Standard** enforceable via schema + gate  
 2. Packages **publish** only when gate policy says so  
 3. **Store** holds versions and supports retrieval/search  
 4. **Manager bot** answers with citations inside team scope  
 5. **Company bot** answers with org policy and citations  
 6. **Planner bot** emits proposals from corpus/gate evidence  
-7. **HITL** is mandatory path for live Standard/profile changes  
+7. **Standard HITL** is mandatory path for live Standard/profile changes  
 8. **Trust** boundaries tested/documented  
 9. **Reference agent** can complete a cycle end-to-end  
 10. Docs allow a new engineer to run the stack locally or on Pi  
 
-firstmate may ship partial increments, but "done for full system" means the list above - not L1 alone.
+**Load-bearing (C10-C19)**
+11. **Package review** workflow works (draft → review → approved) with audit  
+12. **AuthZ** enforced (role matrix + cross-tenant deny tests)  
+13. **Lifecycle:** supersede + recall + retention/hold path exists  
+14. **Standard migration** policy documented and gate supports multi-version validate  
+15. **Redaction** prevents secrets in bot index fixtures  
+16. **Eval harness** runs in CI with baseline  
+17. **Webhooks** fire on publish/review/proposal events (signed)  
+18. **Cycle diff** API (or CLI) works on example lineage  
+19. **Gold pack** in CI regression  
+20. **Operator surface** can review packs + HITL without DB poking  
+
+Backlog B1-B8 is **not** required for this complete bar.
+
+firstmate may ship partial increments; "done for full system" means 1-20 above.
 
 ---
 
-## 19. Explicitly not required
+## 19. Explicitly never / not required
 
-- Replacing ERP/APS (Kinaxis/Anaplan/etc.)  
-- Cross-customer shared content models  
+**Never**
+- Cross-customer shared **content** models  
+- Chat transcript as system of record  
+- Replacing ERP/APS as system of record  
+
+**Not required for complete (backlog OK)**
+- B1-B8 (connectors, billing, multi-env, airgap, public docs/SDK sprawl, collab comments, LLM cost caps, i18n)  
 - Public fundraise materials  
 - Final public domain/brand legal clearance  
 - Perfect master data before packaging  
@@ -395,12 +629,14 @@ firstmate may ship partial increments, but "done for full system" means the list
 
 ## 20. Open product decisions (firstmate may resolve or escalate to Tom)
 
-- Who holds HITL authority in a customer org (role model)  
+- Who holds Standard HITL vs package reviewer roles in a customer org  
 - Manager vs company bot policy matrix defaults  
 - Semantic L2 block vs flag defaults  
 - Store technology  
 - Hosted SaaS vs on-prem/Pi-first for design partner  
 - PyPI publish vs private install only  
+- Webhook payload richness vs trust (default: ids only)  
+- Self-approve packages allowed for tiny teams?  
 
 ---
 
@@ -410,7 +646,7 @@ firstmate may ship partial increments, but "done for full system" means the list
 cd ~/firstmate/projects/analysis-package && git pull
 # Read docs/DESIGN-FATHM-SYSTEM.md (this file)
 # You own sequencing, architecture packaging, and sprint cuts.
-# Deliver toward complete product acceptance §18.
+# Deliver toward complete product acceptance §18 (items 1-20).
 ```
 
 **Hermes responsibility:** standard draft, brand, research, example pack, this design.  
