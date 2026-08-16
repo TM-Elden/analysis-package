@@ -423,7 +423,7 @@ def standard_dry_run(
             "dry_run": dry_run,
             "dry_run_text": json.dumps(dry_run, indent=2, sort_keys=True) if dry_run is not None else None,
             "csrf_token": console_csrf_token(request),
-            "error": error,
+            "dry_run_error": error,
         },
     )
 

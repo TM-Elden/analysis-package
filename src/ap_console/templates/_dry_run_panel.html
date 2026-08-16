@@ -5,8 +5,8 @@
    populating dry_run_json, this same template renders real results with no changes needed. #}
 <div class="card" id="dry-run-panel">
   <div class="eyebrow" style="margin-bottom:6px">Dry run</div>
-  {% if error %}
-  <div class="flash">{{ error }}</div>
+  {% if dry_run_error %}
+  <div class="flash">{{ dry_run_error }}</div>
   {% endif %}
   <form hx-post="/console/standard/proposals/{{ prop.proposal_id }}/dry-run"
     hx-target="#dry-run-panel" hx-swap="outerHTML"
