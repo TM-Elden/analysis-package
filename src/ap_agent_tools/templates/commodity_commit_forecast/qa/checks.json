@@ -1,0 +1,156 @@
+{
+  "validator": "ap-gate/0.2.0",
+  "checks_run_at": "2026-08-16T13:21:14Z",
+  "package_id": "pkg_01hqexample000000000000001",
+  "overall": "pass",
+  "results": [
+    {
+      "check_id": "must_fields",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "standard_version",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "layout_dirs",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "guideline_exists",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "output_contract_files",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "inputs_pinned",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "engines_pinned",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "labels_paths",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "labels_jsonl_parse",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "reason_codes_known",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "qa_status_enum",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "training_eligibility_present",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "no_unlabeled_diff",
+      "result": "skip",
+      "severity": "required",
+      "waived": false
+    },
+    {
+      "check_id": "qa_approved_implies_pass",
+      "result": "pass",
+      "severity": "required",
+      "waived": false
+    }
+  ],
+  "evidence": [
+    {
+      "check_id": "must_fields",
+      "message": "MANIFEST.yaml satisfies the ap/0.2 MUST-field schema"
+    },
+    {
+      "check_id": "standard_version",
+      "message": "standard_version 'ap/0.2' is supported"
+    },
+    {
+      "check_id": "layout_dirs",
+      "message": "required package directories present"
+    },
+    {
+      "check_id": "guideline_exists",
+      "message": "method card found at GUIDELINE.md"
+    },
+    {
+      "check_id": "output_contract_files",
+      "message": "3/3 output_contract files present and non-empty"
+    },
+    {
+      "check_id": "inputs_pinned",
+      "message": "6 input(s) pinned (path/hash or external_ref verified)"
+    },
+    {
+      "check_id": "engines_pinned",
+      "message": "3 engine(s) declared with name/version/deterministic"
+    },
+    {
+      "check_id": "labels_paths",
+      "message": "all three label files exist"
+    },
+    {
+      "check_id": "labels_jsonl_parse",
+      "message": "3 label file(s) parse cleanly"
+    },
+    {
+      "check_id": "reason_codes_known",
+      "message": "all override reason codes valid for profile 'commodity_commit_forecast'"
+    },
+    {
+      "check_id": "qa_status_enum",
+      "message": "qa.status 'approved' is valid"
+    },
+    {
+      "check_id": "training_eligibility_present",
+      "message": "training_eligibility is False"
+    },
+    {
+      "check_id": "no_unlabeled_diff",
+      "message": "engine replay not implemented in phase 1 (stubbed) - no_unlabeled_diff always skips until real deterministic engines exist to replay against."
+    },
+    {
+      "check_id": "qa_approved_implies_pass",
+      "message": "all required checks pass or are waived - approved status is consistent"
+    }
+  ],
+  "package": {
+    "title": "Weekly commodity commit pack - BBU and PSU shelf (example)",
+    "as_of": "2025-09-12T18:00:00Z",
+    "qa_status": "approved",
+    "profile": "commodity_commit_forecast/0.1"
+  }
+}
