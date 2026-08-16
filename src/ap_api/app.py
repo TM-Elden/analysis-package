@@ -54,6 +54,7 @@ from ap_api.schemas import (
 )
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
+from ap_console import include_console
 from ap_gate.checks.context import CheckContext
 from ap_gate.checks.registry import run_all
 from ap_gate.load_manifest import ManifestLoadError, load_manifest
@@ -67,6 +68,8 @@ app = FastAPI(
     version="0.1.0",
 )
 app.include_router(auth_router)
+include_console(app)  # ap_console: the server-rendered HTML console, mounted under /console - see
+# CLAUDE.md's "Phase 3 manager console" section for the ap_console/ap_api module boundary.
 
 
 def _run_gate(package_path: Path) -> dict:

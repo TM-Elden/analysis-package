@@ -1,0 +1,36 @@
+{# Partial: swapped in place by htmx on filter change (see packages_list.html) and reused as the
+   initial render for the full page - keeps one table markup, one place to change columns. #}
+<table id="packages-table">
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Title</th>
+      <th>Profile</th>
+      <th>Status</th>
+      <th>As of</th>
+      <th>Analyst</th>
+      <th>Reviewer</th>
+      <th>Gate</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for pkg in items %}
+    <tr>
+      <td class="mono"><a href="/console/packages/{{ pkg.package_id }}">{{ pkg.package_id }}</a><br>
+        <span style="color:var(--drift);font-size:.78rem">{{ pkg.package_version }}</span></td>
+      <td>{{ pkg.title }}</td>
+      <td class="mono">{{ pkg.profile }}</td>
+      <td><span class="badge {{ pkg.status }}">{{ pkg.status }}</span></td>
+      <td class="mono">{{ pkg.as_of }}</td>
+      <td class="mono">{{ pkg.analyst_id or "—" }}</td>
+      <td class="mono">{{ pkg.reviewer_id or "—" }}</td>
+      <td><span class="badge {{ pkg.gate_overall }}">{{ pkg.gate_overall }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">No packages match these filters.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="mono" style="color:var(--drift);font-size:.78rem;margin-top:10px">
+  {{ total }} package{{ "" if total == 1 else "s" }} · page {{ page }} of {{ page_count }}
+</p>

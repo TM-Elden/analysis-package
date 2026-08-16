@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div style="max-width:380px;margin:12vh auto 0">
+  <div class="eyebrow">fathm · the chart room</div>
+  <h1>Log in</h1>
+  <p style="color:var(--drift);font-size:14px;margin:0 0 20px">Provenance for every analysis package.</p>
+
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+
+  <form id="login-form" class="card" style="display:flex;flex-direction:column;gap:14px">
+    <label class="mono" style="font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em">
+      User ID
+      <input name="user_id" type="text" autocomplete="username" required
+        style="margin-top:6px;background:#04060A;border:1px solid var(--line);border-radius:6px;
+          color:var(--bone);padding:9px 12px;font-family:'Archivo',sans-serif;font-size:14px;width:100%">
+    </label>
+    <label class="mono" style="font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em">
+      Password
+      <input name="password" type="password" autocomplete="current-password" required
+        style="margin-top:6px;background:#04060A;border:1px solid var(--line);border-radius:6px;
+          color:var(--bone);padding:9px 12px;font-family:'Archivo',sans-serif;font-size:14px;width:100%">
+    </label>
+    <button type="submit" class="mono"
+      style="margin-top:6px;background:var(--brass);color:var(--ink);border:none;border-radius:6px;
+        padding:10px 16px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;cursor:pointer">
+      Log in
+    </button>
+    <div id="login-error" class="flash" style="display:none"></div>
+  </form>
+</div>
+<script>
+  document.getElementById("login-form").addEventListener("submit", async function (ev) {
+    ev.preventDefault();
+    const form = ev.target;
+    const errorBox = document.getElementById("login-error");
+    errorBox.style.display = "none";
+    const body = {
+      user_id: form.user_id.value,
+      password: form.password.value,
+    };
+    const resp = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      errorBox.textContent = "Invalid user id or password.";
+      errorBox.style.display = "block";
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    let safeNext = "/console/packages";
+    if (next) {
+      try {
+        const resolved = new URL(next, window.location.origin);
+        if (resolved.origin === window.location.origin) {
+          safeNext = resolved.pathname + resolved.search + resolved.hash;
+        }
+      } catch (e) {
+        safeNext = "/console/packages";
+      }
+    }
+    window.location = safeNext;
+  });
+</script>
+{% endblock %}
