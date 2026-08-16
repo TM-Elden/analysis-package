@@ -249,7 +249,10 @@ def check_agent_draft_present(ctx: CheckContext) -> CheckOutcome:
     try:
         training_grade = load_profile_training_grade(profile) if profile_name else None
     except UnknownProfileVersionError as exc:
-        return CheckOutcome.fail(CHECK_ID_AGENT_DRAFT_PRESENT, str(exc))
+        # training_grade.json never got a chance to load, so require_agent_draft's opt-in
+        # is unknown - stay advisory by default (this check's "never fails core" invariant)
+        # rather than escalating to a hard block on an unrelated fail-closed knob.
+        return CheckOutcome.advisory_fail(CHECK_ID_AGENT_DRAFT_PRESENT, str(exc))
     require_agent_draft = bool(training_grade and training_grade.get("require_agent_draft"))
 
     missing: list[str] = []

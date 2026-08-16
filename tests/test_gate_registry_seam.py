@@ -82,6 +82,28 @@ def test_fail_closed_on_blocks_gate_on_unknown_version(tmp_path, monkeypatch):
     assert outcomes["reason_codes_known"].blocks_overall_pass()
 
 
+def test_fail_closed_on_unknown_version_keeps_agent_draft_present_advisory(tmp_path, monkeypatch):
+    """agent_draft_present is documented as advisory-by-default ("never fails core" unless a
+    profile's training_grade.json opts in) - the fail-closed-on-unknown-version knob must not
+    escalate it to a blocking failure just because training_grade.json never got a chance to
+    load. reason_codes_known (required by default) legitimately blocks in this scenario;
+    agent_draft_present must not."""
+    registry = ProfileRegistry(tmp_path)
+    registry.ensure_seeded(PROFILE)  # only 0.1 registered
+
+    manifest = dict(load_manifest(EXAMPLE_PACKAGE))
+    manifest["profile"] = f"{PROFILE}/9.9"  # unknown to the registry
+
+    monkeypatch.setenv(profiles_mod.ENV_REGISTRY_ROOT, str(registry.root))
+    monkeypatch.setenv(profiles_mod.ENV_FAIL_CLOSED_UNKNOWN_VERSION, "1")
+    ctx = CheckContext(package_path=EXAMPLE_PACKAGE, manifest=manifest)
+    outcomes = _run(ctx)
+
+    assert outcomes["agent_draft_present"].result == "fail"
+    assert "9.9" in outcomes["agent_draft_present"].message
+    assert not outcomes["agent_draft_present"].blocks_overall_pass()
+
+
 def test_registry_write_visible_on_next_gate_check_no_restart(tmp_path, monkeypatch):
     """Non-negotiable per the task brief: write a new profile version, immediately gate-check
     a package under it, and prove the new version's rules are in effect - same process, no
