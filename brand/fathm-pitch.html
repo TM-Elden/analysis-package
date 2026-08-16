@@ -28,80 +28,10 @@
   .serif{font-family:'Newsreader',Georgia,serif;font-weight:300}
   .mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
 
-  .deck-nav{
-    position:fixed;top:0;left:0;right:0;z-index:40;
-    height:56px;
-    display:flex;gap:16px;align-items:center;justify-content:space-between;
-    padding:0 4vw;
-    background:rgba(7,9,13,.94);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
-    border-bottom:1px solid var(--line);
-    font-size:11px;
-  }
-  .deck-nav .wm{
-    flex:0 0 auto;
-    display:inline-flex;
-    align-items:center;
-    gap:0;
-    text-decoration:none;
-    color:var(--bone);
-    line-height:1;
-    height:28px;
-  }
-  .deck-nav .wm .fm{
-    position:relative;
-    display:block;
-    width:13px;
-    height:22px;
-    flex:0 0 auto;
-    margin-right:1px;
-  }
-  .deck-nav .wm .fm svg{
-    display:block;
-    width:100%;
-    height:100%;
-    overflow:visible;
-  }
-  .deck-nav .wm .tx{
-    font-family:'Newsreader',Georgia,serif;
-    font-weight:300;
-    font-size:22px;
-    letter-spacing:-0.02em;
-    line-height:1;
-    margin-left:0;
-  }
-  .deck-nav .links{
-    flex:1 1 auto;
-    min-width:0;
-    display:flex;
-    flex-wrap:nowrap;
-    gap:4px 12px;
-    justify-content:flex-end;
-    align-items:center;
-    overflow-x:auto;
-    overflow-y:hidden;
-    -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
-  }
-  .deck-nav .links::-webkit-scrollbar{display:none}
-  .deck-nav .links a{
-    flex:0 0 auto;
-    color:var(--drift);
-    text-decoration:none;
-    font-family:'IBM Plex Mono',ui-monospace,monospace;
-    letter-spacing:.06em;
-    text-transform:uppercase;
-    font-size:10px;
-    padding:6px 0;
-    white-space:nowrap;
-  }
-  .deck-nav .links a:hover,.deck-nav .links a:focus-visible{color:var(--brass)}
-
   .slide{
     min-height:100vh;
     min-height:100dvh;
-    padding:calc(56px + 40px) 6vw 72px;
+    padding:56px 6vw 72px;
     border-bottom:1px solid var(--line);
     display:flex;flex-direction:column;justify-content:center;
     max-width:1100px;margin:0 auto;
@@ -216,45 +146,17 @@
   .foot-note{margin-top:auto;padding-top:40px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:var(--drift);letter-spacing:.08em}
 
   @media (max-width:640px){
-    .deck-nav .links a:nth-child(n+7){display:none}
     .layer{grid-template-columns:40px 1fr; }
     .layer .when{grid-column:2; margin-top:-8px}
     .pain li{grid-template-columns:1fr}
   }
 
   @media print{
-    .deck-nav{display:none}
     .slide{min-height:auto;page-break-after:always;padding:48px 40px}
   }
 </style>
 </head>
 <body>
-
-<nav class="deck-nav" aria-label="Slides">
-  <a class="wm" href="#s1" aria-label="fathm home">
-    <span class="fm" aria-hidden="true"><svg viewBox="0 0 140 220" fill="none" preserveAspectRatio="xMidYMid meet">
-      <line x1="28" y1="8" x2="28" y2="175" stroke="#E8B36A" stroke-width="16" stroke-linecap="round"/>
-      <line x1="28" y1="22" x2="118" y2="22" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
-      <line x1="28" y1="82" x2="92" y2="82" stroke="#E8E0D5" stroke-width="16" stroke-linecap="round"/>
-      <circle cx="28" cy="192" r="20" fill="#E8B36A"/>
-    </svg></span>
-    <span class="tx">athm</span>
-  </a>
-  <div class="links">
-    <a href="#s1">title</a>
-    <a href="#s2">problem</a>
-    <a href="#s3">why now</a>
-    <a href="#s4">wedge</a>
-    <a href="#s5">how</a>
-    <a href="#s6">moat</a>
-    <a href="#s7">model</a>
-    <a href="#s8">trust</a>
-    <a href="#s9">traction</a>
-    <a href="#s10">market</a>
-    <a href="#s11">ask</a>
-    <a href="#s12">open</a>
-  </div>
-</nav>
 
 <!-- 1 Title -->
 <section class="slide title-slide" id="s1">
