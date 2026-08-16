@@ -19,9 +19,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ap_api.deps import get_store, get_workflow, identity_from_request
+from ap_api.deps import get_store, get_workflow
 from ap_auth.identity import Identity
-from ap_console.deps import ConsoleAuthRequired, console_csrf_token, get_console_identity
+from ap_console.deps import (
+    ConsoleAuthRequired,
+    ConsoleCsrfInvalid,
+    console_csrf_token,
+    get_console_identity,
+    verify_console_csrf,
+)
 from ap_console.gate_report import render_gate_report_html
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import ListFilter, PackageStore, StoreError
@@ -152,7 +158,7 @@ def review_queue(
 def console_review_action(
     request: Request,
     package_id: str,
-    identity: Annotated[Identity, Depends(identity_from_request)],
+    identity: Annotated[Identity, Depends(get_console_identity)],
     workflow: Annotated[ReviewWorkflow, Depends(get_workflow)],
     store: Annotated[PackageStore, Depends(get_store)],
     package_version: Annotated[str, Form()],
@@ -162,12 +168,18 @@ def console_review_action(
     """The queue's approve/reject buttons post here (htmx, `hx-target="#review-queue-table"
     hx-swap="outerHTML"`) - calls the real `ReviewWorkflow.transition` (same policy: gate-before-
     review, distinct-reviewer, reject-requires-reason) and re-renders the queue table in place, so
-    a decided package simply drops out of the list rather than needing a page reload. A
-    `ReviewPolicyError` (self-review, missing gate pass, empty reject reason, wrong role) is caught
-    here and rendered as an inline flash message on the still-open queue - never a raw 500/403 the
-    reviewer has to decode from a JSON body."""
+    a decided package simply drops out of the list rather than needing a page reload. Identity
+    resolution goes through `get_console_identity` (missing/expired session -> redirect to
+    /console/login, same as every other console route) rather than `ap_api.deps.identity_from_request`
+    (which 401/403s with a raw JSON body meant for an API client); since that dependency only
+    resolves the session and never checks CSRF, `verify_console_csrf` does that check explicitly
+    here. A `ConsoleCsrfInvalid` or `ReviewPolicyError`/`StoreError` (self-review, missing gate
+    pass, empty reject reason, wrong role, stale CSRF token) is caught here and rendered as an
+    inline flash message on the still-open queue - never a raw 500/403 the reviewer has to decode
+    from a JSON body."""
     error = None
     try:
+        verify_console_csrf(request)
         workflow.transition(
             package_id,
             package_version,
@@ -175,6 +187,8 @@ def console_review_action(
             actor=identity,
             reason=reason,
         )
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
     except (ReviewPolicyError, StoreError) as exc:
         error = str(exc)
     ctx = _review_queue_context(store, error=error)
