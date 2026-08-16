@@ -14,6 +14,9 @@ shapes ... designed for a UI consumer, not just curl"):
                                       natural read side of that requirement)
     POST /chat/manager             - C4 manager bot (see ap_api/chat_routes.py + CLAUDE.md's C4
                                       section for the tool-loop/scoping/citation architecture)
+    GET  /proposals                - list/filter C6/C7 Standard-change proposals
+    POST /proposals                - create a proposal (see ap_api/proposal_routes.py)
+    POST /proposals/{id}/decision  - approve/reject/withdraw a proposal
 
 Local-first scope note: this phase-2 slice runs on the same machine/filesystem as its callers (Pi,
 CI runner, agent harness) - `package_dir` in /packages/validate and /packages is a path the *server*
@@ -46,6 +49,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from ap_api.auth_routes import router as auth_router
 from ap_api.chat_routes import router as chat_router
 from ap_api.deps import get_store, get_workflow, identity_from_request, require_any_role
+from ap_api.proposal_routes import router as proposal_router
 from ap_api.schemas import (
     AuditEntryOut,
     ListResponse,
@@ -72,6 +76,7 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(chat_router)
+app.include_router(proposal_router)  # C6/C7 proposal API - see ap_api/proposal_routes.py
 include_console(app)  # ap_console: the server-rendered HTML console, mounted under /console - see
 # CLAUDE.md's "Phase 3 manager console" section for the ap_console/ap_api module boundary.
 
