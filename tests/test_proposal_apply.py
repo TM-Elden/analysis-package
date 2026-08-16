@@ -149,6 +149,103 @@ def test_registry_write_failure_leaves_proposal_pending_hitl(tmp_path):
     proposal_store.close()
 
 
+def test_profile_change_rejects_absolute_path_profile_name(tmp_path):
+    """`diff["profile"]`/`diff["file"]` are planner/agent-submitted (proposal creation has no
+    role restriction) and flow straight into `ProfileRegistry`'s filesystem joins - a crafted
+    absolute path must be rejected rather than overriding the registry root
+    (`Path.__truediv__` treats an absolute right-hand side as an override)."""
+    store_root = tmp_path / "store"
+    proposal_store = ProposalStore(store_root)
+    wf = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy(require_dry_run_for_declarative=False))
+
+    outside_target = tmp_path / "outside" / "pwned"
+    diff = {
+        "profile": str(outside_target),
+        "file": "reason_codes.json",
+        "after": {"profile": "pwned", "reason_codes": ["X"], "other_requires_reason_text": False},
+    }
+    record = wf.create(
+        kind="profile_change", summary="pwn", rationale="r", diff=diff, evidence={}, actor=SWEEP
+    )
+
+    with pytest.raises(ProposalApplyError, match="invalid profile name"):
+        wf.decide(record.proposal_id, to_status="approved", actor=CAPTAIN)
+
+    reloaded = proposal_store.get(record.proposal_id)
+    assert reloaded.status == "pending_hitl"
+    assert reloaded.applied_version is None
+    assert not outside_target.exists()
+    assert not (tmp_path / "outside").exists()
+    proposal_store.close()
+
+
+def test_profile_change_rejects_path_traversal_in_file_field(tmp_path):
+    """Same containment guarantee for `diff["file"]` - a traversal segment must not let the
+    write land outside the version directory."""
+    store_root = tmp_path / "store"
+    proposal_store = ProposalStore(store_root)
+    wf = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy(require_dry_run_for_declarative=False))
+
+    diff = {"profile": PROFILE, "file": "../../../../evil.json", "after": {"anything": True}}
+    record = wf.create(
+        kind="profile_change", summary="pwn file", rationale="r", diff=diff, evidence={}, actor=SWEEP
+    )
+
+    with pytest.raises(ProposalApplyError, match="invalid filename"):
+        wf.decide(record.proposal_id, to_status="approved", actor=CAPTAIN)
+
+    reloaded = proposal_store.get(record.proposal_id)
+    assert reloaded.status == "pending_hitl"
+    assert not (tmp_path / "evil.json").exists()
+    proposal_store.close()
+
+
+def test_dry_run_route_rejects_path_traversal_profile_without_touching_disk(tmp_path):
+    """The new `POST /proposals/{id}/dry-run` route is deliberately not role-gated - it must
+    independently reject a malicious `profile` value rather than relying on `decide`'s checks,
+    since a caller can hit dry-run without ever reaching approve."""
+    package_store = build_clean_corpus(tmp_path)
+    store_root = package_store.root
+    proposal_store = ProposalStore(store_root)
+    wf = ProposalWorkflow(store=proposal_store)
+
+    outside_target = tmp_path / "outside-dry-run" / "pwned"
+    diff = {
+        "profile": str(outside_target),
+        "file": "reason_codes.json",
+        "after": {"profile": "pwned", "reason_codes": ["X"], "other_requires_reason_text": False},
+    }
+    record = wf.create(
+        kind="profile_change", summary="pwn dry-run", rationale="r", diff=diff, evidence={}, actor=SWEEP
+    )
+
+    auth_store = AuthStore(tmp_path / "auth.sqlite3")
+    auth_store.create_user("sweep.bot", display_name="Sweep", roles=frozenset({Role.ANALYST}), password="pw")
+    app.dependency_overrides[deps.get_proposal_store] = lambda: proposal_store
+    app.dependency_overrides[deps.get_store] = lambda: package_store
+    app.dependency_overrides[deps.get_auth_store] = lambda: auth_store
+    try:
+        client = TestClient(app, base_url="https://testserver")
+        login = client.post("/login", json={"user_id": "sweep.bot", "password": "pw"})
+        assert login.status_code == 200, login.text
+        r = client.post(
+            f"/proposals/{record.proposal_id}/dry-run",
+            headers={"X-Csrf": login.json()["csrf_token"]},
+        )
+        assert r.status_code == 400, r.text
+    finally:
+        app.dependency_overrides.clear()
+        auth_store.close()
+
+    reloaded = proposal_store.get(record.proposal_id)
+    assert reloaded.dry_run_json is None
+    assert not outside_target.exists()
+    assert not (tmp_path / "outside-dry-run").exists()
+
+    package_store.close()
+    proposal_store.close()
+
+
 def test_approve_refused_without_dry_run_then_succeeds_once_recorded(tmp_path):
     """Acceptance test 3: approve is refused on a declarative proposal with no dry-run recorded;
     succeeds once one is."""

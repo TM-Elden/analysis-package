@@ -128,6 +128,9 @@ def dry_run_proposal(
         record = workflow.record_dry_run(proposal_id, package_store)
     except ProposalPolicyError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProposalApplyError as exc:
+        # e.g. the diff's profile/filename fails registry path-safety validation.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ProposalStoreError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return proposal_record_to_out(record)

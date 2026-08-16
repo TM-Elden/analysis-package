@@ -104,8 +104,11 @@ def run_dry_run(package_store: Any, store_root: Path, kind: str, diff: dict[str,
 
     profile_name = diff["profile"]
     registry = ProfileRegistry(store_root)
-    proposed_files = compute_changed_files(registry, kind, diff)
-    result = _dry_run(package_store, store_root, profile_name, proposed_files)
+    try:
+        proposed_files = compute_changed_files(registry, kind, diff)
+        result = _dry_run(package_store, store_root, profile_name, proposed_files)
+    except ProfileRegistryError as exc:
+        raise ProposalApplyError(f"dry-run failed for profile {profile_name!r}: {exc}") from exc
     return result.to_dict()
 
 
