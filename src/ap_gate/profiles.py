@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from ap_gate.versions import REPO_ROOT
@@ -46,6 +45,20 @@ def load_profile_field_path_grammar(profile_name: str) -> dict[str, Any] | None:
     """Return the parsed profiles/<profile_name>/field_path_grammar.json, or None if the
     profile has no declared grammar (P2). See ap_gate.field_path.resolve_field_path."""
     path = PROFILES_ROOT / profile_name / "field_path_grammar.json"
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=None)
+def load_profile_redaction(profile_name: str) -> dict[str, Any] | None:
+    """Return the parsed profiles/<profile_name>/redaction.json, or None if the profile has no
+    redaction overrides (C14). Core stays permissive: no file means ap_redact's hardcoded
+    defaults apply unmodified. Recognized keys (see ap_redact.field_paths):
+    `allow_field_paths` (default-scrubbed paths this profile keeps unredacted),
+    `deny_field_paths` (extra paths to scrub beyond the defaults), and `disabled_detectors`
+    (secret-detector names to skip)."""
+    path = PROFILES_ROOT / profile_name / "redaction.json"
     if not path.is_file():
         return None
     return json.loads(path.read_text(encoding="utf-8"))

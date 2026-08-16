@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased - phase 3 (in progress): C14 redaction + C4 retrieval index
+
+Implements the redaction-before-index and search-index halves of §20a's adopted Phase 3 slice
+(`docs/DESIGN-FATHM-SYSTEM.md` section 20a). Neither the manager-bot backend (`POST /chat/manager`)
+nor the console lands here - those consume `ap_index.search`/`get_chunk` as a library later. Full
+architecture notes live in `AGENTS.md`'s "Phase 3" section; not repeated here.
+
+- New: `src/ap_redact/` - `redact_package(package_dir, manifest, ...)` pipeline: `package dir ->
+  (list[Chunk], RedactionReport)`. Person identifiers (`author` on label rows,
+  `owners.analyst.id`/`owners.reviewer.id`/`owners.agent.*`) scrubbed by default from both the
+  structured field and free-text mentions; business content (supplier names, part numbers, contract
+  refs) untouched. `secrets_scan.py` regex-detects AWS/GitHub/PEM/JWT/email/SSN-like patterns plus a
+  Shannon-entropy check; any hit fails the package closed (empty chunk list, `blocked=True`).
+  Per-profile `profiles/<name>/redaction.json` tunes scrub/detector behavior (no file means core
+  defaults), via new `ap_gate.profiles.load_profile_redaction`. `RedactionReport` is a store sidecar
+  (`<store_root>/redaction/<package_id>/<package_version>.json`), never package content.
+- New: `src/ap_index/` - SQLite FTS5 index over `ap_redact.Chunk` output only (never raw package
+  content), tagged with `package_id`/`package_version`/`as_of`/`profile`/`field_path`/
+  `confidentiality` as filterable columns alongside the full-text index. No vector DB - the pilot
+  corpus scale doesn't warrant one. `reindex_package()` is the reindex-on-status-change hook,
+  re-deriving index membership from the store's current status; a caller invokes it after an
+  `ap_review` transition rather than it being wired in automatically. `search(query, filters)` +
+  `get_chunk()` are the query surface a later manager-bot task will call.
+- `examples/commodity-commit-v1` indexes cleanly end to end (redact -> index -> query) once approved
+  through the real review workflow, per
+  `tests/test_ap_index.py::test_commodity_commit_v1_indexes_cleanly_end_to_end`.
+- 16 new tests covering person-identifier scrubbing (structured + free-text, word-boundary not
+  substring), secret fail-closed behavior, the redaction report sidecar, and FTS5 search/filtering/
+  reindex-on-status-change.
+
 ## Unreleased - phase 3: real C11 authentication/authorization
 
 Replaces the phase-2 `X-Ap-Actor-Id`/`X-Ap-Actor-Roles` header placeholder with real authn/authz

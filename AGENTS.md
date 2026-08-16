@@ -6,11 +6,12 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 ## Repo shape
 
-Three things live here: **the Standard** (`standard/ap-0.2/` - normative Analysis Package contract,
+Four things live here: **the Standard** (`standard/ap-0.2/` - normative Analysis Package contract,
 JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structural validator CLI/library),
-and **phase-2 product** (`src/ap_store/`, `src/ap_review/`, `src/ap_auth/`, `src/ap_agent_tools/`,
+**phase-2 product** (`src/ap_store/`, `src/ap_review/`, `src/ap_auth/`, `src/ap_agent_tools/`,
 `src/ap_api/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP interface
-layer; see "Phase 2" below). Brand is **fathm**; the portable format is **Analysis Package (ap)**; the
+layer; see "Phase 2" below), and **phase-3-in-progress retrieval prep** (`src/ap_redact/`,
+`src/ap_index/` - redaction pipeline and FTS5 search index; see "Phase 3" below). Brand is **fathm**; the
 CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
@@ -169,6 +170,55 @@ functions.
   *instance* (same name), breaking `import ap_api.app; ap_api.app.<anything>`; use `from
   ap_api.app import app` (or the `ap_api.app:app` module-path string uvicorn/the console script use)
   at the call site instead.
+
+## Phase 3 (in progress): C14 redaction + C4 retrieval index
+
+Implements the redaction-before-index and search-index halves of §20a's adopted Phase 3 slice
+(`data/fathm-phase3-readiness/report.md` sections 5.3/5.4 in the firstmate repo hold the full
+rationale). Neither module builds the manager-bot backend (`POST /chat/manager`), console, or any
+LLM call - those are later work that consumes `ap_index.search`/`get_chunk` as a library, same as
+every phase-2 module consumes `ap_gate`.
+
+- **`src/ap_redact/`** (C14): `redact.redact_package(package_dir, manifest, package_id=, package_version=)`
+  is the pipeline entry point - `package dir -> (list[Chunk], RedactionReport)`. Person identifiers
+  (`author` on every `labels/*.jsonl` row; `owners.analyst.id` / `owners.reviewer.id` /
+  `owners.agent.*` in the manifest) are scrubbed by default (`ap_redact/field_paths.py`
+  `DEFAULT_SCRUB_FIELD_PATHS`), both from the structured field they live in *and* from free-text
+  mentions elsewhere (e.g. `RUN_SUMMARY.md` prose) via a second literal-value replacement pass in
+  `redact.py::_scrub_mentions` - a field-path scrub alone only catches the field, not a value
+  re-typed into prose. Business content (supplier names, part numbers, contract refs) is never
+  touched - that's the corpus, not PII; `confidentiality` rides along as `Chunk` metadata for
+  role-based filtering, never as a content edit. `secrets_scan.py` runs a regex detector set (AWS,
+  GitHub, PEM headers, JWT-shaped, emails, SSN-like) plus a Shannon-entropy check over every text
+  file in the package tree; any hit is `severity="high"` and fails the whole package closed - the
+  returned chunk list is empty and `RedactionReport.blocked=True`. The entropy detector excludes
+  pure-hex tokens (a package is full of legitimate `content_sha256` hashes) and uses a
+  4.6-bits/char threshold tuned against this repo's own `contracts://...` `external_ref` style
+  business content (~4.3) vs. real random secrets (~4.7-5.0) - see the threshold comment in
+  `secrets_scan.py` before changing it. Per-profile `profiles/<name>/redaction.json`
+  (`allow_field_paths` / `deny_field_paths` / `disabled_detectors`, loaded by
+  `ap_gate.profiles.load_profile_redaction` - same "no file -> core defaults" pattern as
+  `reason_codes.json`) is the tuning valve for both what gets scrubbed and false-positive secret
+  hits. The `RedactionReport` is a **store sidecar**, never package content: `report.py`'s
+  `write_report`/`read_report` persist it at `<store_root>/redaction/<package_id>/<package_version>.json`,
+  outside the package's own immutable bytes and outside `qa/`.
+- **`src/ap_index/`** (C4 retrieval layer): SQLite **FTS5** only, no vector DB/embeddings (report
+  5.3: the entire pilot corpus is on the order of 10^4 tokens/year - see `ap_index/db.py`'s
+  `UNINDEXED` tag columns for how BM25 full-text and structured-filter search share one table).
+  `IndexStore` (`index_store.py`) consumes **only** `ap_redact.Chunk` objects - never a package
+  path or manifest - so nothing unredacted can structurally reach the index. `index_package`
+  replace-on-writes a whole package version's chunks (delete-then-insert on
+  `(package_id, package_version)`); there is no partial/incremental update, by design, since a
+  full package re-index is sub-second at this scale. `search(query, filters)` sanitizes free text
+  through `_sanitize_fts_query` (every token literal-quoted) before handing it to FTS5's `MATCH` -
+  raw fathm queries are full of `-`-bearing part numbers (`BBU-100`) that bare FTS5 syntax
+  misparses as `NOT`. `reindex.py::reindex_package(store=, index=, store_root=, package_id=,
+  package_version=)` is the reindex-on-status-change hook: it re-derives index membership from the
+  store's *current* status on every call (`approved` -> redact + index; anything else -> ensure
+  removed) rather than diffing a transition - this is a plain function a caller invokes after an
+  `ap_review.ReviewWorkflow.transition(...)`, **not** wired as an automatic side effect of that
+  call, to keep `ap_review` from gaining an `ap_index` import (see `ap_review`'s policy/mechanism
+  split above - same layering discipline).
 
 ## Gold-pack regression
 
