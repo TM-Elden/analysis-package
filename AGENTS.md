@@ -9,10 +9,10 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 Four things live here: **the Standard** (`standard/ap-0.2/` - normative Analysis Package contract,
 JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structural validator CLI/library),
 **phase-2 product** (`src/ap_store/`, `src/ap_review/`, `src/ap_auth/`, `src/ap_agent_tools/`,
-`src/ap_api/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP interface
-layer; see "Phase 2" below), and **phase-3-in-progress retrieval prep** (`src/ap_redact/`,
-`src/ap_index/` - redaction pipeline and FTS5 search index; see "Phase 3" below). Brand is **fathm**; the
-CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
+`src/ap_api/`, `src/ap_mcp/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP
+interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress retrieval prep**
+(`src/ap_redact/`, `src/ap_index/` - redaction pipeline and FTS5 search index; see "Phase 3" below). Brand
+is **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
 L1 implementation detail). `docs/` holds technical/design docs only; brand and pitch material lives in
@@ -28,6 +28,7 @@ pytest -q
 ap-gate check examples/commodity-commit-v1
 PYTHONPATH=src python3 -m ap_api          # interface layer, http://127.0.0.1:8000
 PYTHONPATH=src python3 -m ap_agent_tools.reference_agent --dest /tmp/demo-pack
+PYTHONPATH=src python3 -m ap_mcp.server   # fathm-ap MCP server, stdio JSON-RPC
 ```
 
 No PyPI publish (git install only, per `docs/DECISIONS.md`-adjacent open-question defaults). This sandbox
@@ -219,6 +220,43 @@ every phase-2 module consumes `ap_gate`.
   `ap_review.ReviewWorkflow.transition(...)`, **not** wired as an automatic side effect of that
   call, to keep `ap_review` from gaining an `ap_index` import (see `ap_review`'s policy/mechanism
   split above - same layering discipline).
+
+## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
+
+Concretizes C8's "Tool/API defs agents can call" acceptance item, plus the P4 `agent_draft` capture
+path the `agent_draft_present` check (above) only *detects* the absence of. Design authority:
+`data/fathm-contract-enforcement-research/report.md` §6 in the firstmate repo - capture must happen
+at tool-call time, while the agent's reasoning is still in context; the gate is a bypass detector,
+not the capture mechanism.
+
+- **`src/ap_mcp/`** is a thin JSON-RPC-2.0-over-stdio MCP server, stdlib + `jsonschema` only (no
+  `mcp` SDK dependency - this repo's dev sandbox has no `pip`). `ap_mcp/server.py::handle_request`
+  is the pure, directly-testable core (`initialize` / `tools/list` / `tools/call`); `main()` just
+  wires it to stdin/stdout. Console script: `fathm-ap-mcp` (`ap_mcp.server:main`).
+- **`ap_mcp/tools.py`** exposes four tools - `package_create`, `package_check`, `package_finalize`,
+  `override_record` - and reuses `ap_agent_tools.tools` (`package_create`/`package_check`/
+  `package_publish`) for the first three; no parallel gate or publish logic. `package_finalize` is
+  `package.publish` under MCP naming.
+- **`override_record` is the P4 capture tool.** Its schema requires `field_path`, `before`, `after`,
+  `reason_code`, and **`draft_reason_text`** - the agent's rationale, so the call structurally
+  cannot omit it. The server writes the override row with `reason_code`/`reason_text`/`author`
+  seeded from the same call (row is immediately schema-valid) *and* `agent_draft: {reason_code,
+  reason_text}` preserving the draft verbatim; a later human edit of the top-level fields (existing
+  C10 review flow) never touches `agent_draft` - capture doesn't depend on acceptance.
+- **Server-side validation mirrors the advertised schema by construction**: `ap_mcp/errors.py::validate_arguments`
+  validates every call against the exact same schema object returned by `tools/list`
+  (`TOOL_SCHEMAS[name]["input_schema"]`), one source of truth - avoids the MCP ecosystem's
+  documented schema/enforcement-drift bug class. Rejections raise `ToolValidationError` with one
+  planner-serving line per field (which field, how to fix, "now, while the reasoning is still in
+  your context"), mirroring the gate's `evidence[]` style.
+- **`skills/fathm-planning/SKILL.md`** is the distribution mechanism (agentskills.io spec:
+  YAML frontmatter + Markdown body) - the C8 six-MUSTs as operating instructions, the override
+  workflow ("propose every override through `override_record`, never write `labels/overrides.jsonl`
+  by hand"), and the MCP server config to point a harness at. `tests/test_fathm_planning_skill.py`
+  validates the frontmatter shape itself, not just that the prose reads like a skill.
+- Out of scope here (explicitly deferred, per the design report §6 item 4 / §7): a conformance-eval
+  admission gate for third-party agent integrations - not needed while fathm configures every
+  design-partner bot itself.
 
 ## Gold-pack regression
 
