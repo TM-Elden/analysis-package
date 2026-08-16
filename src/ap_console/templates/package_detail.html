@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ pkg.package_id }}{% endblock %}
+{% block nav_packages %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">package</div>
+<h1>{{ pkg.title }}</h1>
+<p class="mono" style="color:var(--drift);font-size:13px;margin:0">
+  {{ pkg.package_id }} · {{ pkg.package_version }}
+</p>
+
+<div class="card">
+  <div class="meta">
+    <div><span>Status</span><span class="badge {{ pkg.status }}">{{ pkg.status }}</span></div>
+    <div><span>Gate result</span><span class="badge {{ pkg.gate_overall }}">{{ pkg.gate_overall }}</span></div>
+    <div><span>Profile</span>{{ pkg.profile }}</div>
+    <div><span>As of</span>{{ pkg.as_of }}</div>
+    <div><span>Published</span>{{ pkg.created_at }}</div>
+    <div><span>Published by</span>{{ pkg.published_by_id }} ({{ pkg.published_by_roles }})</div>
+    <div><span>Analyst</span>{{ pkg.analyst_id or "—" }}</div>
+    <div><span>Reviewer</span>{{ pkg.reviewer_id or "—" }}</div>
+    <div><span>Blob sha256</span><span class="mono">{{ pkg.blob_sha256[:16] }}…</span></div>
+    {% if pkg.replaces_package_version %}
+    <div><span>Replaces</span>{{ pkg.replaces_package_id }} · {{ pkg.replaces_package_version }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:6px">Owners</div>
+  <table>
+    <thead><tr><th>Role</th><th>ID</th></tr></thead>
+    <tbody>
+      {% for role, owner in owners_rows %}
+      <tr><td class="mono">{{ role }}</td><td class="mono">{{ owner or "—" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:6px">Gate report</div>
+  <p style="color:var(--drift);font-size:13px;margin:0 0 4px">
+    Re-run against this version's stored bytes (`ap_gate` structural checks).
+    <a href="/console/packages/{{ pkg.package_id }}/gate-report?version={{ pkg.package_version }}" target="_blank" rel="noopener">Open full report ↗</a>
+  </p>
+  <iframe class="gate-report"
+    src="/console/packages/{{ pkg.package_id }}/gate-report?version={{ pkg.package_version }}"
+    title="Gate report for {{ pkg.package_id }}"></iframe>
+</div>
+{% endblock %}

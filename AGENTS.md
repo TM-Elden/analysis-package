@@ -10,9 +10,10 @@ Four things live here: **the Standard** (`standard/ap-0.2/` - normative Analysis
 JSON Schema, profiles), **the L1 gate** (`src/ap_gate/` - the `ap-gate` structural validator CLI/library),
 **phase-2 product** (`src/ap_store/`, `src/ap_review/`, `src/ap_auth/`, `src/ap_agent_tools/`,
 `src/ap_api/`, `src/ap_mcp/` - package store, review workflow, authz scaffold, agent runtime slice, HTTP
-interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress retrieval prep**
-(`src/ap_redact/`, `src/ap_index/` - redaction pipeline and FTS5 search index; see "Phase 3" below). Brand
-is **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
+interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-in-progress**
+(`src/ap_redact/`, `src/ap_index/` - redaction pipeline and FTS5 search index; `src/ap_console/` - the
+server-rendered manager console; see "Phase 3" below). Brand is **fathm**; the
+CLI/library name **ap-gate** stays format-neutral - never rename normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
 adopted phase sequencing) and `docs/DESIGN-FATHM-MVP.md` (superseded for scope, still authoritative for
 L1 implementation detail). `docs/` holds technical/design docs only; brand and pitch material lives in
@@ -220,6 +221,28 @@ every phase-2 module consumes `ap_gate`.
   `ap_review.ReviewWorkflow.transition(...)`, **not** wired as an automatic side effect of that
   call, to keep `ap_review` from gaining an `ap_index` import (see `ap_review`'s policy/mechanism
   split above - same layering discipline).
+- **`src/ap_console/`** (P3.4, manager console shell): server-rendered Jinja2 + one vendored htmx
+  file (`ap_console/static/htmx.min.js`) - no SPA, no node toolchain, per the phase-3 report's
+  §5.1 rationale (`data/fathm-phase3-readiness/report.md` in the firstmate repo). **Module
+  boundary**: `ap_console` renders HTML; `ap_api` stays the format-neutral JSON layer - `ap_console`
+  reads straight from `PackageStore`/`ap_gate` (the same objects `ap_api.app` uses), it does not
+  make HTTP calls back into `ap_api`'s own routes. The two exceptions are `POST /login` and
+  `POST /logout` (owned by `ap_api.auth_routes`, at the root path, not under `/console`) - the
+  console's login page posts to `/login` directly via `fetch`, and its logout button is an
+  htmx-driven `POST /logout` with an `X-Csrf` header computed server-side on every page render
+  (`ap_console/deps.py::console_csrf_token`, since the session cookie is HttpOnly and JS can't read
+  it - see `ap_auth/csrf.py`). `include_console(app)` (`ap_console/routes.py`) is the single mount
+  point `ap_api/app.py` calls - routes, the vendored static file, and an exception handler for
+  `ConsoleAuthRequired` that redirects logged-out browser requests to `/console/login` (distinct
+  from `ap_api.deps.identity_from_request`, which 401s JSON API callers instead - a console page
+  needs the redirect, an API client needs the status code). The rendered gate report reuses
+  `ap_gate.report.html_report.to_html` unchanged (`ap_console/gate_report.py` extracts the
+  package's stored bytes to a scratch dir and re-runs the gate, mirroring what
+  `ap_api.app._run_gate` does for `POST /packages/validate`) - never reimplement gate-report
+  rendering here. List filtering (status/profile/date/title) is one htmx partial
+  (`GET /console/packages/table`, `templates/_packages_table.html`) shared between the initial
+  full-page render and swap-in-place updates - keep list columns in that one template, not
+  duplicated between the full and partial views.
 
 ## `fathm-ap` MCP server + `fathm-planning` skill (P4 agent-draft capture)
 

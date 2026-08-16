@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Packages{% endblock %}
+{% block nav_packages %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Packages</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">Every analysis package published to this store.</p>
+
+<form class="filters"
+  hx-get="/console/packages/table"
+  hx-target="#packages-table"
+  hx-swap="outerHTML"
+  hx-trigger="input changed delay:400ms from:input, change from:select">
+  <label>Status
+    <select name="status">
+      <option value="">any</option>
+      {% for s in statuses %}
+      <option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Profile
+    <input type="text" name="profile" value="{{ profile or '' }}" placeholder="e.g. commodity_commit_forecast">
+  </label>
+  <label>As of (from)
+    <input type="date" name="as_of_from" value="{{ as_of_from or '' }}">
+  </label>
+  <label>As of (to)
+    <input type="date" name="as_of_to" value="{{ as_of_to or '' }}">
+  </label>
+  <label>Title contains
+    <input type="text" name="query" value="{{ query or '' }}">
+  </label>
+</form>
+
+<div class="card">
+  {% include "_packages_table.html" %}
+</div>
+{% endblock %}
