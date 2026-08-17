@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Admin · index health{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Index health</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Approved packages whose C14 redaction pass blocked them from the search index (a secret detector
+  hit, or an equivalent fail-closed reason) - where an operator learns why a package is invisible to
+  the manager bot. "Re-run redaction + reindex" replays the same pipeline the review-decision path
+  runs; a package stays listed if it is still blocked afterwards (expected until a new,
+  secret-scrubbed version is published - packages are immutable).
+</p>
+<div class="card">
+  {% include "_index_health_table.html" %}
+</div>
+{% endblock %}

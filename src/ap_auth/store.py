@@ -21,7 +21,7 @@ from pathlib import Path
 
 from ap_auth.db import connect
 from ap_auth.identity import Identity, IdentityError, parse_roles
-from ap_auth.models import UserRecord
+from ap_auth.models import AuthAuditEntry, SessionRecord, UserRecord
 from ap_auth.passwords import hash_password, verify_password
 from ap_auth.roles import Role
 
@@ -41,6 +41,13 @@ SERVICE_TOKEN_TTL = dt.timedelta(days=365)
 
 class AuthError(Exception):
     """Base for auth-store errors (unknown user, duplicate user, disabled user, etc.)."""
+
+
+class LastAdminError(AuthError):
+    """Refused: this action would leave zero enabled admin users (P5.3 last-admin guard). Raised by
+    `set_roles` (removing the admin role) and `set_disabled` (disabling), before either mutation is
+    applied - console lockout otherwise means SSH + `ap-auth` archaeology to recover, per the phase-5
+    report's §5.3 rationale."""
 
 
 def _utcnow() -> dt.datetime:
@@ -86,6 +93,7 @@ class AuthStore:
         display_name: str,
         roles: frozenset[Role],
         password: str | None = None,
+        actor: Identity | None = None,
     ) -> UserRecord:
         if not user_id:
             raise AuthError("user id must be non-empty")
@@ -102,25 +110,74 @@ class AuthStore:
                 "VALUES (?,?,?,?,0,?)",
                 (user_id, display_name, password_hash, roles_csv, _iso(_utcnow())),
             )
+            self._insert_auth_audit(actor, user_id, "created", f"roles: {roles_csv}")
         return self.get_user(user_id)  # type: ignore[return-value]
 
-    def set_password(self, user_id: str, password: str) -> None:
+    def set_password(self, user_id: str, password: str, *, actor: Identity | None = None) -> None:
         with self._lock, self.conn:
             cur = self.conn.execute(
                 "UPDATE users SET password_hash=? WHERE id=?", (hash_password(password), user_id)
             )
             if cur.rowcount == 0:
                 raise AuthError(f"no such user: {user_id!r}")
+            self._insert_auth_audit(actor, user_id, "password_reset", None)
 
-    def set_disabled(self, user_id: str, disabled: bool) -> None:
+    def set_disabled(self, user_id: str, disabled: bool, *, actor: Identity | None = None) -> None:
         """Disabling a user also revokes every session/token they currently hold (defense in
-        depth - a disabled account shouldn't stay live via an outstanding token until it expires)."""
+        depth - a disabled account shouldn't stay live via an outstanding token until it expires).
+
+        Refuses (`LastAdminError`) to disable the sole remaining enabled admin - the P5.3
+        last-admin guard (see that class's docstring). Re-enabling is never guarded."""
         with self._lock, self.conn:
+            if disabled:
+                row = self.conn.execute("SELECT roles, disabled FROM users WHERE id=?", (user_id,)).fetchone()
+                if row is None:
+                    raise AuthError(f"no such user: {user_id!r}")
+                if not row["disabled"] and Role.ADMIN in parse_roles(row["roles"]):
+                    if self._count_enabled_admins(exclude_user_id=user_id) == 0:
+                        raise LastAdminError(
+                            f"refusing to disable {user_id!r}: they are the last enabled admin user"
+                        )
             cur = self.conn.execute("UPDATE users SET disabled=? WHERE id=?", (int(disabled), user_id))
             if cur.rowcount == 0:
                 raise AuthError(f"no such user: {user_id!r}")
             if disabled:
                 self.conn.execute("UPDATE sessions SET revoked=1 WHERE user_id=?", (user_id,))
+            self._insert_auth_audit(actor, user_id, "disabled" if disabled else "enabled", None)
+
+    def set_roles(self, user_id: str, roles: frozenset[Role], *, actor: Identity | None = None) -> UserRecord:
+        """Add/edit a user's role set (the one store method the P5.3 plan found genuinely missing).
+
+        Refuses (`LastAdminError`) an edit that would leave zero enabled admin users - i.e.
+        removing `admin` from the last enabled user who holds it. A disabled user never counts
+        towards "enabled admin" either way, so editing a disabled admin's roles is never guarded."""
+        if not roles:
+            raise AuthError("a user must have at least one role")
+        with self._lock, self.conn:
+            row = self.conn.execute("SELECT roles, disabled FROM users WHERE id=?", (user_id,)).fetchone()
+            if row is None:
+                raise AuthError(f"no such user: {user_id!r}")
+            was_admin = Role.ADMIN in parse_roles(row["roles"])
+            still_admin = Role.ADMIN in roles
+            if not row["disabled"] and was_admin and not still_admin:
+                if self._count_enabled_admins(exclude_user_id=user_id) == 0:
+                    raise LastAdminError(
+                        f"refusing to remove admin from {user_id!r}: they are the last enabled admin user"
+                    )
+            roles_csv = ",".join(sorted(r.value for r in roles))
+            self.conn.execute("UPDATE users SET roles=? WHERE id=?", (roles_csv, user_id))
+            self._insert_auth_audit(actor, user_id, "role_change", f"{row['roles']} -> {roles_csv}")
+        return self.get_user(user_id)  # type: ignore[return-value]
+
+    def _count_enabled_admins(self, *, exclude_user_id: str | None = None) -> int:
+        """Count of enabled users holding the admin role, excluding `exclude_user_id` (the user
+        under edit - its own current row must not count towards its own guard check)."""
+        rows = self.conn.execute("SELECT id, roles FROM users WHERE disabled=0").fetchall()
+        return sum(
+            1
+            for r in rows
+            if r["id"] != exclude_user_id and Role.ADMIN in parse_roles(r["roles"])
+        )
 
     def get_user(self, user_id: str) -> UserRecord | None:
         with self._lock:
@@ -151,10 +208,20 @@ class AuthStore:
     def create_session(self, user_id: str, *, ttl: dt.timedelta = SESSION_TTL) -> str:
         return self._issue_token(user_id, kind="session", ttl=ttl)
 
-    def create_service_token(self, user_id: str, *, ttl: dt.timedelta = SERVICE_TOKEN_TTL) -> str:
-        return self._issue_token(user_id, kind="bearer", ttl=ttl)
+    def create_service_token(
+        self, user_id: str, *, ttl: dt.timedelta = SERVICE_TOKEN_TTL, actor: Identity | None = None
+    ) -> str:
+        return self._issue_token(user_id, kind="bearer", ttl=ttl, actor=actor, audit_action="token_issue")
 
-    def _issue_token(self, user_id: str, *, kind: str, ttl: dt.timedelta) -> str:
+    def _issue_token(
+        self,
+        user_id: str,
+        *,
+        kind: str,
+        ttl: dt.timedelta,
+        actor: Identity | None = None,
+        audit_action: str | None = None,
+    ) -> str:
         with self._lock:
             user = self.conn.execute("SELECT 1 FROM users WHERE id=? AND disabled=0", (user_id,)).fetchone()
         if user is None:
@@ -168,11 +235,45 @@ class AuthStore:
                 "VALUES (?,?,?,?,?,0)",
                 (_hash_token(raw_token), user_id, kind, _iso(now), expires_at),
             )
+            if audit_action is not None:
+                self._insert_auth_audit(actor, user_id, audit_action, None)
         return raw_token
 
     def revoke_token(self, raw_token: str) -> None:
         with self._lock, self.conn:
             self.conn.execute("UPDATE sessions SET revoked=1 WHERE token_hash=?", (_hash_token(raw_token),))
+
+    def revoke_session_by_hash(self, token_hash: str, *, actor: Identity | None = None) -> None:
+        """Admin-facing revoke: the console never sees a raw token (only ever returned once, at
+        issuance - see `_issue_token`), so its per-user sessions/tokens view revokes by the stored
+        `token_hash` instead. `token_hash` is a sha256 digest, not a secret, so accepting it here is
+        not an oracle for token guessing."""
+        with self._lock, self.conn:
+            row = self.conn.execute("SELECT user_id FROM sessions WHERE token_hash=?", (token_hash,)).fetchone()
+            if row is None:
+                raise AuthError(f"no such session/token: {token_hash!r}")
+            self.conn.execute("UPDATE sessions SET revoked=1 WHERE token_hash=?", (token_hash,))
+            self._insert_auth_audit(actor, row["user_id"], "token_revoke", None)
+
+    def list_sessions(self, user_id: str) -> list[SessionRecord]:
+        """Every session/service-token row for `user_id`, newest first - the P5.3 sessions/tokens
+        view. `kind` distinguishes browser sessions from service-account bearer tokens (display
+        only, both validate identically - see `identity_for_token`)."""
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT * FROM sessions WHERE user_id=? ORDER BY created_at DESC", (user_id,)
+            ).fetchall()
+        return [
+            SessionRecord(
+                token_hash=r["token_hash"],
+                user_id=r["user_id"],
+                kind=r["kind"],
+                created_at=r["created_at"],
+                expires_at=r["expires_at"],
+                revoked=bool(r["revoked"]),
+            )
+            for r in rows
+        ]
 
     def identity_for_token(self, raw_token: str) -> Identity | None:
         """Resolves either a browser session token or a service bearer token to an Identity.
@@ -192,6 +293,51 @@ class AuthStore:
             return Identity(id=row["user_id"], roles=parse_roles(row["user_roles"]))
         except IdentityError:
             return None
+
+    # -- audit ------------------------------------------------------------
+
+    def audit_trail(self, user_id: str | None = None) -> list[AuthAuditEntry]:
+        """Full `auth_audit` history, newest first - either every row (Admin tab's global view) or
+        scoped to one `target_user_id` (a user's own detail panel)."""
+        with self._lock:
+            if user_id is None:
+                rows = self.conn.execute("SELECT * FROM auth_audit ORDER BY id DESC").fetchall()
+            else:
+                rows = self.conn.execute(
+                    "SELECT * FROM auth_audit WHERE target_user_id=? ORDER BY id DESC", (user_id,)
+                ).fetchall()
+        return [
+            AuthAuditEntry(
+                id=r["id"],
+                actor_id=r["actor_id"],
+                actor_roles=r["actor_roles"],
+                target_user_id=r["target_user_id"],
+                action=r["action"],
+                detail=r["detail"],
+                ts=r["ts"],
+            )
+            for r in rows
+        ]
+
+    def _insert_auth_audit(
+        self, actor: Identity | None, target_user_id: str, action: str, detail: str | None
+    ) -> None:
+        """Caller must already hold `self._lock`/`self.conn` transaction - mirrors
+        `ap_store.PackageStore._insert_audit`'s same-transaction pattern so a mutation and its audit
+        row are never observably split. `actor` is `None` only for the `ap-auth` CLI bootstrap path
+        (no HTTP identity yet exists) - see `ap_auth.db` module docstring."""
+        self.conn.execute(
+            "INSERT INTO auth_audit (actor_id, actor_roles, target_user_id, action, detail, ts) "
+            "VALUES (?,?,?,?,?,?)",
+            (
+                actor.id if actor else None,
+                actor.roles_csv() if actor else None,
+                target_user_id,
+                action,
+                detail,
+                _iso(_utcnow()),
+            ),
+        )
 
     # -- internals ------------------------------------------------------
 

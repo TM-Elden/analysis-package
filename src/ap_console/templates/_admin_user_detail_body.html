@@ -1,0 +1,101 @@
+{# Partial: swapped in place (outerHTML) after every role/password/disabled/token/session action -
+   mirrors _review_queue_table.html's pattern. #}
+<div id="admin-user-detail-body">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+
+  <div class="meta card">
+    <div><span>User</span>{{ user.id }}</div>
+    <div><span>Display name</span>{{ user.display_name }}</div>
+    <div><span>Status</span><span class="badge {{ 'rejected' if user.disabled else 'approved' }}">{{ "disabled" if user.disabled else "enabled" }}</span></div>
+    <div><span>Password set</span>{{ "yes" if user.has_password else "no" }}</div>
+    <div><span>Created</span>{{ user.created_at }}</div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Roles</h2>
+    <form hx-post="/console/admin/users/{{ user.id }}/roles" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-user-detail-body" hx-swap="outerHTML" style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+      {% for r in all_roles %}
+      <label style="display:inline-flex;gap:4px;align-items:center;font-size:13px">
+        <input type="checkbox" name="roles" value="{{ r.value }}" {{ "checked" if r in current_roles else "" }}> {{ r.value }}
+      </label>
+      {% endfor %}
+      <button type="submit" class="btn approve">Save roles</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Reset password</h2>
+    <form hx-post="/console/admin/users/{{ user.id }}/password" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-user-detail-body" hx-swap="outerHTML" style="display:flex;gap:10px;align-items:center">
+      <input type="password" name="password" placeholder="new password" required>
+      <button type="submit" class="btn">Set password</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Account status</h2>
+    <form hx-post="/console/admin/users/{{ user.id }}/disabled" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-user-detail-body" hx-swap="outerHTML" style="display:inline">
+      <input type="hidden" name="disabled" value="{{ '0' if user.disabled else '1' }}">
+      <button type="submit" class="btn {{ 'approve' if user.disabled else 'reject' }}">
+        {{ "Enable" if user.disabled else "Disable" }}
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Sessions &amp; service tokens</h2>
+    <form hx-post="/console/admin/users/{{ user.id }}/tokens" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-user-detail-body" hx-swap="outerHTML" style="margin-bottom:14px">
+      <button type="submit" class="btn approve">Issue service-account token</button>
+    </form>
+    <table>
+      <thead>
+        <tr>
+          <th>Kind</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th>Revoked</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr>
+          <td class="mono">{{ s.kind }}</td>
+          <td class="mono">{{ s.created_at }}</td>
+          <td class="mono">{{ s.expires_at or "—" }}</td>
+          <td>{{ "yes" if s.revoked else "no" }}</td>
+          <td>
+            {% if not s.revoked %}
+            <form hx-post="/console/admin/users/{{ user.id }}/sessions/{{ s.token_hash }}/revoke"
+              hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#admin-user-detail-body" hx-swap="outerHTML" style="display:inline">
+              <button type="submit" class="btn reject">Revoke</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="empty">No sessions or tokens.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Audit trail</h2>
+    <ul class="timeline">
+      {% for a in audit_entries %}
+      <li>
+        <span class="ts">{{ a.ts }}</span> —
+        <strong>{{ a.action }}</strong> by <span class="mono">{{ a.actor_id or "ap-auth CLI" }}</span>
+        {% if a.detail %}<div class="reason">{{ a.detail }}</div>{% endif %}
+      </li>
+      {% else %}
+      <li class="empty">No audit history yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>

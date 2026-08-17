@@ -1,0 +1,43 @@
+{# Partial: swapped in place (outerHTML) after every "re-run redaction + reindex" action - mirrors
+   _review_queue_table.html's pattern. #}
+<div id="admin-index-health-table">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Package</th>
+        <th>Title</th>
+        <th>Blocked reason</th>
+        <th>Secret findings</th>
+        <th>Generated</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in blocked %}
+      <tr>
+        <td class="mono"><a href="/console/packages/{{ row.pkg.package_id }}">{{ row.pkg.package_id }}</a><br>
+          <span style="color:var(--drift);font-size:.78rem">{{ row.pkg.package_version }}</span></td>
+        <td>{{ row.pkg.title }}</td>
+        <td>{{ row.report.block_reason or "—" }}</td>
+        <td>
+          {% for f in row.report.secret_findings %}
+          <div class="mono" style="font-size:.78rem">{{ f.detector }} · {{ f.severity }} · {{ f.location }}</div>
+          {% else %}
+          —
+          {% endfor %}
+        </td>
+        <td class="mono">{{ row.report.generated_at }}</td>
+        <td>
+          <form hx-post="/console/admin/index-health/{{ row.pkg.package_id }}/{{ row.pkg.package_version }}/reindex"
+            hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#admin-index-health-table" hx-swap="outerHTML">
+            <button type="submit" class="btn">Re-run redaction + reindex</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No approved package is currently blocked from the index.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

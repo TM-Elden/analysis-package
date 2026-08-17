@@ -140,6 +140,9 @@
     <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
     <a href="/console/standard" class="{% block nav_standard %}{% endblock %}">Standard</a>
     <a href="/console/chat" class="{% block nav_chat %}{% endblock %}">Ask</a>
+    {% if "admin" in identity.roles|map(attribute="value")|list %}
+    <a href="/console/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>
+    {% endif %}
   </nav>
   <div class="whoami">
     <span>{{ identity.id }} · {{ identity.roles|map(attribute="value")|join(", ") }}</span>

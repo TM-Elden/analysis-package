@@ -46,6 +46,7 @@ from ap_proposals.notify import ProposalNotifier
 from ap_proposals.store import ListFilter as ProposalListFilter
 from ap_proposals.store import ProposalStore, ProposalStoreError
 from ap_proposals.workflow import ProposalPolicyError, ProposalWorkflow
+from ap_registry.profile_registry import ProfileRegistry
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import ListFilter, PackageStore, StoreError
 
@@ -348,11 +349,20 @@ def standard_changelog(
     withdrawn) from the proposal audit trail. Distinct from `GET /standard/versions`
     (`ap_api/standard_routes.py`), which reports the registry's own version/changelog state
     directly - this page is proposal-centric (why a decision was made), that route is
-    registry-centric (what the current rules are); neither substitutes for the other."""
+    registry-centric (what the current rules are); neither substitutes for the other.
+
+    P5.3 extends this page (rather than a separate "registry state" screen, per the phase-5
+    report's §5.3 instruction) with the current pointer version and seed state per profile,
+    reading the same `ProfileRegistry` `standard_routes.get_standard_versions` does."""
     result = store.list(ProposalListFilter(page=1, page_size=200))
     decided = [r for r in result.items if r.status != "pending_hitl"]
     decided.sort(key=lambda r: r.decided_at or "", reverse=True)
-    return _render(request, "standard_changelog.html", identity=identity, items=decided)
+    registry = ProfileRegistry(store.root)
+    profiles = [
+        {"name": name, "current_version": registry.current_version(name), "seeded": registry.is_seeded(name)}
+        for name in registry.names()
+    ]
+    return _render(request, "standard_changelog.html", identity=identity, items=decided, registry_profiles=profiles)
 
 
 @router.get("/standard/proposals/{proposal_id}", response_class=HTMLResponse)
@@ -551,6 +561,9 @@ def include_console(app: FastAPI) -> None:
     """Single mount point `ap_api.app` calls: routes + the auth-redirect handler + the vendored
     htmx static file. Kept as one function (rather than `app.include_router` scattered at the call
     site) so the module boundary from CLAUDE.md's console section stays a one-line integration."""
+    from ap_console.admin_routes import router as admin_router
+
     app.include_router(router)
+    app.include_router(admin_router)
     app.add_exception_handler(ConsoleAuthRequired, _redirect_to_login)
     app.mount("/console/static", StaticFiles(directory=str(_STATIC_DIR)), name="console-static")

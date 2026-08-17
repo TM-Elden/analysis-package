@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ user.id }}{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>{{ user.id }}</h1>
+{% include "_admin_user_detail_body.html" %}
+<p style="margin-top:18px"><a href="/console/admin/users">← Back to users</a></p>
+{% endblock %}

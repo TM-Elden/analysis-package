@@ -294,6 +294,43 @@ class PackageStore:
             for r in rows
         ]
 
+    # -- store settings (P5.3 admin tab; retention_days et al.) ----------
+
+    def get_setting(self, key: str) -> str | None:
+        with self._lock:
+            row = self.conn.execute("SELECT value FROM store_settings WHERE key=?", (key,)).fetchone()
+        return row["value"] if row else None
+
+    def set_setting(self, key: str, value: str, *, actor: Identity) -> None:
+        """Upsert one `store_settings` row and append a `store_settings_audit` row in the same
+        transaction (old value, new value, actor, when) - mirrors `_insert_audit`'s "mutation and
+        its audit row are never observably split" discipline."""
+        with self._lock, self.conn:
+            existing = self.conn.execute("SELECT value FROM store_settings WHERE key=?", (key,)).fetchone()
+            old_value = existing["value"] if existing else None
+            self.conn.execute(
+                "INSERT INTO store_settings (key, value, updated_at, updated_by_id, updated_by_roles) "
+                "VALUES (?,?,?,?,?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at, "
+                "updated_by_id=excluded.updated_by_id, updated_by_roles=excluded.updated_by_roles",
+                (key, value, _utcnow(), actor.id, actor.roles_csv()),
+            )
+            self.conn.execute(
+                "INSERT INTO store_settings_audit (key, old_value, new_value, actor_id, actor_roles, ts) "
+                "VALUES (?,?,?,?,?,?)",
+                (key, old_value, value, actor.id, actor.roles_csv(), _utcnow()),
+            )
+
+    def settings_audit_trail(self, key: str | None = None) -> list[dict[str, Any]]:
+        with self._lock:
+            if key is None:
+                rows = self.conn.execute("SELECT * FROM store_settings_audit ORDER BY id DESC").fetchall()
+            else:
+                rows = self.conn.execute(
+                    "SELECT * FROM store_settings_audit WHERE key=? ORDER BY id DESC", (key,)
+                ).fetchall()
+        return [dict(r) for r in rows]
+
     # -- internals --------------------------------------------------------
 
     def _get_row(self, package_id: str, package_version: str):

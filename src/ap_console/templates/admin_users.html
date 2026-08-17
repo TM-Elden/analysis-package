@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Admin · users & access{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Users &amp; access</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Create users, edit roles, reset passwords, disable/enable, and issue service-account tokens.
+  Every mutation here is recorded in <span class="mono">auth_audit</span>; role/disable edits that
+  would leave zero enabled admin users are refused (the last-admin guard).
+</p>
+{% include "_admin_users_body.html" %}
+{% endblock %}
