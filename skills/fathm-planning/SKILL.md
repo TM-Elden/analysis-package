@@ -31,9 +31,13 @@ pointed at this repo:
 ```
 
 (Or, without an editable install: `"command": "python3", "args": ["-m", "ap_mcp.server"]` with
-`PYTHONPATH` set to the repo's `src/`.) It advertises four tools: `package_create`,
-`package_check`, `package_finalize`, `override_record`. If the server is not connected, stop and
-tell the operator instead of editing package files directly.
+`PYTHONPATH` set to the repo's `src/`.) It advertises six tools: `package_create`,
+`package_check`, `package_finalize`, `override_record`, `package_submit_review`, and
+`package_status`. If the server is not connected, stop and tell the operator instead of editing
+package files directly. First time pointing a harness at this server? Run
+`fathm-ap-mcp --selfcheck` first (or see `docs/agent-harness-setup.md` for full onboarding,
+including `ap-auth` provisioning for a planner identity) - it verifies the server starts, lists
+tools, and round-trips a scratch package before you rely on it for real work.
 
 ## The six MUSTs (C8)
 
@@ -86,10 +90,17 @@ of your internal computation, only as your stated rationale at the time.
 | `package_check` | Before claiming a package is final, and any time you want gate feedback | Same `ap_gate` logic as `ap-gate check` / CI; read `overall` and `evidence[]` |
 | `override_record` | Every planner override, without exception | Requires `draft_reason_text`; see above |
 | `package_finalize` | Handing the package to the store for review | Publishes to `ap_store.PackageStore`; does not require `package_check` to pass first, but you should check first anyway (MUST #5) |
+| `package_submit_review` | Right after `package_finalize`, once the planner says "ship it" | Moves the published version `draft -> in_review` so it lands in the manager's console review queue; requires the analyst role and (by default) a passing `package_check` - a policy rejection comes back as a message naming what to fix, same as any other tool |
+| `package_status` | Anytime the planner asks "did my pack get approved?" | Read-only; reads the live store status (`draft`/`in_review`/`approved`/`rejected`) for one package, no need to leave the conversation |
 
 If a tool call is rejected, the error message names the field and how to fix it - fix it and
 retry in the same turn, while your reasoning is still available, rather than deferring the fix to
 a later turn.
+
+The full authoring loop, once a planner says "ship it": `package_finalize` (publish the draft),
+then `package_submit_review` (submit for review) - report back the package id/version and its new
+`in_review` status. A manager then approves or rejects in the console (or the console's Ask tab);
+`package_status` is how you check the outcome in a later turn.
 
 ## Check for a Standard update at session start
 

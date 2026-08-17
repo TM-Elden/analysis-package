@@ -429,10 +429,11 @@ not the capture mechanism.
   `mcp` SDK dependency - this repo's dev sandbox has no `pip`). `ap_mcp/server.py::handle_request`
   is the pure, directly-testable core (`initialize` / `tools/list` / `tools/call`); `main()` just
   wires it to stdin/stdout. Console script: `fathm-ap-mcp` (`ap_mcp.server:main`).
-- **`ap_mcp/tools.py`** exposes four tools - `package_create`, `package_check`, `package_finalize`,
-  `override_record` - and reuses `ap_agent_tools.tools` (`package_create`/`package_check`/
-  `package_publish`) for the first three; no parallel gate or publish logic. `package_finalize` is
-  `package.publish` under MCP naming.
+- **`ap_mcp/tools.py`** exposes six tools - `package_create`, `package_check`, `package_finalize`,
+  `override_record`, `package_submit_review`, `package_status` (the latter two added by NC.1, see
+  "Planner authoring loop through MCP" below) - and reuses `ap_agent_tools.tools`
+  (`package_create`/`package_check`/`package_publish`) for the first three; no parallel gate or
+  publish logic. `package_finalize` is `package.publish` under MCP naming.
 - **`override_record` is the P4 capture tool.** Its schema requires `field_path`, `before`, `after`,
   `reason_code`, and **`draft_reason_text`** - the agent's rationale, so the call structurally
   cannot omit it. The server writes the override row with `reason_code`/`reason_text`/`author`
@@ -453,6 +454,51 @@ not the capture mechanism.
 - Out of scope here (explicitly deferred, per the design report §6 item 4 / §7): a conformance-eval
   admission gate for third-party agent integrations - not needed while fathm configures every
   design-partner bot itself.
+
+## Planner authoring loop through MCP (NC.1) + agent harness onboarding
+
+Closes the one gap the P4 capture kit above left in the loop `data/fathm-native-chat-readiness/
+report.md` §5.1/§5.2 in the firstmate repo describes: `package_finalize` published a package but
+left it stuck in `draft` - a planner had to leave the harness and use the console/API to get it
+into review. `package_submit_review` closes that; onboarding docs make "point a harness at fathm"
+a verified act rather than tribal knowledge.
+
+- **`package_submit_review`** wraps `ap_review.ReviewWorkflow.transition(draft -> in_review)`
+  against the local store, mirroring `package_finalize`'s argument shape exactly
+  (`package_id`/`package_version` in place of `package_dir`, since it acts on an already-published
+  store record; `store_root`/`actor_id`/`actor_roles` unchanged). `ReviewWorkflow` owns all policy
+  (role check, `ReviewPolicy.gate_before_review`) - a rejection (wrong role, failing gate, a
+  `StoreError` conflict) is caught in `ap_mcp/tools.py::package_submit_review` and re-raised as a
+  `ToolValidationError`, so it reaches the agent as the workflow's own planner-serving message, not
+  a stack trace. No new policy logic lives in `ap_mcp` - same "wrap, don't reimplement" discipline
+  as every other tool here.
+- **`package_status`** is the optional cheap sibling: a read-only `PackageStore.get(package_id,
+  package_version)` (version omitted = most recently published), returned as
+  `{package_id, package_version, status, profile, title, gate_overall, analyst_id, reviewer_id}` -
+  lets an agent answer "did my pack get approved?" without leaving the conversation.
+- **`fathm-ap-mcp --selfcheck`** (`ap_mcp/server.py::selfcheck`, dispatched from `main()` before
+  the stdin read loop starts): the "is it plugged in" test - real `initialize`/`tools/list`
+  JSON-RPC calls through `handle_request`, then a scratch `package_create` -> `package_check`
+  round trip in a throwaway temp dir. Prints one `[PASS]`/`[FAIL]` line per check, exits `0` only
+  if all pass - meant for a human/CI to run directly (`fathm-ap-mcp --selfcheck`), not to be parsed
+  as JSON-RPC output.
+- **`docs/agent-harness-setup.md`** is the onboarding doc (mirrors `docs/telegram-bot-setup.md`'s
+  quality bar): `.mcp.json` config for Claude Code and any MCP-capable harness, `ap-auth`
+  provisioning for a planner identity (`analyst` role, `--no-password`), the `--selfcheck`
+  verification step, a five-minute smoke test walking the full loop (scaffold -> override ->
+  check -> finalize -> submit -> confirm `in_review` in the review queue), a note that the MCP
+  server is local-store-only until NC.2's remote publish path lands (run the harness on/near the
+  store host meanwhile), and troubleshooting for the policy-rejection messages above.
+- **`tests/test_mcp_e2e_authoring_loop.py`** drives the entire loop through
+  `ap_mcp.server.handle_request` (real JSON-RPC `tools/call` messages, the same dispatch path a
+  live MCP client uses - not a direct call into `ap_mcp.tools`), asserting the package lands
+  `status == "in_review"` in a real `ap_store.PackageStore`/`store.list()`, plus a companion test
+  proving a gate-before-review failure surfaces as a message (not a traceback) and leaves the
+  store record at `draft`. `tests/test_mcp_tools.py` and `tests/test_mcp_server.py` cover the two
+  new tools' schema/unit/transport-layer behavior individually.
+- `skills/fathm-planning/SKILL.md` documents both new tools in its tool reference table and states
+  the completed loop explicitly ("`package_finalize` then `package_submit_review` once the planner
+  says 'ship it'") - keep that table in sync with `ap_mcp.tools.TOOL_SCHEMAS` if either changes.
 
 ## Phase 4 (in progress): C6/C7 Standard-change proposal storage and workflow
 

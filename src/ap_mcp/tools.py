@@ -1,11 +1,12 @@
 """fathm-ap MCP tool implementations: package_create, package_check, package_finalize,
-override_record.
+override_record, package_submit_review, package_status.
 
 Thin layer, per the design report (`data/fathm-contract-enforcement-research/report.md` §6 in the
 firstmate repo): every tool here calls the exact same library functions the rest of the codebase
 uses - `ap_agent_tools.tools` for create/check/publish, `ap_gate.load_manifest` /
-`ap_gate.checks.pathsafe` / `ap_gate.schema` for the override row. Nothing here re-implements gate
-or manifest logic.
+`ap_gate.checks.pathsafe` / `ap_gate.schema` for the override row, `ap_review.ReviewWorkflow` /
+`ap_store.PackageStore` for submit/status. Nothing here re-implements gate, manifest, or review
+logic.
 
 `override_record` is the P4-critical tool (design report §6 item 2): `draft_reason_text` is a
 required schema parameter, so a call cannot structurally omit the agent's draft rationale - the
@@ -14,6 +15,18 @@ draft, exactly as submitted) plus top-level `reason_code`/`reason_text`/`author`
 same call, so the row is immediately schema-valid and capture never depends on a human accepting it
 later; a subsequent human edit (existing C10 review flow, out of scope here) can change the
 top-level fields while `agent_draft` stays untouched as the historical record.
+
+`package_submit_review` is the NC.1 tool (`data/fathm-native-chat-readiness/report.md` §5.1/§5.2 in
+the firstmate repo): it closes the one missing step in the planner authoring loop
+(create -> check -> [override_record]* -> finalize -> submit_review). It wraps
+`ap_review.ReviewWorkflow.transition(draft -> in_review)` against the local store, mirroring
+`package_finalize`'s actor/store_root argument shape exactly (`package_id`/`package_version`
+instead of `package_dir`, since it operates on an already-published store record, not a working
+directory) - `ReviewWorkflow` owns policy (role check, gate-before-review), so a policy rejection
+(e.g. gate-before-review failure) surfaces as a `ToolValidationError` with the workflow's own
+planner-serving message, never a stack trace. `package_status` is the optional cheap sibling: a
+read-only `PackageStore.get` so an agent can answer "did my pack get approved?" without leaving the
+conversation.
 """
 
 from __future__ import annotations
@@ -33,6 +46,9 @@ from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.load_manifest import load_manifest
 from ap_gate.schema import error_field_path, load_override_row_schema, validate_instance
 from ap_mcp.errors import ToolValidationError, validate_arguments
+from ap_review.policy import ReviewPolicy
+from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
+from ap_store.store import PackageStore, StoreError
 
 TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "package_create": _AGENT_TOOL_SCHEMAS["package.create"],
@@ -80,6 +96,43 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
                 "evidence_refs": {"type": "array", "items": {"type": "string"}},
                 "bucket": {"type": "integer"},
                 "override_id": {"type": "string", "minLength": 1, "description": "Defaults to a fresh generated id"},
+            },
+        },
+    },
+    "package_submit_review": {
+        "description": (
+            "Submit a published package_version for review: draft -> in_review "
+            "(ap_review.ReviewWorkflow.transition), so it appears in the manager's console review "
+            "queue. Requires the analyst role; by default also requires ap-gate check to pass "
+            "against the package's stored bytes (ReviewPolicy.gate_before_review) - a policy "
+            "rejection (wrong role, failing gate) comes back as a planner-serving message here, "
+            "not a stack trace. Call package_finalize first to publish the package_version."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["package_id", "package_version", "store_root", "actor_id", "actor_roles"],
+            "properties": {
+                "package_id": {"type": "string"},
+                "package_version": {"type": "string"},
+                "store_root": {"type": "string", "description": "PackageStore root directory"},
+                "actor_id": {"type": "string"},
+                "actor_roles": {"type": "string", "description": "comma-separated role names, e.g. 'analyst'"},
+            },
+        },
+    },
+    "package_status": {
+        "description": (
+            "Read one package's live status from the store (draft, in_review, approved, "
+            "rejected) - e.g. to answer 'did my pack get approved?' without leaving the "
+            "conversation. Omit package_version to get the most recently published version."
+        ),
+        "input_schema": {
+            "type": "object",
+            "required": ["package_id", "store_root"],
+            "properties": {
+                "package_id": {"type": "string"},
+                "package_version": {"type": "string", "description": "Omit for the most recently published version"},
+                "store_root": {"type": "string", "description": "PackageStore root directory"},
             },
         },
     },
@@ -168,3 +221,54 @@ def override_record(**kwargs: Any) -> dict[str, Any]:
         f.write(json.dumps(row) + "\n")
 
     return row
+
+
+def package_submit_review(**kwargs: Any) -> dict[str, Any]:
+    """Submit a published package_version for review (draft -> in_review). Policy failures
+    (wrong role, gate-before-review) raise ToolValidationError with the workflow's own
+    planner-serving message; a store-level conflict (StoreError) is likewise never a bare
+    traceback."""
+    validate_arguments("package_submit_review", kwargs, TOOL_SCHEMAS["package_submit_review"]["input_schema"])
+    actor = Identity(id=kwargs["actor_id"], roles=parse_roles(kwargs["actor_roles"]))
+    with PackageStore(kwargs["store_root"]) as store:
+        workflow = ReviewWorkflow(store=store, policy=ReviewPolicy())
+        try:
+            record = workflow.transition(
+                kwargs["package_id"],
+                kwargs["package_version"],
+                to_status="in_review",
+                actor=actor,
+            )
+        except (ReviewPolicyError, StoreError) as exc:
+            raise ToolValidationError("package_submit_review", [str(exc)]) from exc
+    return {
+        "package_id": record.package_id,
+        "package_version": record.package_version,
+        "status": record.status,
+    }
+
+
+def package_status(**kwargs: Any) -> dict[str, Any]:
+    """Read one package_version's live store status (or the most recently published version, if
+    package_version is omitted)."""
+    validate_arguments("package_status", kwargs, TOOL_SCHEMAS["package_status"]["input_schema"])
+    with PackageStore(kwargs["store_root"]) as store:
+        record = store.get(kwargs["package_id"], kwargs.get("package_version"))
+    if record is None:
+        raise ToolValidationError(
+            "package_status",
+            [
+                f"package_id: no such package{'/' + kwargs['package_version'] if kwargs.get('package_version') else ''} "
+                f"in store at {kwargs['store_root']!r} - check package_finalize actually published it"
+            ],
+        )
+    return {
+        "package_id": record.package_id,
+        "package_version": record.package_version,
+        "status": record.status,
+        "profile": record.profile,
+        "title": record.title,
+        "gate_overall": record.gate_overall,
+        "analyst_id": record.analyst_id,
+        "reviewer_id": record.reviewer_id,
+    }
