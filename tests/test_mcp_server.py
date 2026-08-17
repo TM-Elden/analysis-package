@@ -3,9 +3,11 @@ shape a real MCP client sends, and the server-side rejection of a call missing a
 
 from __future__ import annotations
 
+import io
 import json
+from contextlib import redirect_stdout
 
-from ap_mcp.server import PROTOCOL_VERSION, handle_request
+from ap_mcp.server import PROTOCOL_VERSION, handle_request, selfcheck
 from ap_mcp.tools import package_create
 
 
@@ -95,3 +97,17 @@ def test_tools_call_complete_override_record_round_trips_through_the_server(tmp_
 def test_unknown_method_returns_json_rpc_error():
     resp = handle_request({"jsonrpc": "2.0", "id": 5, "method": "not/a/method", "params": {}})
     assert resp["error"]["code"] == -32601
+
+
+def test_selfcheck_passes_against_a_real_scratch_store():
+    out = io.StringIO()
+    with redirect_stdout(out):
+        exit_code = selfcheck()
+
+    assert exit_code == 0
+    lines = out.getvalue().splitlines()
+    assert "[PASS] initialize" in lines
+    assert any(line.startswith("[PASS] tools/list advertises every implemented tool") for line in lines)
+    assert any(line.startswith("[PASS] scratch package_create") for line in lines)
+    assert any(line.startswith("[PASS] scratch package_check ran") for line in lines)
+    assert lines[-1] == "selfcheck: all checks passed - the server is plugged in"
