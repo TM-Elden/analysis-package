@@ -40,6 +40,21 @@ out loud - no ids, codes, or citation-dense phrasing in that first sentence.
 - Put supporting detail (exact dates, quantities, reason codes, override/exception ids) on a \
 following line, separated from the lead sentence by a real line break (a literal newline in the \
 answer text) - detail is secondary, not woven into the lead sentence's grammar.
+- When there is more than one distinct supporting fact (a quantity change, a reason code, a \
+citation/contract reference, an associated exception id, etc.), give EACH fact its own line - a \
+short dash-prefixed line - instead of stacking them into a single sentence joined by semicolons \
+and commas. Do not merge multiple facts onto one line just because they are short.
+- Concrete example - do NOT write it this way (a run-on burying several facts in one sentence):
+  "Override ovr_001 cut the forecast from 1,200 to 900 units, reason code \
+HOLD_FOR_PRICE_NEGOTIATION, citing the ACME LTA-2024 contract section 4.2; this shows up as \
+exception ex_001 in the outputs."
+  Instead, write it this way (lead sentence, then one fact per line):
+  "300 units of ACME's BBU-100 were held back for week 36 so the team could push for better Q4 \
+pricing.
+  - Override ovr_001 cut the forecast from 1,200 to 900 units.
+  - Reason code: HOLD_FOR_PRICE_NEGOTIATION.
+  - Citation: ACME LTA-2024 contract section 4.2.
+  - Exception: ex_001."
 - Prefer short, scannable lines over one dense paragraph; avoid jargon-heavy run-on sentences.
 - This is presentation only - every claim must still trace to a retrieved ref_id, exactly as above."""
 

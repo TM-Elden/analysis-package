@@ -304,11 +304,17 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
     screenshot: citation-dense answers read as one hard-to-scan paragraph on a phone):
     `_SYSTEM_PROMPT` asks for a plain-language lead sentence stating the business fact, then a real
     newline, then supporting detail (dates, quantities, reason codes, override/exception ids) -
-    detail set apart, not woven into the lead sentence's grammar. The console's `.chat-answer` CSS
-    already has `white-space: pre-wrap`, so a `\n` in `answer` renders as a line break with no
-    template change needed. This is presentation guidance layered on top of the citation contract
-    above, not a relaxation of it - see `tests/test_manager_bot_answer_formatting.py` for a
-    before/after demonstration of the two answer shapes through the same harness.
+    detail set apart, not woven into the lead sentence's grammar; when there is more than one
+    distinct supporting fact (quantity change, reason code, citation/contract reference,
+    associated exception id, etc.), each one gets its own dash-prefixed line rather than being
+    stacked into a single semicolon/comma-joined run-on sentence - a worked example pair (bad
+    run-on vs. wanted multi-line shape) is inlined in `_SYSTEM_PROMPT` itself, since the abstractly-
+    worded rule alone wasn't reliably followed (follow-up captain feedback with a real screenshot).
+    The console's `.chat-answer` CSS already has `white-space: pre-wrap`, so a `\n` in `answer`
+    renders as a line break with no template change needed. This is presentation guidance layered
+    on top of the citation contract above, not a relaxation of it - see
+    `tests/test_manager_bot_answer_formatting.py` for the lead/detail before/after and the
+    run-on-vs-one-fact-per-line before/after, both through the same harness.
   - **LLM egress**: `llm_client.py::AnthropicHTTPClient` speaks the Anthropic Messages API directly
     over `httpx` (no SDK dependency, per the apt-only sandbox note) - this is the captain-approved
     posture (resolved decision `fathm-phase3-readiness-decision-llm-egress-posture`, 2026-08-16):
