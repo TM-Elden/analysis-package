@@ -320,8 +320,11 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
     posture (resolved decision `fathm-phase3-readiness-decision-llm-egress-posture`, 2026-08-16):
     retrieved, redacted, in-scope package content may leave the premises to a frontier-model API at
     query time under that provider's no-training terms, as a documented deliberate inference-time
-    exception to TRUST.md - do not swap providers without a matching captain decision. Model id is
-    `AP_MANAGER_BOT_MODEL`-overridable, no default baked in as "the" approved one.
+    exception to TRUST.md - do not swap providers without a matching captain decision. `AP_MANAGER_BOT_MODEL`
+    is **required, no default** (D6, `data/fathm-mvp-review/report.md` section 5 item 5) - a tenant
+    must pin whichever model id the captain's posture approves; `AnthropicHTTPClient.complete()`
+    raises `LLMClientError` on first use if it's unset, resolved at construction time (not import
+    time) so setting the env var after import still takes effect - see `docs/deployment.md`.
   - **Tests never call the real API**: `tests/_manager_bot_fake_llm.py::ScriptedLLMClient` is a
     second `LLMClient` implementation that plays the model's role deterministically (extract
     entity-looking tokens from the question, search, cite the top hit or refuse) - it exercises the
@@ -1238,6 +1241,38 @@ an `admin` role, same policy/mechanism split and admin-bypass pattern as `_check
 `_check_decide`, raising the same `ReviewPolicyError` those already raise - no new error-handling
 path needed in `ap_api` or `ap_console`. See `data/fathm-mvp-review/report.md` §4 "D3" in the
 firstmate repo.
+
+## Phase 5 (complete): deployment packaging (MVP must-fix #5)
+
+`data/fathm-mvp-review/report.md` section 5 item 5 / section 4 D5-D6 in the firstmate repo is the
+design authority. Closes the gap where nothing durably ran the API+console server.
+
+- **`deploy/systemd/fathm-api.service`** joins the existing `fathm-chat-telegram.service` and
+  `fathm-planner-sweep.service`/`.timer` units - runs `ap-api` (`uvicorn ap_api.app:app`, the same
+  entry point `CLAUDE.md`'s "Build / test" section runs directly), same
+  `User`/`WorkingDirectory`/`Restart`/sandboxing conventions as the Telegram unit. `docs/deployment.md`
+  is the setup doc (mirrors `docs/telegram-bot-setup.md`'s bar): full env-var table across all four
+  units, `tailscale serve` fronting (loopback-only bind, no public port), install/start steps.
+- **D5 fix (`ap_manager_bot/llm_client.py`)**: `AnthropicHTTPClient.__init__` no longer raises on a
+  missing `ANTHROPIC_API_KEY`/`AP_MANAGER_BOT_MODEL` - both are resolved (at construction time, not
+  import time) and only checked inside `complete()`, the first point that actually needs them. This
+  matters because `ap_api/deps.py::get_llm_client` constructs the client inside FastAPI dependency
+  resolution, *before* a route body runs - an eager raise there produced a raw 500 for all three
+  LLM-backed call sites instead of letting their own clean-error handling engage: the SSE route
+  (`ap_api/chat_routes.py::chat_manager_stream`, already wraps `bot.answer()` in a try/except that
+  emits an `error` SSE event - unchanged, just now actually reachable), the JSON route
+  (`chat_manager`, gained a `try/except LLMClientError -> HTTPException(502, ...)`, mirroring
+  `ProposalApplyError`'s 502 mapping in `ap_api/proposal_routes.py`), and the console sweep button
+  (`ap_console/routes.py::standard_sweep`, gained the same inline `.flash`-error pattern its CSRF
+  check already used). `tests/test_llm_missing_config_error_paths.py` is the acceptance test across
+  all three, against a *real* `AnthropicHTTPClient` (not a fake) built the same way
+  `get_llm_client` builds it.
+- **D6 fix**: `AP_MANAGER_BOT_MODEL` has no silent default (the old `DEFAULT_MODEL = os.environ.get(...,
+  "claude-sonnet-5")` module-level constant is gone, along with the import-time-freezing bug that
+  came with it) - a tenant must set it explicitly, and `complete()` raises `LLMClientError` naming
+  the variable if it's unset, same lazy-check pattern as the API key. `CLAUDE.md`'s C4 section and
+  the Admin tab's effective-config panel (`ap_console/admin_routes.py`) were both updated to state
+  this plainly instead of the old (false) "no default baked in" claim next to a real default.
 
 ## Gold-pack regression
 

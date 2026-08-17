@@ -32,14 +32,14 @@ import json
 import re
 from typing import Annotated, Iterator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ap_api.deps import get_index, get_llm_client, get_store, identity_from_request
 from ap_api.schemas import ChatRequest, ChatResponse, chat_answer_to_out
 from ap_auth.identity import Identity
 from ap_index.index_store import IndexStore
-from ap_manager_bot.llm_client import LLMClient
+from ap_manager_bot.llm_client import LLMClient, LLMClientError
 from ap_manager_bot.models import ChatAnswer, Citation
 from ap_manager_bot.service import ManagerBot
 from ap_store.store import PackageStore
@@ -95,7 +95,15 @@ def chat_manager(
     llm_client: Annotated[LLMClient, Depends(get_llm_client)],
 ) -> ChatResponse:
     bot = ManagerBot(index=index, store=store, llm_client=llm_client)
-    answer = bot.answer(body.question, identity=actor)
+    try:
+        answer = bot.answer(body.question, identity=actor)
+    except LLMClientError as exc:
+        # A misconfigured server (missing ANTHROPIC_API_KEY/AP_MANAGER_BOT_MODEL) or an upstream
+        # Anthropic API failure surfaces here as a clean 502, not a raw 500 - see D5,
+        # `data/fathm-mvp-review/report.md` section 5 item 5, and llm_client.py's docstring on why
+        # AnthropicHTTPClient defers this failure to first use instead of raising during dependency
+        # resolution. Mirrors ProposalApplyError's 502 mapping in proposal_routes.py.
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return chat_answer_to_out(answer)
 
 

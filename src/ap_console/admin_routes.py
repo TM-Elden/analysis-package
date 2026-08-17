@@ -559,7 +559,7 @@ def _settings_context(store: PackageStore, *, error: str | None = None, notice: 
                 "AP_STANDARD_REGISTRY_ROOT", "(unset - falls back to repo profiles/)"
             ),
             "manager bot model (AP_MANAGER_BOT_MODEL)": os.environ.get(
-                "AP_MANAGER_BOT_MODEL", "claude-sonnet-5 (default)"
+                "AP_MANAGER_BOT_MODEL", "(unset - required, no default; chat/sweep calls will fail until set)"
             ),
             "chat allowlist path (AP_CHAT_ALLOWLIST_PATH)": os.environ.get(
                 "AP_CHAT_ALLOWLIST_PATH", "~/.fathm/chat_telegram_allowlist.json (default)"
