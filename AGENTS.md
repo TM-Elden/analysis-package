@@ -521,13 +521,17 @@ shape").
   `ap_gate.checks.pathsafe.resolve_contained` (the same discipline every manifest-path-resolving
   check already applies, now applied to raw archive bytes for the first time), member type
   restricted to plain files/directories (a symlink member could otherwise point its target outside
-  the destination even with an in-bounds *name*), and total declared size checked against a cap
-  from the tar's own member metadata (the zip-bomb guard) - a rejected archive is never partially
-  unpacked. Two independent size caps, both env-overridable and both checked before the expensive
-  work they guard: `AP_UPLOAD_MAX_BYTES` (raw/compressed body, checked against `Content-Length`
-  before the body is even read, and again against the bytes actually read) and
-  `AP_UPLOAD_MAX_UNCOMPRESSED_BYTES` (declared uncompressed size, checked from tar headers before
-  any member is extracted).
+  the destination even with an in-bounds *name*), and the zip-bomb guard: decompression itself is
+  bounded, not just its output - the gzip stream is read in fixed-size chunks with
+  `max_uncompressed_bytes` enforced against the running decompressed total as each chunk arrives
+  (so a highly-compressible archive is aborted mid-decompression, never fully materialized in
+  memory), plus a second, cheap check of the same cap against the tar members' declared sizes once
+  decompression completes - a rejected archive is never partially unpacked. Two independent size
+  caps, both env-overridable and both checked before the expensive work they guard:
+  `AP_UPLOAD_MAX_BYTES` (raw/compressed body, checked against `Content-Length` before the body is
+  even read, and again against the bytes actually read) and `AP_UPLOAD_MAX_UNCOMPRESSED_BYTES`
+  (decompressed size, enforced during streaming decompression as above and again from tar headers
+  before any member is extracted).
 - **MCP server remote mode** (`src/ap_mcp/remote.py` + `ap_mcp/tools.py`): env-selected via
   `AP_API_URL` + `AP_API_TOKEN` (both required - `remote_mode_config()` is the single switch both
   tools check). When active, `package_finalize` calls `POST /packages/upload` and
