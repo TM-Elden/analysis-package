@@ -1274,6 +1274,20 @@ design authority. Closes the gap where nothing durably ran the API+console serve
   the Admin tab's effective-config panel (`ap_console/admin_routes.py`) were both updated to state
   this plainly instead of the old (false) "no default baked in" claim next to a real default.
 
+## Demo tooling: background-corpus seeding for the core demo
+
+`scripts/seed_demo_corpus.py` (design context: `data/fathm-core-demo/report.md` in the firstmate
+repo) seeds 7 approved, gate-passing, indexed packages of fictional operating history (two
+analysts, weeks 2026-W30..W36, five reason codes, suppliers distinct from the live demo's own
+ACME/BBU-100 story) into scratch `AP_STORE_ROOT`/`AP_INDEX_ROOT`/`AP_AUTH_DB` roots via the real
+`ap_review.ReviewWorkflow` + `ap_index.reindex.reindex_package` - so the review queue, package
+list, and search index don't look freshly-born on demo day. Idempotent by deterministic
+`package_id` (`pkg_demo_seed_<label>`) - safe to re-run against the same roots. Usage:
+`AP_STORE_ROOT=... AP_INDEX_ROOT=... AP_AUTH_DB=... PYTHONPATH=src python3
+scripts/seed_demo_corpus.py`. Never point it at the gold-pack fixture; see
+`tests/test_seed_demo_corpus.py` for the acceptance checks (variety, idempotency, gold-pack
+untouched).
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and
