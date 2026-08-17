@@ -27,6 +27,15 @@ directory) - `ReviewWorkflow` owns policy (role check, gate-before-review), so a
 planner-serving message, never a stack trace. `package_status` is the optional cheap sibling: a
 read-only `PackageStore.get` so an agent can answer "did my pack get approved?" without leaving the
 conversation.
+
+**NC.2 remote mode** (`data/fathm-native-chat-readiness/report.md` §5.2 in the firstmate repo):
+`package_finalize`/`package_submit_review` check `ap_mcp.remote.remote_mode_config()` (env-selected
+via `AP_API_URL`/`AP_API_TOKEN`, both required) first - if set, they call the real HTTP API
+(`POST /packages/upload`, `POST /packages/{id}/review`) via `ap_mcp.remote.RemoteApiClient` instead
+of touching a local store, and `store_root`/`actor_id`/`actor_roles` are ignored (identity comes
+from the bearer token server-side). `package_create`/`package_check`/`override_record` never
+consult remote mode at all - they always operate on the planner's own working tree, local or
+remote harness alike, per the design report's explicit "these stay local" call.
 """
 
 from __future__ import annotations
@@ -46,6 +55,7 @@ from ap_gate.checks.pathsafe import resolve_contained
 from ap_gate.load_manifest import load_manifest
 from ap_gate.schema import error_field_path, load_override_row_schema, validate_instance
 from ap_mcp.errors import ToolValidationError, validate_arguments
+from ap_mcp.remote import RemoteApiClient, RemoteApiError, remote_mode_config
 from ap_review.policy import ReviewPolicy
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import PackageStore, StoreError
@@ -56,11 +66,26 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "package_finalize": {
         "description": (
             "Finalize a package: publish it to the package store as an immutable "
-            "package_version (ap_store.PackageStore, the same function `ap-agent-tools` and "
-            "`ap-api` use). Does not require the gate to pass first - gate status is recorded on "
-            "the store record; call package_check first if you need to know it will pass review."
+            "package_version. Does not require the gate to pass first - gate status is recorded on "
+            "the store record; call package_check first if you need to know it will pass review. "
+            "Local mode (default): writes directly to the store at store_root, identified by "
+            "actor_id/actor_roles (ap_store.PackageStore, the same function `ap-agent-tools` and "
+            "`ap-api` use) - store_root/actor_id/actor_roles are then required. Remote mode "
+            "(AP_API_URL and AP_API_TOKEN both set in the server's environment): uploads the "
+            "package over HTTP to POST /packages/upload on that API instead, authenticated by the "
+            "bearer token - store_root/actor_id/actor_roles are ignored and not needed, since "
+            "identity comes from the token."
         ),
-        "input_schema": _AGENT_TOOL_SCHEMAS["package.publish"]["input_schema"],
+        "input_schema": {
+            "type": "object",
+            "required": ["package_dir"],
+            "properties": {
+                "package_dir": {"type": "string"},
+                "store_root": {"type": "string", "description": "PackageStore root directory - local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
+                "actor_id": {"type": "string", "description": "local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
+                "actor_roles": {"type": "string", "description": "comma-separated role names, e.g. 'analyst' - local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
+            },
+        },
     },
     "override_record": {
         "description": (
@@ -106,17 +131,21 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "queue. Requires the analyst role; by default also requires ap-gate check to pass "
             "against the package's stored bytes (ReviewPolicy.gate_before_review) - a policy "
             "rejection (wrong role, failing gate) comes back as a planner-serving message here, "
-            "not a stack trace. Call package_finalize first to publish the package_version."
+            "not a stack trace. Call package_finalize first to publish the package_version. "
+            "Local mode (default): store_root/actor_id/actor_roles are required, same shape as "
+            "package_finalize. Remote mode (AP_API_URL and AP_API_TOKEN both set in the server's "
+            "environment): calls POST /packages/{id}/review on that API instead, authenticated by "
+            "the bearer token - store_root/actor_id/actor_roles are ignored and not needed."
         ),
         "input_schema": {
             "type": "object",
-            "required": ["package_id", "package_version", "store_root", "actor_id", "actor_roles"],
+            "required": ["package_id", "package_version"],
             "properties": {
                 "package_id": {"type": "string"},
                 "package_version": {"type": "string"},
-                "store_root": {"type": "string", "description": "PackageStore root directory"},
-                "actor_id": {"type": "string"},
-                "actor_roles": {"type": "string", "description": "comma-separated role names, e.g. 'analyst'"},
+                "store_root": {"type": "string", "description": "PackageStore root directory - local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
+                "actor_id": {"type": "string", "description": "local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
+                "actor_roles": {"type": "string", "description": "comma-separated role names, e.g. 'analyst' - local mode only, required unless AP_API_URL/AP_API_TOKEN are set"},
             },
         },
     },
@@ -153,8 +182,51 @@ def package_check(**kwargs: Any) -> dict[str, Any]:
     return _agent_package_check(kwargs["package_dir"])
 
 
+def _build_remote_client(api_url: str, api_token: str) -> RemoteApiClient:
+    """The one seam between package_finalize/package_submit_review and ap_mcp.remote.RemoteApiClient
+    - tests monkeypatch this to inject a TestClient-backed transport instead of real network (see
+    tests/test_mcp_remote_mode.py), the same "swap the construction seam" pattern
+    ap_api/deps.py's cached dependency getters use for get_llm_client etc."""
+    return RemoteApiClient(api_url, api_token)
+
+
+def _require_local_mode_fields(tool_name: str, kwargs: dict[str, Any], fields: tuple[str, ...]) -> None:
+    """local mode's store_root/actor_id/actor_roles are schema-optional (remote mode doesn't need
+    them) but still required once we know we're in local mode - enforced here instead of the
+    schema, with the same planner-serving phrasing validate_arguments uses for a missing required
+    field."""
+    missing = [f for f in fields if not kwargs.get(f)]
+    if missing:
+        raise ToolValidationError(
+            tool_name,
+            [
+                f"{f}: required in local mode (AP_API_URL/AP_API_TOKEN are not both set) - this tool call must include it"
+                for f in missing
+            ],
+        )
+
+
 def package_finalize(**kwargs: Any) -> dict[str, Any]:
     validate_arguments("package_finalize", kwargs, TOOL_SCHEMAS["package_finalize"]["input_schema"])
+
+    remote = remote_mode_config()
+    if remote is not None:
+        api_url, api_token = remote
+        client = _build_remote_client(api_url, api_token)
+        try:
+            body = client.publish(kwargs["package_dir"])
+        except RemoteApiError as exc:
+            raise ToolValidationError("package_finalize", [str(exc)]) from exc
+        finally:
+            client.close()
+        return {
+            "package_id": body["package_id"],
+            "package_version": body["package_version"],
+            "status": body["status"],
+            "gate_overall": body["gate_overall"],
+        }
+
+    _require_local_mode_fields("package_finalize", kwargs, ("store_root", "actor_id", "actor_roles"))
     actor = Identity(id=kwargs["actor_id"], roles=parse_roles(kwargs["actor_roles"]))
     record = _agent_package_publish(kwargs["package_dir"], store_root=kwargs["store_root"], actor=actor)
     return {
@@ -227,8 +299,27 @@ def package_submit_review(**kwargs: Any) -> dict[str, Any]:
     """Submit a published package_version for review (draft -> in_review). Policy failures
     (wrong role, gate-before-review) raise ToolValidationError with the workflow's own
     planner-serving message; a store-level conflict (StoreError) is likewise never a bare
-    traceback."""
+    traceback. See package_finalize's docstring for the local/remote-mode split - identical
+    reasoning applies here."""
     validate_arguments("package_submit_review", kwargs, TOOL_SCHEMAS["package_submit_review"]["input_schema"])
+
+    remote = remote_mode_config()
+    if remote is not None:
+        api_url, api_token = remote
+        client = _build_remote_client(api_url, api_token)
+        try:
+            body = client.submit_review(kwargs["package_id"], kwargs["package_version"])
+        except RemoteApiError as exc:
+            raise ToolValidationError("package_submit_review", [str(exc)]) from exc
+        finally:
+            client.close()
+        return {
+            "package_id": body["package_id"],
+            "package_version": body["package_version"],
+            "status": body["status"],
+        }
+
+    _require_local_mode_fields("package_submit_review", kwargs, ("store_root", "actor_id", "actor_roles"))
     actor = Identity(id=kwargs["actor_id"], roles=parse_roles(kwargs["actor_roles"]))
     with PackageStore(kwargs["store_root"]) as store:
         workflow = ReviewWorkflow(store=store, policy=ReviewPolicy())

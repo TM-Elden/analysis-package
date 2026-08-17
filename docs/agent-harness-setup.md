@@ -1,36 +1,44 @@
 # Agent harness setup: pointing a planning agent at fathm
 
-Implements NC.1 (`data/fathm-native-chat-readiness/report.md` §5.1/§5.2 in the firstmate repo): the
-docs half of "turn the merged capture kit from 'exists in the repo' into 'a planner can be pointed
-at it'". Code: `src/ap_mcp/` (the `fathm-ap` MCP server) and `skills/fathm-planning/SKILL.md` (the
+Implements NC.1 and NC.2 (`data/fathm-native-chat-readiness/report.md` §5.1/§5.2 in the firstmate
+repo): the docs half of "turn the merged capture kit from 'exists in the repo' into 'a planner can
+be pointed at it'", plus running that same harness from anywhere on the tailnet, not just the store
+host. Code: `src/ap_mcp/` (the `fathm-ap` MCP server) and `skills/fathm-planning/SKILL.md` (the
 operating-instructions skill a harness loads alongside it) - read both before this doc if you
 haven't already; this is the setup/verification wrapper around them, not a restatement of the
 tool contract.
 
-The MCP server and its six tools (`package_create`, `package_check`, `package_finalize`,
+The MCP server's six tools (`package_create`, `package_check`, `package_finalize`,
 `override_record`, `package_submit_review`, `package_status`) run **local to the harness's machine**
-today - they read/write a working-tree package directory and a local `ap_store.PackageStore` root
-directly, no HTTP hop. This means the harness must run on (or SSH/tailnet into) the machine that
-hosts the store the manager's console/API also reads - see §5 "Remote harnesses" below. A
-remote-capable publish path (NC.2, `POST /packages/upload` + an MCP env-selected remote mode) is
-designed but not built; until it lands, "run on the store host" is the supported path, not a
-workaround.
+in every mode - `package_create`/`package_check`/`override_record` always read/write a working-tree
+package directory directly, since that's the planner's own workspace. `package_finalize`/
+`package_submit_review` have two modes:
+
+- **Local mode** (default): writes directly to a local `ap_store.PackageStore` root, no HTTP hop -
+  the harness must run on (or SSH/tailnet into) the machine hosting the store the manager's
+  console/API also reads.
+- **Remote mode** (NC.2, `AP_API_URL` + `AP_API_TOKEN` both set in the MCP server's environment):
+  `package_finalize` uploads the package over HTTP to `POST /packages/upload`;
+  `package_submit_review` calls `POST /packages/{id}/review` - both against a running `ap_api`
+  instance, authenticated by the bearer token. `store_root`/`actor_id`/`actor_roles` are ignored in
+  this mode (identity comes from the token) - see §5 "Remote harnesses" below.
 
 ## 1. Provision a planner identity (`ap-auth`)
 
-The MCP server's `package_finalize`/`package_submit_review` tools take `actor_id`/`actor_roles`
-arguments directly (self-declared, same-machine-tooling trust model - see CLAUDE.md's C11 auth
-model note) rather than an HTTP bearer token, so there's no `ap-auth token` step *required* to run
-the tools themselves. There is still a real identity to provision if this planner should also:
+In **local mode**, the MCP server's `package_finalize`/`package_submit_review` tools take
+`actor_id`/`actor_roles` arguments directly (self-declared, same-machine-tooling trust model - see
+CLAUDE.md's C11 auth model note) rather than an HTTP bearer token, so there's no `ap-auth token`
+step *required* to run the tools themselves. In **remote mode** (§5), the bearer token *is* the
+identity - `ap-auth token` is required, not optional. There is still a real identity worth
+provisioning even for local-only use, if this planner should also:
 
 - be distinguishable in `package_audit`/review-queue history from every other planner, or
-- eventually use the remote-capable publish path (NC.2) once it ships, which *does* require a
-  bearer token, or
+- eventually use remote mode (§5), which requires a bearer token, or
 - log into the manager console to see their own packages - this one needs a real password, not
   `--no-password` (a `--no-password` user is service-account-only and `AuthStore`'s login check
   refuses it - see below).
 
-Provision it now so the first two are already true:
+Provision it now so all three are already true:
 
 ```bash
 ap-auth adduser tom.planner --display-name "Tom Planner" --roles analyst --no-password
@@ -134,16 +142,73 @@ through the loop the `fathm-planning` skill documents end to end. Pick a scratch
 If every step above works, the harness is genuinely plugged in and this is a real, reusable
 planner setup - not just a passing selfcheck.
 
-## 5. Remote harnesses (until NC.2 ships)
+## 5. Remote harnesses (laptop over tailnet, NC.2)
 
-The MCP server has no network/HTTP mode yet (§5.2's NC.2 remote-capable publish path is designed,
-not built) - `package_finalize`/`package_submit_review` write directly to a local `store_root`
-directory, same as every other tool. If the harness doesn't run on the machine hosting the real
-store (e.g. the Pi), the supported path today is to run the harness itself on that machine, or
-SSH/tailnet into it and run the harness there (an MCP `stdio` server started over an SSH-forwarded
-session works the same as one started locally - no code change, just where the process runs).
-Pointing a remote harness's `store_root` argument at a path on a *different* machine will not work;
-there is no remote store client today.
+A planner's harness (laptop, over Tailscale) can now publish and submit for review against the
+store host's real `ap_api` server, without running on or SSHing into that machine. This is
+**remote mode**: `package_finalize` uploads the package over HTTP to `POST /packages/upload`
+instead of writing a local store; `package_submit_review` calls `POST /packages/{id}/review` the
+same way. `package_create`/`package_check`/`override_record` are unaffected either way - they
+always operate on the planner's own working tree, since that's where the analysis actually
+happens.
+
+### 5.1 Prerequisites
+
+1. **`ap_api` is running and reachable on the tailnet** on the store host - e.g.
+   `PYTHONPATH=src AP_STORE_ROOT=~/.fathm/ap_store python3 -m ap_api`, reachable at something like
+   `http://pi.<your-tailnet>.ts.net:8000`. `ap_api` has no built-in TLS - either run it behind a
+   reverse proxy that terminates HTTPS, or accept plain HTTP over the tailnet's own encrypted
+   WireGuard tunnel (Tailscale's transport is already encrypted node-to-node; this is a materially
+   different exposure than plain HTTP on the open internet, but says nothing about `ap_api`'s own
+   transport security - treat `AP_API_TOKEN` as a real bearer credential regardless).
+2. **A real bearer token for this planner** - §1's `ap-auth token tom.planner` step, run on the
+   store host (or anywhere with `AP_AUTH_DB` pointed at the real `auth.sqlite3`). Copy it now; it
+   is never shown again.
+
+### 5.2 Configure the MCP server for remote mode
+
+Add `AP_API_URL` and `AP_API_TOKEN` to the same `.mcp.json` env block from §2:
+
+```json
+{
+  "mcpServers": {
+    "fathm-ap": {
+      "command": "fathm-ap-mcp",
+      "args": [],
+      "env": {
+        "AP_API_URL": "http://pi.your-tailnet.ts.net:8000",
+        "AP_API_TOKEN": "the token from ap-auth token tom.planner"
+      }
+    }
+  }
+}
+```
+
+Both must be set together - either alone leaves remote mode off (a URL with no token has no way to
+authenticate; a token with no URL has nowhere to send it) and the tools fall back to local mode,
+which will then fail on missing `store_root` (see Troubleshooting below) since a laptop has no
+local store to point at.
+
+### 5.3 What changes for the planner, concretely
+
+Nothing about steps 1-3 of the §4 smoke test (`package_create`, `override_record`, `package_check`)
+- those are always local. Steps 4-5 change shape: the agent no longer needs (and should not be
+given) `store_root`/`actor_id`/`actor_roles` for `package_finalize`/`package_submit_review` -
+identity comes from `AP_API_TOKEN`, and the store is wherever `AP_API_URL` points, not a
+filesystem path the laptop can see. Verify with `GET /console/review-queue` (or
+`GET /packages?status=in_review`) against the same `AP_API_URL`, same as the local-mode smoke test
+verifies against a local server.
+
+### 5.4 Upload endpoint auth and limits
+
+`POST /packages/upload` requires the same auth as every other write route
+(`Authorization: Bearer <token>`, `analyst` role) - no new auth model. The uploaded body is capped
+at `AP_UPLOAD_MAX_BYTES` (compressed, default 50MB) and `AP_UPLOAD_MAX_UNCOMPRESSED_BYTES`
+(declared uncompressed size from the tar's own member metadata, default 200MB, checked *before* any
+member is extracted - the zip-bomb guard); an archive exceeding either is rejected (413) before
+unpacking, and any archive member that would resolve outside the extraction directory (a `../` or
+absolute-path entry, or a non-file/non-directory member such as a symlink) is rejected (400) before
+any member is extracted - see `ap_api/upload_routes.py` and `ap_store.blobstore.extract_tar_gz`.
 
 ## 6. Troubleshooting
 
@@ -169,3 +234,13 @@ there is no remote store client today.
   if you forgot to use a scratch one in §4, the smoke-test package is now a real (harmless, but
   extraneous) draft in your real store; delete it or leave it as `draft` (it never entered the
   review queue unless you also ran step 5 against the real store).
+- **(Remote mode) `package_finalize`/`package_submit_review` rejected with a "required in local
+  mode" message**: `AP_API_URL` and `AP_API_TOKEN` are not *both* set in the MCP server's
+  environment, so the tools fell back to local mode and then found `store_root` missing - either
+  set both (§5.2) or supply the local-mode arguments instead; there is no partial/mixed mode.
+- **(Remote mode) upload rejected with a 401/403**: the token is invalid, expired, revoked, or
+  belongs to an identity without the `analyst` role - re-run `ap-auth token tom.planner` on the
+  store host and update `.mcp.json`'s `AP_API_TOKEN`, or check `ap-auth list` for the role.
+- **(Remote mode) upload rejected with a 413**: the package exceeds `AP_UPLOAD_MAX_BYTES` or
+  `AP_UPLOAD_MAX_UNCOMPRESSED_BYTES` (§5.4) - an operator can raise either env var on the `ap_api`
+  process if the package is legitimately large.
