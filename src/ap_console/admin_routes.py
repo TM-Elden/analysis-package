@@ -372,7 +372,7 @@ def admin_revoke_team_bot(
         notice = f"revoked access for {mapped.fathm_user_id!r} (Telegram id {telegram_user_id!r})."
     except ConsoleCsrfInvalid:
         error = "Security token expired or missing - refresh the page and try again."
-    except (AuthError, LastAdminError, AllowlistError) as exc:
+    except (AuthError, LastAdminError, AllowlistError, OSError) as exc:
         error = str(exc)
     ctx = _team_bot_context(auth_store, error=error, notice=notice)
     return templates.TemplateResponse(
