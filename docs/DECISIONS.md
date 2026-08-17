@@ -16,6 +16,9 @@ Format/standard name remains **Analysis Package (ap)**.
 | D8 | Build | **C** | Profile/schema stub + example real-shaped pack |
 
 Also locked: L1–L7 formal agent–planner contract, compose standards, ap/0.2.  
-Brand detail: `brand/BRAND.md`.
+Brand detail: `brand/BRAND.md` / `docs/BRAND.md`.  
+Vision: `docs/VISION.md` (in-agent enforcement; standard purposes: lineage, reproducibility, portability, governance, credit, opt-in training corpus, later Q&A).
 
 | D0b | Brand visual | **final** | F-as-sounding-line lockup; see `brand/fathm-brand-final.html` |
+| D9 | Standard purposes | **multi** | Lineage, reproducibility, portability, governance/credit, interoperability, opt-in training/eval - enforced via one package shape in-agent |
+| D10 | Product locus | **in-agent** | Primary product is agent-side standard+gate; platform consumers optional later |

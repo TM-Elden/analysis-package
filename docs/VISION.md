@@ -9,6 +9,43 @@
 
 **fathm enforces metadata standards inside the agent** (Hermes, clawbot, Cursor, custom bots, …) so every piece of analysis work is **documented in a standard Analysis Package shape** - not left as chat scrollback and naked spreadsheets.
 
+The standard is not paperwork for its own sake. It exists to make analysis work **legible, replayable, movable, and (when opted in) learnable**.
+
+---
+
+## Why the standard exists (purposes)
+
+One package shape serves several jobs at once. Enforce the metadata once in the agent; collect the benefits downstream.
+
+| Purpose | What the standard forces | If you skip it |
+|---------|--------------------------|----------------|
+| **Lineage / provenance** | Inputs + as-of, method, engines/versions, outputs, who changed what | “Where did this number come from?” has no answer |
+| **Reproducibility** | Pinned inputs, versioned method, engine identity; human deltas explicit | Can’t re-run Monday’s call; only vibes and screenshots |
+| **Portability** | Directory + MANIFEST contract agents and tools share | Locked in one chat vendor, one laptop, one tribal ritual |
+| **Governance / audit** | Gate before “done”; reason codes; QA status | Shadow bots; no definition of published |
+| **Human credit + decision apparatus** | Overrides/judgments with author + why | Planner alpha evaporates every cycle |
+| **Interoperability** | Same unit for Hermes, clawbot, CI, future store/query | Every agent invents its own folder myth |
+| **AI training / eval corpus (optional)** | Structured packs + labels → examples for fine-tune or eval *when allowed* | No clean dataset; only scrapable sludge |
+| **Manager / agent Q&A later** | Queryable packages with cites | Chart room has nothing trusted to read |
+
+### Training note (locked)
+Training is a **purpose of the shape**, not a default behavior.  
+`training_eligibility` stays **opt-in, default false** (D7). No cross-customer content pooling. Structure/conformance learning ≠ shipping customer numbers into a shared model.
+
+### How purposes relate
+```
+in-agent standard enforcement
+        │
+        ▼
+   Analysis Package
+        │
+        ├─► lineage + audit today
+        ├─► reproduce / diff next cycle
+        ├─► port across agents & tools
+        ├─► (opt-in) training / eval sets
+        └─► (later) chart room / RAG over trusted packs only
+```
+
 ---
 
 ## What we got wrong

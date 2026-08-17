@@ -54,6 +54,21 @@ If something truly cannot be snapshotted, declare it as an input with `availabil
 
 ---
 
+## Standard purposes
+
+The Analysis Package shape is intentionally multi-purpose. One enforced metadata contract supports:
+
+1. **Lineage / provenance** - inputs, method, outputs, human deltas  
+2. **Reproducibility** - pins, versions, explicit overrides  
+3. **Portability** - same unit across agents and tools  
+4. **Governance** - gate defines "done" / published  
+5. **Credit** - authors on judgments  
+6. **Opt-in training/eval corpus** - structured examples when `training_eligibility` allows (default false)  
+7. **Later query/RAG** - only over packages that passed the gate  
+
+See `docs/VISION.md`.
+
+
 ## Mental model
 
 ```
