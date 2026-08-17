@@ -75,6 +75,43 @@ def test_rejected_can_be_revised_back_to_draft(tmp_path):
     store.close()
 
 
+def test_admin_can_withdraw_or_revise_a_package_they_do_not_own(tmp_path):
+    store, record = _published(tmp_path)
+    wf = ReviewWorkflow(store=store)
+    admin = Identity(id="ops.admin", roles=frozenset({Role.ADMIN}))
+
+    wf.transition(record.package_id, record.package_version, to_status="in_review", actor=_identity("tom.analyst", Role.ANALYST))
+    rec = wf.transition(record.package_id, record.package_version, to_status="draft", actor=admin)
+    assert rec.status == "draft"
+
+    wf.transition(record.package_id, record.package_version, to_status="in_review", actor=_identity("tom.analyst", Role.ANALYST))
+    wf.transition(
+        record.package_id, record.package_version, to_status="rejected", actor=_identity("jane.lead", Role.REVIEWER), reason="fix it"
+    )
+    rec = wf.transition(record.package_id, record.package_version, to_status="draft", actor=admin)
+    assert rec.status == "draft"
+    store.close()
+
+
+def test_non_owner_non_admin_cannot_withdraw_or_revise_someone_elses_package(tmp_path):
+    """D3: a leaked non-owning bearer token (e.g. a team_reader chat service account) must not be
+    able to pull someone else's package back to draft."""
+    store, record = _published(tmp_path)
+    wf = ReviewWorkflow(store=store)
+    intruder = _identity("eve.reader", Role.TEAM_READER)
+
+    wf.transition(record.package_id, record.package_version, to_status="in_review", actor=_identity("tom.analyst", Role.ANALYST))
+    with pytest.raises(ReviewPolicyError, match="may not withdraw/revise"):
+        wf.transition(record.package_id, record.package_version, to_status="draft", actor=intruder)
+
+    wf.transition(
+        record.package_id, record.package_version, to_status="rejected", actor=_identity("jane.lead", Role.REVIEWER), reason="fix it"
+    )
+    with pytest.raises(ReviewPolicyError, match="may not withdraw/revise"):
+        wf.transition(record.package_id, record.package_version, to_status="draft", actor=intruder)
+    store.close()
+
+
 def test_self_review_blocked_by_default_and_allowed_when_overridden(tmp_path):
     store, record = _published(tmp_path)
     wf_default = ReviewWorkflow(store=store)

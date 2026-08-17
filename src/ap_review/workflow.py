@@ -3,9 +3,12 @@
 `draft -> in_review -> approved | rejected`, plus two practical escape hatches beyond the brief's
 minimum (documented here as the judgment call they are, not left implicit): `in_review -> draft`
 (withdraw) and `rejected -> draft` (revise and resubmit) - without them a rejected package would be
-a dead end with no path back into the workflow.
+a dead end with no path back into the workflow. Both require the deciding actor to be the
+package's own analyst (`record.analyst_id`, from `owners.analyst.id`) or an admin (`_check_pullback`)
+- any other authenticated identity may not pull back a package it doesn't own.
 
-This module owns *policy* (roles, self-review, gate-before-review, reject-requires-reason);
+This module owns *policy* (roles, self-review, gate-before-review, reject-requires-reason,
+pull-back ownership);
 `ap_store.PackageStore.set_status` owns *mechanism* (the compare-and-swap status update + audit
 row). ReviewWorkflow always re-runs the real ap-gate library check (`ap_gate.checks.registry.run_all`
 via `CheckContext`, the exact function `ap-gate check` uses) against the package's immutable stored
@@ -78,8 +81,8 @@ class ReviewWorkflow:
             self._check_submit(record, actor)
         elif to_status in ("approved", "rejected"):
             self._check_decide(record, actor, to_status, reason)
-        # in_review -> draft (withdraw) and rejected -> draft (revise) carry no extra policy
-        # beyond appearing in TRANSITIONS - any authenticated actor may pull their own work back.
+        elif to_status == "draft":
+            self._check_pullback(record, actor)
 
         return self.store.set_status(
             package_id,
@@ -126,6 +129,21 @@ class ReviewWorkflow:
             )
         if to_status == "rejected" and not (reason and reason.strip()):
             raise ReviewPolicyError("rejecting a package requires a non-empty reason")
+
+    def _check_pullback(self, record: PackageRecord, actor: Identity) -> None:
+        """in_review -> draft (withdraw) and rejected -> draft (revise): only the package's own
+        analyst (owners.analyst.id, mirrored onto record.analyst_id) may pull their own work back,
+        or an admin - any other authenticated identity (e.g. a leaked service-account bearer token)
+        must not be able to withdraw/revise a package it doesn't own."""
+        if actor.has_role(Role.ADMIN):
+            return
+        if record.analyst_id is not None and actor.id == record.analyst_id:
+            return
+        raise ReviewPolicyError(
+            f"actor {actor.id!r} may not withdraw/revise {record.package_id}/{record.package_version} "
+            f"back to draft - only the package's analyst ({record.analyst_id!r}) or an admin may pull "
+            "it back"
+        )
 
     def _rerun_gate(self, record: PackageRecord) -> dict[str, Any]:
         """Re-run the real gate against the package's immutable stored bytes (extracted to a temp dir)."""

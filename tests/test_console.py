@@ -267,6 +267,28 @@ def test_review_queue_self_review_blocked_with_clear_message_not_500(client_and_
     assert updated.status == "in_review"  # blocked, not silently approved
 
 
+def test_review_queue_withdraw_by_non_owner_reviewer_blocked_with_clear_message_not_500(client_and_store):
+    """D3 fix: jane.lead is a real reviewer but not this package's analyst - pulling it back to
+    draft through the same console route the review queue uses must be rejected with a flash
+    message, not a raw 500, and the store status must stay unchanged."""
+    client, store, _auth = client_and_store
+    record = _publish_example(store)
+    _submit_for_review(store, record)
+    csrf = _login_reviewer(client)
+
+    r = client.post(
+        f"/console/packages/{record.package_id}/review",
+        data={"package_version": record.package_version, "to_status": "draft"},
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200  # never a raw 500
+    assert "flash" in r.text
+    assert "withdraw/revise" in r.text.lower()
+
+    updated = store.get(record.package_id, record.package_version)
+    assert updated.status == "in_review"  # unchanged - not silently withdrawn
+
+
 def test_package_detail_audit_trail_matches_full_history(client_and_store):
     client, store, _auth = client_and_store
     record = _publish_example(store)
