@@ -24,6 +24,11 @@ shapes ... designed for a UI consumer, not just curl"):
     GET  /proposals/{id}/spec      - retrieve a code-kind approval's exported spec artifact
     GET  /standard/versions        - supported standard_versions + per-profile registry versions
                                       and changelogs (see ap_api/standard_routes.py)
+    POST /packages/{id}/supersede  - C12 lifecycle: mark approved, name an approved successor
+    POST /packages/{id}/recall     - C12 lifecycle: pull an approved package (reason required)
+    POST /packages/{id}/restore    - C12 lifecycle: admin-only recalled/superseded -> approved
+    POST /packages/{id}/legal-hold - C12 lifecycle: admin-only hold set/clear (blocks purge only)
+    GET  /packages/{id}/export     - C12 lifecycle: stream the stored tar.gz (see ap_api/lifecycle_routes.py)
 
 Local-first scope note: this phase-2 slice runs on the same machine/filesystem as its callers (Pi,
 CI runner, agent harness) - `package_dir` in /packages/validate and /packages is a path the *server*
@@ -55,7 +60,8 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 
 from ap_api.auth_routes import router as auth_router
 from ap_api.chat_routes import router as chat_router
-from ap_api.deps import get_store, get_workflow, identity_from_request, require_any_role
+from ap_api.deps import get_index, get_store, get_workflow, identity_from_request, reindex_after_transition, require_any_role
+from ap_api.lifecycle_routes import router as lifecycle_router
 from ap_api.proposal_routes import router as proposal_router
 from ap_api.standard_routes import router as standard_router
 from ap_api.schemas import (
@@ -74,6 +80,7 @@ from ap_gate.checks.context import CheckContext
 from ap_gate.checks.registry import run_all
 from ap_gate.load_manifest import ManifestLoadError, load_manifest
 from ap_gate.report.model import build_report
+from ap_index.index_store import IndexStore
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
 from ap_store.store import ImmutabilityError, ListFilter, PackageStore, StoreError
 
@@ -84,6 +91,7 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(chat_router)
+app.include_router(lifecycle_router)  # C12 lifecycle API - see ap_api/lifecycle_routes.py
 app.include_router(proposal_router)  # C6/C7 proposal API - see ap_api/proposal_routes.py
 app.include_router(standard_router)  # GET /standard/versions - see ap_api/standard_routes.py
 include_console(app)  # ap_console: the server-rendered HTML console, mounted under /console - see
@@ -142,6 +150,8 @@ def review_package(
     body: ReviewRequest,
     actor: Annotated[Identity, Depends(identity_from_request)],
     workflow: Annotated[ReviewWorkflow, Depends(get_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
 ) -> PackageOut:
     try:
         record = workflow.transition(
@@ -156,6 +166,10 @@ def review_package(
     except StoreError as exc:
         status_code = 404 if "no such package_version" in str(exc) else 409
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+    # C12 reindex-wiring fix: re-derive C4 index membership from the package's new status right
+    # after the transition succeeds - see ap_api.deps.reindex_after_transition's docstring for why
+    # this was missing before this task (an approval never reached the bot's searchable index).
+    reindex_after_transition(store, index, package_id, body.package_version)
     return package_record_to_out(record)
 
 

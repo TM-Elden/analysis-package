@@ -21,6 +21,9 @@ from ap_auth.roles import Role
 from ap_auth.store import DEFAULT_AUTH_DB, AuthStore
 from ap_chat.telegram.notify import notifier_from_env
 from ap_index.index_store import IndexStore
+from ap_index.reindex import reindex_package
+from ap_lifecycle.policy import LifecyclePolicy
+from ap_lifecycle.workflow import LifecycleWorkflow
 from ap_manager_bot.llm_client import AnthropicHTTPClient, LLMClient
 from ap_proposals.notify import ProposalNotifier
 from ap_proposals.policy import ProposalPolicy
@@ -91,6 +94,13 @@ def get_workflow(store: Annotated[PackageStore, Depends(get_store)]) -> ReviewWo
     return ReviewWorkflow(store=store, policy=get_review_policy())
 
 
+def get_lifecycle_workflow(store: Annotated[PackageStore, Depends(get_store)]) -> LifecycleWorkflow:
+    """Same dependency-injection reasoning as get_workflow above (C12) - takes `store` as a
+    Depends parameter so `app.dependency_overrides[get_store]` reaches every LifecycleWorkflow
+    too."""
+    return LifecycleWorkflow(store=store, policy=LifecyclePolicy())
+
+
 @lru_cache(maxsize=1)
 def get_proposal_store() -> ProposalStore:
     """`<store_root>/proposals.sqlite3` - a sibling database under the same store root PackageStore
@@ -153,6 +163,23 @@ def identity_from_request(
                 "the session established at login - see the csrf_token returned by POST /login)",
             )
     return identity
+
+
+def reindex_after_transition(store: PackageStore, index: IndexStore, package_id: str, package_version: str) -> None:
+    """Routes-layer glue: re-derive one package version's C4 index membership from its current
+    store status, right after any call that may have changed that status.
+
+    This is the fix for the real bug this task closes - `ap_index.reindex.reindex_package` was
+    correct but uncalled outside tests, so in a live deployment an approval never actually reached
+    the bot's searchable index. Deliberately kept here (the routes layer), not inside
+    `ReviewWorkflow`/`LifecycleWorkflow` - preserves the existing rule that `ap_review` (and now
+    `ap_lifecycle`) must not import `ap_index`. Every status-changing route calls this: the review
+    route (`ap_api.app.review_package`, `ap_console.routes.console_review_action`) and every C12
+    lifecycle route (`ap_api.lifecycle_routes`) except purge, which is not wired through this hook
+    at all - see `PackageStore.purge`'s docstring for why (a purge caller removes index chunks
+    directly via `IndexStore.remove_package` instead).
+    """
+    reindex_package(store=store, index=index, store_root=store.root, package_id=package_id, package_version=package_version)
 
 
 def require_any_role(*roles: Role):

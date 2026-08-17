@@ -28,6 +28,7 @@ from ap_api.deps import (
     get_proposal_workflow,
     get_store,
     get_workflow,
+    reindex_after_transition,
 )
 from ap_auth.identity import Identity
 from ap_console.deps import (
@@ -183,6 +184,7 @@ def console_review_action(
     identity: Annotated[Identity, Depends(get_console_identity)],
     workflow: Annotated[ReviewWorkflow, Depends(get_workflow)],
     store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
     package_version: Annotated[str, Form()],
     to_status: Annotated[str, Form()],
     reason: Annotated[str | None, Form()] = None,
@@ -198,7 +200,9 @@ def console_review_action(
     here. A `ConsoleCsrfInvalid` or `ReviewPolicyError`/`StoreError` (self-review, missing gate
     pass, empty reject reason, wrong role, stale CSRF token) is caught here and rendered as an
     inline flash message on the still-open queue - never a raw 500/403 the reviewer has to decode
-    from a JSON body."""
+    from a JSON body. On success, `reindex_after_transition` (C12 reindex-wiring fix - see
+    ap_api.deps's docstring) re-derives the package's C4 index membership from its new status,
+    same call the JSON `POST /packages/{id}/review` route now makes."""
     error = None
     try:
         verify_console_csrf(request)
@@ -213,6 +217,8 @@ def console_review_action(
         error = "Security token expired or missing - refresh the page and try again."
     except (ReviewPolicyError, StoreError) as exc:
         error = str(exc)
+    else:
+        reindex_after_transition(store, index, package_id, package_version)
     ctx = _review_queue_context(store, error=error)
     return templates.TemplateResponse(request, "_review_queue_table.html", {"csrf_token": console_csrf_token(request), **ctx})
 

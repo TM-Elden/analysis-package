@@ -15,7 +15,8 @@ class PackageRecord:
     title: str
     as_of: str
     created_at: str  # store-assigned publish time, distinct from the manifest's own created_at
-    status: str  # live ap_review workflow status: draft | in_review | approved | rejected
+    status: str  # live status: draft | in_review | approved | rejected (ap_review), plus
+    # superseded | recalled | purged (ap_lifecycle, C12 - see CLAUDE.md's Phase 5 section)
     blob_sha256: str
     analyst_id: str | None
     reviewer_id: str | None
@@ -25,6 +26,9 @@ class PackageRecord:
     published_by_roles: str
     replaces_package_id: str | None = None
     replaces_package_version: str | None = None
+    legal_hold: bool = False
+    legal_hold_reason: str | None = None
+    purged_at: str | None = None  # non-None once ap_lifecycle.LifecycleWorkflow.purge has run
 
     def owners(self) -> dict[str, Any]:
         return json.loads(self.owners_json)

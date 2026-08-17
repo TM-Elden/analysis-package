@@ -50,6 +50,35 @@ class ReviewRequest(BaseModel):
     reason: str | None = None
 
 
+class SupersedeRequest(BaseModel):
+    """C12 lifecycle: `POST /packages/{id}/supersede`. `package_version` is the *predecessor*
+    version being superseded (from the URL's package_id); the successor is named explicitly since
+    it may be a different package_id entirely (a rewrite, not just a new version)."""
+
+    package_version: str
+    successor_package_id: str
+    successor_package_version: str
+    reason: str | None = None
+
+
+class RecallRequest(BaseModel):
+    package_version: str
+    reason: str = Field(description="Required - a recall with no recorded why is an audit hole")
+
+
+class RestoreRequest(BaseModel):
+    """Admin-only: `recalled -> approved` or `superseded -> approved`."""
+
+    package_version: str
+    reason: str | None = None
+
+
+class LegalHoldRequest(BaseModel):
+    package_version: str
+    hold: bool = Field(description="True to set the hold, False to clear it")
+    reason: str | None = Field(default=None, description="Required when hold=True")
+
+
 class PackageOut(BaseModel):
     package_id: str
     package_version: str
@@ -67,6 +96,9 @@ class PackageOut(BaseModel):
     published_by_roles: str
     replaces_package_id: str | None = None
     replaces_package_version: str | None = None
+    legal_hold: bool = False
+    legal_hold_reason: str | None = None
+    purged_at: str | None = None
 
 
 class ListResponse(BaseModel):
@@ -224,4 +256,7 @@ def package_record_to_out(record: PackageRecord) -> PackageOut:
         published_by_roles=record.published_by_roles,
         replaces_package_id=record.replaces_package_id,
         replaces_package_version=record.replaces_package_version,
+        legal_hold=record.legal_hold,
+        legal_hold_reason=record.legal_hold_reason,
+        purged_at=record.purged_at,
     )
