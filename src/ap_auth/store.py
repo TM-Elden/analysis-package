@@ -211,12 +211,17 @@ class AuthStore:
     def create_service_token(
         self, user_id: str, *, ttl: dt.timedelta = SERVICE_TOKEN_TTL, actor: Identity | None = None
     ) -> str:
-        token = self._issue_token(user_id, kind="bearer", ttl=ttl)
-        with self._lock, self.conn:
-            self._insert_auth_audit(actor, user_id, "token_issue", None)
-        return token
+        return self._issue_token(user_id, kind="bearer", ttl=ttl, actor=actor, audit_action="token_issue")
 
-    def _issue_token(self, user_id: str, *, kind: str, ttl: dt.timedelta) -> str:
+    def _issue_token(
+        self,
+        user_id: str,
+        *,
+        kind: str,
+        ttl: dt.timedelta,
+        actor: Identity | None = None,
+        audit_action: str | None = None,
+    ) -> str:
         with self._lock:
             user = self.conn.execute("SELECT 1 FROM users WHERE id=? AND disabled=0", (user_id,)).fetchone()
         if user is None:
@@ -230,6 +235,8 @@ class AuthStore:
                 "VALUES (?,?,?,?,?,0)",
                 (_hash_token(raw_token), user_id, kind, _iso(now), expires_at),
             )
+            if audit_action is not None:
+                self._insert_auth_audit(actor, user_id, audit_action, None)
         return raw_token
 
     def revoke_token(self, raw_token: str) -> None:
