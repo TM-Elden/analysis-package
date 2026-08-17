@@ -7,7 +7,6 @@ from seed_demo_corpus import SCENARIOS, seed_demo_corpus
 
 from ap_auth.store import AuthStore
 from ap_index.index_store import IndexStore
-from ap_review.workflow import ReviewWorkflow
 from ap_store.store import PackageStore
 
 

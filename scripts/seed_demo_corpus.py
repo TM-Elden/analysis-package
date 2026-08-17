@@ -83,7 +83,7 @@ from ap_index.reindex import reindex_package
 from ap_mcp.tools import override_record as _override_record
 from ap_mcp.tools import package_create as _package_create
 from ap_review.workflow import ReviewWorkflow
-from ap_store.store import PackageStore, StoreError
+from ap_store.store import PackageStore
 
 #: Same local-first default/override convention as ap_api.deps.DEFAULT_STORE_ROOT/DEFAULT_INDEX_ROOT
 #: and ap_planner_bot.sweep's own copy of it - resolved independently here so this script has no
