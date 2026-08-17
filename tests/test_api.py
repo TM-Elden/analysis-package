@@ -157,6 +157,45 @@ def test_full_publish_review_flow_via_session_cookies(client_and_store):
     assert entries[-1]["reason"] == "needs work"
 
 
+def test_withdraw_rejected_by_non_owner_via_review_route(client_and_store):
+    """D3 fix: a non-owning, non-admin identity may not pull someone else's package back to draft
+    via POST /packages/{id}/review, even though it's an otherwise-valid TRANSITIONS pair."""
+    client, _store, _auth, tmp_path = client_and_store
+    pkg_dir = package_create(tmp_path / "pkg", title="API pack", analyst_id="tom.analyst")
+
+    analyst_login = _login(client, "tom.analyst", "pw-tom")
+    r = client.post("/packages", json={"package_dir": str(pkg_dir)}, headers=_csrf_headers(analyst_login))
+    pkg = r.json()
+
+    r = client.post(
+        f"/packages/{pkg['package_id']}/review",
+        json={"package_version": pkg["package_version"], "to_status": "in_review"},
+        headers=_csrf_headers(analyst_login),
+    )
+    assert r.status_code == 200
+    client.post("/logout", headers=_csrf_headers(analyst_login))
+
+    reader_login = _login(client, "ro.reader", "pw-ro")
+    r = client.post(
+        f"/packages/{pkg['package_id']}/review",
+        json={"package_version": pkg["package_version"], "to_status": "draft"},
+        headers=_csrf_headers(reader_login),
+    )
+    assert r.status_code == 403
+    assert "may not withdraw/revise" in r.json()["detail"]
+
+    # the package's own analyst can still withdraw it
+    client.post("/logout", headers=_csrf_headers(reader_login))
+    analyst_login = _login(client, "tom.analyst", "pw-tom")
+    r = client.post(
+        f"/packages/{pkg['package_id']}/review",
+        json={"package_version": pkg["package_version"], "to_status": "draft"},
+        headers=_csrf_headers(analyst_login),
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "draft"
+
+
 def test_logout_revokes_the_session(client_and_store):
     client, _store, _auth, tmp_path = client_and_store
     login_body = _login(client, "tom.analyst", "pw-tom")

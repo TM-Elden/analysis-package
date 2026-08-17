@@ -1097,6 +1097,18 @@ snapshot - is `in_review`, the citation gets an inline approve/reject affordance
   test (see that test file's comment), relying instead on the HTTP-level coverage of the routes the
   slot calls plus manual live-server verification.
 
+## MVP review fix (D3): withdraw/revise pull-back requires ownership or admin
+
+`ReviewWorkflow`'s `in_review -> draft` (withdraw) and `rejected -> draft` (revise) transitions
+used to carry no policy check beyond appearing in `TRANSITIONS` - any authenticated identity
+(e.g. a leaked `team_reader` chat-service-account bearer token) could pull *any* package back to
+draft. `ReviewWorkflow._check_pullback` (`src/ap_review/workflow.py`) now requires the deciding
+actor's id to match `record.analyst_id` (the package's own analyst, from `owners.analyst.id`) or
+an `admin` role, same policy/mechanism split and admin-bypass pattern as `_check_submit`/
+`_check_decide`, raising the same `ReviewPolicyError` those already raise - no new error-handling
+path needed in `ap_api` or `ap_console`. See `data/fathm-mvp-review/report.md` §4 "D3" in the
+firstmate repo.
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and
