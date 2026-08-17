@@ -14,10 +14,19 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 from ap_mcp.errors import ToolValidationError
-from ap_mcp.tools import TOOL_SCHEMAS, override_record, package_check, package_create, package_finalize
+from ap_mcp.tools import (
+    TOOL_SCHEMAS,
+    override_record,
+    package_check,
+    package_create,
+    package_finalize,
+    package_status,
+    package_submit_review,
+)
 
 SERVER_NAME = "fathm-ap"
 SERVER_VERSION = "0.1.0"
@@ -28,6 +37,8 @@ _IMPLEMENTATIONS = {
     "package_check": package_check,
     "package_finalize": package_finalize,
     "override_record": override_record,
+    "package_submit_review": package_submit_review,
+    "package_status": package_status,
 }
 
 
@@ -85,7 +96,80 @@ def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
     return {"jsonrpc": "2.0", "id": msg_id, "result": result}
 
 
+def selfcheck() -> int:
+    """`fathm-ap-mcp --selfcheck`: the "is it plugged in" test (design report §5.2, NC.1 docs
+    half) - verifies the server starts and responds to `initialize`/`tools/list`, then drives a
+    scratch `package_create` -> `package_check` round trip through the exact `handle_request`
+    dispatch a real client uses (no shortcuts through `ap_mcp.tools` directly), in a throwaway
+    temp directory that is always cleaned up. Prints one PASS/FAIL line per step to stdout and
+    returns a process exit code (0 all pass, 1 otherwise) - meant to be run by a human/CI, not
+    parsed as JSON-RPC."""
+    import tempfile
+
+    ok = True
+
+    def _check(label: str, condition: bool, detail: str = "") -> None:
+        nonlocal ok
+        ok = ok and condition
+        status = "PASS" if condition else "FAIL"
+        suffix = f" - {detail}" if detail and not condition else ""
+        print(f"[{status}] {label}{suffix}")
+
+    init_resp = handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+    _check(
+        "initialize",
+        bool(init_resp and init_resp.get("result", {}).get("serverInfo", {}).get("name") == SERVER_NAME),
+        str(init_resp),
+    )
+
+    list_resp = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+    tool_names = {t["name"] for t in (list_resp or {}).get("result", {}).get("tools", [])} if list_resp else set()
+    expected_tools = set(_IMPLEMENTATIONS)
+    _check(
+        "tools/list advertises every implemented tool",
+        expected_tools <= tool_names,
+        f"advertised={sorted(tool_names)} expected>={sorted(expected_tools)}",
+    )
+
+    with tempfile.TemporaryDirectory(prefix="fathm-ap-mcp-selfcheck-") as tmp:
+        dest_dir = str(Path(tmp) / "scratch-pack")
+        create_resp = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "package_create",
+                    "arguments": {
+                        "dest_dir": dest_dir,
+                        "title": "fathm-ap-mcp selfcheck scratch package",
+                        "analyst_id": "selfcheck-agent",
+                    },
+                },
+            }
+        )
+        create_ok = bool(create_resp and not create_resp["result"]["isError"])
+        _check("scratch package_create", create_ok, str(create_resp))
+
+        check_resp = handle_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {"name": "package_check", "arguments": {"package_dir": dest_dir}},
+            }
+        )
+        check_ok = bool(check_resp and not check_resp["result"]["isError"])
+        _check("scratch package_check ran (gate result recorded, pass/fail not required)", check_ok, str(check_resp))
+
+    print("selfcheck: " + ("all checks passed - the server is plugged in" if ok else "one or more checks FAILED"))
+    return 0 if ok else 1
+
+
 def main() -> int:
+    if "--selfcheck" in sys.argv[1:]:
+        return selfcheck()
+
     for line in sys.stdin:
         line = line.strip()
         if not line:

@@ -9,11 +9,26 @@ import pytest
 
 from ap_gate.schema import load_override_row_schema, validate_instance
 from ap_mcp.errors import ToolValidationError
-from ap_mcp.tools import TOOL_SCHEMAS, override_record, package_check, package_create, package_finalize
+from ap_mcp.tools import (
+    TOOL_SCHEMAS,
+    override_record,
+    package_check,
+    package_create,
+    package_finalize,
+    package_status,
+    package_submit_review,
+)
 
 
 def test_tool_schemas_cover_the_capture_kit_minimum():
-    assert {"package_create", "package_check", "package_finalize", "override_record"} <= TOOL_SCHEMAS.keys()
+    assert {
+        "package_create",
+        "package_check",
+        "package_finalize",
+        "override_record",
+        "package_submit_review",
+        "package_status",
+    } <= TOOL_SCHEMAS.keys()
     for name, schema in TOOL_SCHEMAS.items():
         assert schema["description"]
         assert schema["input_schema"]["type"] == "object"
@@ -128,3 +143,57 @@ def test_package_finalize_rejects_missing_required_param(tmp_path):
     with pytest.raises(ToolValidationError) as excinfo:
         package_finalize(package_dir=str(pkg_dir), store_root=str(tmp_path / "store"), actor_id="tom.analyst")
     assert "actor_roles" in str(excinfo.value)
+
+
+def test_package_submit_review_moves_draft_to_in_review(tmp_path):
+    pkg_dir = package_create(dest_dir=str(tmp_path / "pkg"), title="Test pack", analyst_id="tom.analyst")
+    store_root = str(tmp_path / "store")
+    finalized = package_finalize(package_dir=str(pkg_dir), store_root=store_root, actor_id="tom.analyst", actor_roles="analyst")
+
+    result = package_submit_review(
+        package_id=finalized["package_id"],
+        package_version=finalized["package_version"],
+        store_root=store_root,
+        actor_id="tom.analyst",
+        actor_roles="analyst",
+    )
+    assert result["status"] == "in_review"
+
+
+def test_package_submit_review_rejects_non_analyst_with_planner_serving_message(tmp_path):
+    pkg_dir = package_create(dest_dir=str(tmp_path / "pkg"), title="Test pack", analyst_id="tom.analyst")
+    store_root = str(tmp_path / "store")
+    finalized = package_finalize(package_dir=str(pkg_dir), store_root=store_root, actor_id="tom.analyst", actor_roles="analyst")
+
+    with pytest.raises(ToolValidationError) as excinfo:
+        package_submit_review(
+            package_id=finalized["package_id"],
+            package_version=finalized["package_version"],
+            store_root=store_root,
+            actor_id="not.an.analyst",
+            actor_roles="reviewer",
+        )
+    message = str(excinfo.value)
+    assert "analyst" in message
+    assert "Traceback" not in message
+
+
+def test_package_status_reads_a_published_record(tmp_path):
+    pkg_dir = package_create(dest_dir=str(tmp_path / "pkg"), title="Status test pack", analyst_id="tom.analyst")
+    store_root = str(tmp_path / "store")
+    finalized = package_finalize(package_dir=str(pkg_dir), store_root=store_root, actor_id="tom.analyst", actor_roles="analyst")
+
+    status = package_status(package_id=finalized["package_id"], store_root=store_root)
+    assert status["status"] == "draft"
+    assert status["title"] == "Status test pack"
+
+    status_versioned = package_status(
+        package_id=finalized["package_id"], package_version=finalized["package_version"], store_root=store_root
+    )
+    assert status_versioned["package_version"] == finalized["package_version"]
+
+
+def test_package_status_unknown_package_is_a_planner_serving_message(tmp_path):
+    with pytest.raises(ToolValidationError) as excinfo:
+        package_status(package_id="pkg_does_not_exist", store_root=str(tmp_path / "store"))
+    assert "no such package" in str(excinfo.value)
