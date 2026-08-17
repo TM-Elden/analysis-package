@@ -152,7 +152,7 @@ def test_role_edit_changes_what_the_user_can_actually_do(client_and_store):
 
     # tom starts analyst-only - admin routes 403 for him.
     tom_client = TestClient(app, base_url="https://testserver")
-    tom_csrf = _login(tom_client, "tom.analyst", "pw-tom")
+    _login(tom_client, "tom.analyst", "pw-tom")
     r = tom_client.get("/console/admin/users", follow_redirects=False)
     assert r.status_code == 403
 
