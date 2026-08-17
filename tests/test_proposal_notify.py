@@ -8,7 +8,6 @@ Telegram Bot API calls (real request shaping against `httpx.MockTransport`, same
 from __future__ import annotations
 
 import httpx
-import pytest
 
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
@@ -262,6 +261,51 @@ def test_telegram_notifier_rejection_message_includes_reason(tmp_path):
     assert len(sent) == 1
     assert "too niche to codify" in sent[0]["text"]
     assert "rejected" in sent[0]["text"]
+
+
+def test_telegram_notifier_keeps_bold_markup_literal_but_escapes_dynamic_text(tmp_path):
+    """Regression test for the double-HTML-escaping bug: `TelegramBotClient.send_message` sends
+    every notification with `parse_mode: "HTML"` (see `client.py`), so the literal `<b>...</b>`
+    markup the notifier writes must reach Telegram unescaped, or Telegram renders the literal tag
+    text instead of bold. A prior version escaped the *whole* message (including that markup) in
+    `_send`, which silently broke bold formatting - this asserts the actual wire content instead
+    of the source that produces it. At the same time, untrusted dynamic text interpolated into the
+    message (here, a decision reason containing `<`/`&`) must still be escaped, or it would either
+    break Telegram's HTML parsing or let injected markup ride into a proactive post."""
+    sent: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(dict(request.url.params))
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": len(sent)}})
+
+    _, wf = _workflow(tmp_path)
+    wf.notifier = TelegramProposalNotifier(_telegram(handler), chat_id=42)
+    record = wf.create(
+        kind="profile_change",
+        summary="Add SUPPLIER_CHANGE",
+        rationale="seen repeatedly",
+        diff=_profile_change_diff(),
+        evidence={"package_ids": ["pkg-1"]},
+        actor=CAPTAIN,
+    )
+    created_text = sent[0]["text"]
+    # The notifier's own literal <b> markup must survive unescaped for Telegram to bold it.
+    assert f"<b>Proposal {record.proposal_id}</b>" in created_text
+    assert "&lt;b&gt;" not in created_text
+    sent.clear()
+
+    wf.decide(
+        record.proposal_id,
+        to_status="rejected",
+        actor=CAPTAIN,
+        reason="drop it <script>alert(1)</script> & move on",
+    )
+
+    decision_text = sent[0]["text"]
+    assert f"<b>Proposal {record.proposal_id}</b>" in decision_text
+    # But dynamic, potentially-untrusted text must still be escaped.
+    assert "<script>" not in decision_text
+    assert "&lt;script&gt;alert(1)&lt;/script&gt; &amp; move on" in decision_text
 
 
 def test_notifier_from_env_returns_none_when_unconfigured(monkeypatch):
