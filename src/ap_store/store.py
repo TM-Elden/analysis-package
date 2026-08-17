@@ -197,13 +197,19 @@ class PackageStore:
     # -- retrieval --------------------------------------------------------
 
     def get(self, package_id: str, package_version: str | None = None) -> PackageRecord | None:
-        """Retrieve a specific version, or the most recently published version if version is None."""
+        """Retrieve a specific version, or the most recently published version if version is None.
+        `created_at` is second-precision (`_utcnow`), so two versions published within the same
+        second tie on it - `rowid DESC` breaks the tie deterministically in insertion order (rowid
+        is monotonically increasing per insert), so "most recently published" stays correct even
+        for a rapid republish. This matters beyond tests: `ap_console`'s NC.3 citation-actions
+        lookup (`routes.py::_citation_review_context`) depends on this exact "latest version" read
+        being right every time, not just usually."""
         with self._lock:
             if package_version is not None:
                 row = self._get_row(package_id, package_version)
                 return self._row_to_record(row) if row else None
             row = self.conn.execute(
-                "SELECT * FROM packages WHERE package_id=? ORDER BY created_at DESC LIMIT 1",
+                "SELECT * FROM packages WHERE package_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
                 (package_id,),
             ).fetchone()
             return self._row_to_record(row) if row else None

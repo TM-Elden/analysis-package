@@ -1,0 +1,32 @@
+{# Partial: one citation's inline review affordance (NC.3, see CLAUDE.md's Ask-tab section).
+   Rendered by `citation_review_actions` (initial `load`) and by `console_review_action`'s
+   `source="chat"` branch (after a decision) - same shape both times, swapped outerHTML in place so
+   a decided citation's buttons simply disappear, mirroring `_review_queue_table.html`'s pattern. #}
+<div class="citation-actions" id="citation-actions-{{ package_id }}">
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+  {% if record and record.status == "in_review" %}
+  <div class="review-actions">
+    <form class="review-action"
+      hx-post="/console/packages/{{ package_id }}/review"
+      hx-target="#citation-actions-{{ package_id }}" hx-swap="outerHTML"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+      <input type="hidden" name="package_version" value="{{ record.package_version }}">
+      <input type="hidden" name="to_status" value="approved">
+      <input type="hidden" name="source" value="chat">
+      <button type="submit" class="btn approve">Approve</button>
+    </form>
+    <form class="review-action"
+      hx-post="/console/packages/{{ package_id }}/review"
+      hx-target="#citation-actions-{{ package_id }}" hx-swap="outerHTML"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}'>
+      <input type="hidden" name="package_version" value="{{ record.package_version }}">
+      <input type="hidden" name="to_status" value="rejected">
+      <input type="hidden" name="source" value="chat">
+      <input type="text" name="reason" placeholder="reason (required)" required>
+      <button type="submit" class="btn reject">Reject</button>
+    </form>
+  </div>
+  {% endif %}
+</div>

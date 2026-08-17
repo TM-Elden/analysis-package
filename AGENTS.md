@@ -1067,6 +1067,30 @@ Admin tab (see above) - no new role.
   covers the full provision/revoke round trip end to end (`AuthStore` + the allowlist file, real
   `os.replace` atomicity, the last-admin/role/token assertions) and specifically asserts the raw
   token is absent from every rendered response.
+## Phase 5 (in progress): Ask-tab review affordances (NC.3)
+
+`data/fathm-native-chat-readiness/report.md` §5.4 in the firstmate repo is the design authority.
+When a chat citation (`base.html`'s `htmx:sseBeforeMessage` handler) points at a package whose
+CURRENT status - a fresh `PackageStore.get(package_id)` read, never the redacted-index chunk's
+snapshot - is `in_review`, the citation gets an inline approve/reject affordance. **Hard invariant:
+`ManagerBot` gains no tool here** - this is a human-clicked UI layer over the existing
+`POST /console/packages/{id}/review` route (`console_review_action`), not a new bot capability;
+`tests/test_console_chat_review_actions.py::test_manager_bot_tool_schema_unchanged` snapshots
+`ap_manager_bot.tool_backend.TOOL_SCHEMAS` as the regression guard.
+- Each citation is a client-side-rendered `<a>` (JS, not a server template - see `base.html`), so
+  the live-status check has to happen after insertion: the JS appends a small slot element with
+  `hx-get="/console/packages/{id}/review-actions"` `hx-trigger="load"` and calls `htmx.process(...)`
+  on it (htmx does not auto-scan elements inserted outside its own swap machinery). That route
+  (`ap_console/routes.py::citation_review_actions`) renders `_citation_review_actions.html` -
+  buttons only when `record.status == "in_review"`, empty otherwise.
+- The buttons post to the *same* `console_review_action` route the review queue uses, with a hidden
+  `source=chat` field that only changes which partial re-renders afterward (a citation-scoped
+  fragment vs. the whole queue table) - the `ReviewWorkflow.transition` call, CSRF check, and
+  policy (self-review, distinct-reviewer, reject-requires-reason) are identical, not reimplemented.
+- `PackageStore.get(package_id)` (no version - "latest published") now breaks `created_at` ties
+  with `rowid DESC`: `created_at` is second-precision, so two versions of one package published
+  within the same second used to have undefined ordering, which this feature's live-status lookup
+  depends on being right. Fixed in `ap_store/store.py`, not console-local.
 
 ## Gold-pack regression
 
