@@ -6,7 +6,6 @@ same reason test_console.py needs it: `POST /login` sets a `Secure` cookie.
 
 from __future__ import annotations
 
-import json
 import shutil
 
 import pytest

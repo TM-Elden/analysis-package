@@ -352,9 +352,9 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
   `getUpdates` via plain `httpx` (`telegram/client.py`), never a webhook, so no public HTTPS
   ingress is needed on the Pi. Identity mapping is an **explicit allowlist file**
   (`identity_map.py::IdentityAllowlist`, Telegram user id -> `{fathm_user_id, token}`), never
-  auto-provisioned - an operator must have already run `ap-auth adduser --no-password` +
-  `ap-auth token` for that person; per-team-member bot *provisioning* itself is tracked separately
-  (`fathm-phase3-team-bot-provisioning`, out of scope here). `runner.py::BotRunner.run_forever` owns
+  auto-provisioned - an operator must have already provisioned that person a real fathm service
+  account, via the console's Admin tab (P5.4, see "team-bot provisioning" below) or the
+  `ap-auth adduser --no-password` + `ap-auth token` CLI fallback. `runner.py::BotRunner.run_forever` owns
   reconnect/backoff (exponential, capped, reset on the next successful poll) around any
   `ChatPlatform.poll()` failure - this lives in the platform-neutral runner, not the Telegram
   adapter, so a future Slack adapter gets the same resilience for free. Posting policy (captain

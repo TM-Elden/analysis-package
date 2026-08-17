@@ -8,7 +8,7 @@ not Telegram-specific, since the runner itself is platform-neutral.
 from __future__ import annotations
 
 from ap_chat.core import IncomingMessage, OutgoingReply
-from ap_chat.identity_map import IdentityAllowlist, MappedIdentity
+from ap_chat.identity_map import MappedIdentity
 from ap_chat.manager_client import ChatAnswer, ChatCitation, ManagerClientError
 from ap_chat.runner import BACKEND_ERROR_REPLY_TEXT, UNAUTHORIZED_REPLY_TEXT, BotRunner
 
