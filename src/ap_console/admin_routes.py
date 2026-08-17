@@ -333,12 +333,12 @@ def admin_provision_team_bot(
         auth_store.create_user(
             fathm_user_id, display_name=display_name, roles=role_set, password=None, actor=identity
         )
-        raw_token = auth_store.create_service_token(fathm_user_id, actor=identity)
         try:
+            raw_token = auth_store.create_service_token(fathm_user_id, actor=identity)
             add_entry(_allowlist_path(), telegram_id, fathm_user_id=fathm_user_id, token=raw_token)
-        except (OSError, AllowlistError) as exc:
+        except (OSError, AllowlistError, AuthError) as exc:
             auth_store.set_disabled(fathm_user_id, True, actor=identity)
-            raise AuthError(f"failed to write allowlist entry, provisioning rolled back: {exc}") from exc
+            raise AuthError(f"failed to provision team bot, rolled back: {exc}") from exc
         # `raw_token` is never referenced again past this point - never in `notice`, never logged.
         notice = f"provisioned {fathm_user_id!r} for Telegram user {telegram_id!r}."
     except ConsoleCsrfInvalid:
