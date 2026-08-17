@@ -10,5 +10,7 @@
   Every mutation here is recorded in <span class="mono">auth_audit</span>; role/disable edits that
   would leave zero enabled admin users are refused (the last-admin guard).
 </p>
+{% set admin_tab = "users" %}
+{% include "_admin_tabs.html" %}
 {% include "_admin_users_body.html" %}
 {% endblock %}

@@ -22,6 +22,7 @@ from fastapi.templating import Jinja2Templates
 
 from ap_api.deps import (
     get_index,
+    get_lifecycle_workflow,
     get_llm_client,
     get_proposal_notifier,
     get_proposal_store,
@@ -40,6 +41,7 @@ from ap_console.deps import (
 )
 from ap_console.gate_report import render_gate_report_html
 from ap_index.index_store import IndexStore
+from ap_lifecycle.workflow import LifecyclePolicyError, LifecycleWorkflow
 from ap_manager_bot.llm_client import LLMClient
 from ap_planner_bot.analytics import build_snapshot, compute_corpus_analytics
 from ap_planner_bot.detectors import Finding, run_all_detectors
@@ -53,6 +55,7 @@ from ap_proposals.store import ProposalStore, ProposalStoreError
 from ap_proposals.workflow import ProposalPolicyError, ProposalWorkflow
 from ap_registry.profile_registry import ProfileRegistry
 from ap_review.workflow import ReviewPolicyError, ReviewWorkflow
+from ap_store.models import PackageRecord
 from ap_store.store import ListFilter, PackageStore, StoreError
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -604,6 +607,59 @@ def _owners_rows(owners: dict) -> list[tuple[str, str | None]]:
     return rows
 
 
+def _find_successor(store: PackageStore, package_id: str, package_version: str) -> PackageRecord | None:
+    """The package (any status, any package_id) whose `replaces_*` columns point at this one - the
+    "replaced by" half of the supersede chain. No store-level query for this (bounded corpus at
+    pilot scale, same paging-through-`list()` assumption `admin_routes._index_health_context`
+    already makes), so this pages through every package looking for the match."""
+    page = 1
+    while True:
+        result = store.list(ListFilter(page=page, page_size=200))
+        for r in result.items:
+            if r.replaces_package_id == package_id and r.replaces_package_version == package_version:
+                return r
+        if page * result.page_size >= result.total:
+            return None
+        page += 1
+
+
+def _supersede_candidates(store: PackageStore, package_id: str, *, exclude_version: str) -> list[PackageRecord]:
+    """Other currently-`approved` versions of the same `package_id` - what the successor picker
+    offers (LifecycleWorkflow.supersede itself allows naming *any* approved package/version as the
+    successor, but the console picker only ever offers same-package_id versions, per the task
+    brief's "successor picker listing approved versions of the same package_id")."""
+    out: list[PackageRecord] = []
+    page = 1
+    while True:
+        result = store.list(ListFilter(status="approved", page=page, page_size=200))
+        out.extend(r for r in result.items if r.package_id == package_id and r.package_version != exclude_version)
+        if page * result.page_size >= result.total:
+            break
+        page += 1
+    return out
+
+
+def _lifecycle_context(store: PackageStore, record: PackageRecord, *, error: str | None = None) -> dict:
+    predecessor = (
+        store.get(record.replaces_package_id, record.replaces_package_version) if record.replaces_package_id else None
+    )
+    return {
+        "predecessor": predecessor,
+        "successor": _find_successor(store, record.package_id, record.package_version),
+        "successor_candidates": _supersede_candidates(store, record.package_id, exclude_version=record.package_version),
+        "error": error,
+    }
+
+
+def _package_detail_context(store: PackageStore, record: PackageRecord, *, error: str | None = None) -> dict:
+    return {
+        "pkg": record,
+        "owners_rows": _owners_rows(record.owners()),
+        "audit_entries": store.audit_trail(record.package_id, record.package_version),
+        **_lifecycle_context(store, record, error=error),
+    }
+
+
 @router.get("/packages/{package_id}", response_class=HTMLResponse)
 def package_detail(
     request: Request,
@@ -615,14 +671,165 @@ def package_detail(
     record = store.get(package_id, version)
     if record is None:
         raise HTTPException(status_code=404, detail=f"no such package: {package_id}")
-    return _render(
+    return _render(request, "package_detail.html", identity=identity, **_package_detail_context(store, record))
+
+
+def _lifecycle_action_response(
+    request: Request,
+    identity: Identity,
+    store: PackageStore,
+    package_id: str,
+    package_version: str,
+    *,
+    error: str | None,
+) -> HTMLResponse:
+    """Every lifecycle action form posts here (htmx, `hx-target="#lifecycle-panel"
+    hx-swap="outerHTML"`) and gets this same partial back - mirrors `console_review_action`'s
+    verify-CSRF-then-render-inline-flash pattern exactly (see that function's docstring)."""
+    record = store.get(package_id, package_version)
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"no such package_version: {package_id}/{package_version}")
+    ctx = _lifecycle_context(store, record, error=error)
+    return templates.TemplateResponse(
         request,
-        "package_detail.html",
-        identity=identity,
-        pkg=record,
-        owners_rows=_owners_rows(record.owners()),
-        audit_entries=store.audit_trail(record.package_id, record.package_version),
+        "_lifecycle_panel.html",
+        {"csrf_token": console_csrf_token(request), "pkg": record, "identity": identity, **ctx},
     )
+
+
+@router.post("/packages/{package_id}/supersede", response_class=HTMLResponse)
+def console_supersede(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    package_version: Annotated[str, Form()],
+    successor_package_version: Annotated[str, Form()],
+    reason: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    error = None
+    try:
+        verify_console_csrf(request)
+        workflow.supersede(
+            package_id,
+            package_version,
+            successor_package_id=package_id,
+            successor_package_version=successor_package_version,
+            actor=identity,
+            reason=reason,
+        )
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    else:
+        reindex_after_transition(store, index, package_id, package_version)
+        reindex_after_transition(store, index, package_id, successor_package_version)
+    return _lifecycle_action_response(request, identity, store, package_id, package_version, error=error)
+
+
+@router.post("/packages/{package_id}/recall", response_class=HTMLResponse)
+def console_recall(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    package_version: Annotated[str, Form()],
+    reason: Annotated[str, Form()],
+) -> HTMLResponse:
+    error = None
+    try:
+        verify_console_csrf(request)
+        workflow.recall(package_id, package_version, actor=identity, reason=reason)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    else:
+        reindex_after_transition(store, index, package_id, package_version)
+    return _lifecycle_action_response(request, identity, store, package_id, package_version, error=error)
+
+
+@router.post("/packages/{package_id}/restore", response_class=HTMLResponse)
+def console_restore(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    package_version: Annotated[str, Form()],
+    reason: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    error = None
+    try:
+        verify_console_csrf(request)
+        workflow.restore(package_id, package_version, actor=identity, reason=reason)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    else:
+        reindex_after_transition(store, index, package_id, package_version)
+    return _lifecycle_action_response(request, identity, store, package_id, package_version, error=error)
+
+
+@router.post("/packages/{package_id}/legal-hold", response_class=HTMLResponse)
+def console_legal_hold(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    package_version: Annotated[str, Form()],
+    hold: Annotated[str, Form()],
+    reason: Annotated[str | None, Form()] = None,
+) -> HTMLResponse:
+    error = None
+    try:
+        verify_console_csrf(request)
+        workflow.set_legal_hold(package_id, package_version, hold=hold == "1", reason=reason, actor=identity)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    return _lifecycle_action_response(request, identity, store, package_id, package_version, error=error)
+
+
+@router.post("/packages/{package_id}/purge", response_class=HTMLResponse)
+def console_purge(
+    request: Request,
+    package_id: str,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    package_version: Annotated[str, Form()],
+    confirm_package_id: Annotated[str, Form()],
+) -> HTMLResponse:
+    """The purge confirmation is enforced here, server-side, before the workflow is ever called -
+    the type-the-package-id text field is a UI nudge, not the actual safety check (a client could
+    always skip the JS); a mismatch never reaches `LifecycleWorkflow.purge`, so no mutation happens
+    on a wrong id (see the module's acceptance bar in CLAUDE.md)."""
+    error = None
+    try:
+        verify_console_csrf(request)
+        if confirm_package_id != package_id:
+            raise LifecyclePolicyError(
+                f"confirmation text {confirm_package_id!r} does not match package id {package_id!r} - purge refused"
+            )
+        workflow.purge(package_id, package_version, actor=identity)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    else:
+        index.remove_package(package_id, package_version)  # purge is not wired through reindex_after_transition
+    return _lifecycle_action_response(request, identity, store, package_id, package_version, error=error)
 
 
 @router.get("/chat", response_class=HTMLResponse)

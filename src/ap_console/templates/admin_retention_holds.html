@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Admin · retention & holds{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Retention &amp; holds</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Legal holds, recalled packages, and packages past the configured
+  <span class="mono">retention_days</span> marker (set on the
+  <a href="/console/admin/settings">Settings</a> screen). Nothing here deletes anything
+  automatically - a package flagged as retention-due must be explicitly <strong>recalled or
+  superseded before it can be purged</strong>; purge itself only runs from the package detail
+  page, with a type-the-id confirmation, and refuses an <span class="mono">approved</span> or
+  legally-held package outright.
+</p>
+{% set admin_tab = "retention-holds" %}
+{% include "_admin_tabs.html" %}
+{% include "_retention_holds_body.html" %}
+{% endblock %}

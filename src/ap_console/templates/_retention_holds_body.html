@@ -1,0 +1,84 @@
+{# Partial: swapped in place (outerHTML) after the retention-due row's inline "Recall" action -
+   mirrors _index_health_table.html's pattern. #}
+<div id="retention-holds-body">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Legal holds <span style="color:var(--drift);font-weight:400;font-size:12px">({{ legal_held|length }})</span></h2>
+    <table>
+      <thead><tr><th>Package</th><th>Title</th><th>Status</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for pkg in legal_held %}
+        <tr>
+          <td class="mono"><a href="/console/packages/{{ pkg.package_id }}?version={{ pkg.package_version }}">{{ pkg.package_id }}</a><br>
+            <span style="color:var(--drift);font-size:.78rem">{{ pkg.package_version }}</span></td>
+          <td>{{ pkg.title }}</td>
+          <td><span class="badge {{ pkg.status }}">{{ pkg.status }}</span></td>
+          <td>{{ pkg.legal_hold_reason or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">No package is currently under legal hold.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Recalled <span style="color:var(--drift);font-weight:400;font-size:12px">({{ recalled|length }})</span></h2>
+    <table>
+      <thead><tr><th>Package</th><th>Title</th><th>As of</th></tr></thead>
+      <tbody>
+        {% for pkg in recalled %}
+        <tr>
+          <td class="mono"><a href="/console/packages/{{ pkg.package_id }}?version={{ pkg.package_version }}">{{ pkg.package_id }}</a><br>
+            <span style="color:var(--drift);font-size:.78rem">{{ pkg.package_version }}</span></td>
+          <td>{{ pkg.title }}</td>
+          <td class="mono">{{ pkg.as_of }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="empty">No package is currently recalled.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">
+      Retention-due <span style="color:var(--drift);font-weight:400;font-size:12px">({{ retention_due|length }})</span>
+    </h2>
+    {% if retention_days is none %}
+    <p style="color:var(--drift);font-size:13px;margin-top:0">
+      No <span class="mono">retention_days</span> marker is set - configure one on the
+      <a href="/console/admin/settings">Settings</a> screen to populate this list.
+    </p>
+    {% else %}
+    <p style="color:var(--drift);font-size:13px;margin-top:0">
+      Approved packages whose <span class="mono">as_of</span> is more than {{ retention_days }} day{{ "" if retention_days == 1 else "s" }} in the past.
+      Recall or supersede each one before it is eligible for purge.
+    </p>
+    <table>
+      <thead><tr><th>Package</th><th>Title</th><th>As of</th><th></th></tr></thead>
+      <tbody>
+        {% for pkg in retention_due %}
+        <tr>
+          <td class="mono"><a href="/console/packages/{{ pkg.package_id }}?version={{ pkg.package_version }}">{{ pkg.package_id }}</a><br>
+            <span style="color:var(--drift);font-size:.78rem">{{ pkg.package_version }}</span></td>
+          <td>{{ pkg.title }}</td>
+          <td class="mono">{{ pkg.as_of }}</td>
+          <td>
+            <form hx-post="/console/admin/retention-holds/{{ pkg.package_id }}/{{ pkg.package_version }}/recall"
+              hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#retention-holds-body" hx-swap="outerHTML"
+              class="review-action">
+              <input type="text" name="reason" placeholder="recall reason (required)" required>
+              <button type="submit" class="btn reject">Recall</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">Nothing is past the retention marker.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>

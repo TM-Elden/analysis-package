@@ -1,0 +1,125 @@
+{# Partial: swapped in place (outerHTML) after every supersede/recall/restore/legal-hold/purge
+   action - mirrors _review_queue_table.html's pattern. Role checks here are a UI convenience only
+   (hide a form a caller's role can't use) - LifecycleWorkflow enforces the real policy server-side
+   regardless of what this template shows, so a direct POST from a non-privileged actor is still
+   rejected the same way the JSON API rejects it (see routes.py's console_supersede/console_recall/
+   console_restore/console_legal_hold/console_purge). #}
+{% set role_values = identity.roles|map(attribute="value")|list %}
+{% set is_admin = "admin" in role_values %}
+{% set is_reviewer_or_admin = is_admin or "reviewer" in role_values %}
+{% set can_export = is_admin or "analyst" in role_values or "reviewer" in role_values or "standard_approver" in role_values %}
+<div id="lifecycle-panel" class="card">
+  <div class="eyebrow" style="margin-bottom:6px">Lifecycle</div>
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+
+  <div class="meta" style="margin-bottom:14px">
+    <div><span>Replaces</span>
+      {% if predecessor %}
+      <a href="/console/packages/{{ predecessor.package_id }}?version={{ predecessor.package_version }}" class="mono">{{ predecessor.package_id }} · {{ predecessor.package_version }}</a>
+      {% else %}—{% endif %}
+    </div>
+    <div><span>Replaced by</span>
+      {% if successor %}
+      <a href="/console/packages/{{ successor.package_id }}?version={{ successor.package_version }}" class="mono">{{ successor.package_id }} · {{ successor.package_version }}</a>
+      {% else %}—{% endif %}
+    </div>
+    <div><span>Legal hold</span>
+      <span class="badge {{ 'recalled' if pkg.legal_hold else 'approved' }}">{{ "held" if pkg.legal_hold else "clear" }}</span>
+      {% if pkg.legal_hold and pkg.legal_hold_reason %}<div style="color:var(--drift);font-size:.8rem;margin-top:2px">{{ pkg.legal_hold_reason }}</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="review-actions" style="flex-direction:column;align-items:stretch;gap:14px">
+
+    {% if pkg.status == "approved" and is_reviewer_or_admin %}
+    <form class="decision-form" hx-post="/console/packages/{{ pkg.package_id }}/supersede"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#lifecycle-panel" hx-swap="outerHTML">
+      <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+      <strong style="font-size:.85rem">Supersede</strong>
+      {% if successor_candidates %}
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        successor version
+        <select name="successor_package_version">
+          {% for c in successor_candidates %}
+          <option value="{{ c.package_version }}">{{ c.package_version }} — {{ c.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <input type="text" name="reason" placeholder="reason (optional)">
+      <button type="submit" class="btn">Supersede with selected version</button>
+      {% else %}
+      <p style="color:var(--drift);font-size:.82rem;margin:0">
+        No other approved version of {{ pkg.package_id }} exists yet to supersede with - publish and
+        approve a new version first.
+      </p>
+      {% endif %}
+    </form>
+
+    <form class="decision-form" hx-post="/console/packages/{{ pkg.package_id }}/recall"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#lifecycle-panel" hx-swap="outerHTML">
+      <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+      <strong style="font-size:.85rem">Recall</strong>
+      <input type="text" name="reason" placeholder="reason (required)" required>
+      <button type="submit" class="btn reject">Recall this version</button>
+    </form>
+    {% endif %}
+
+    {% if pkg.status in ("recalled", "superseded") and is_admin %}
+    <form class="decision-form" hx-post="/console/packages/{{ pkg.package_id }}/restore"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#lifecycle-panel" hx-swap="outerHTML">
+      <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+      <strong style="font-size:.85rem">Restore</strong>
+      <input type="text" name="reason" placeholder="reason (optional)">
+      <button type="submit" class="btn approve">Restore to approved</button>
+    </form>
+    {% endif %}
+
+    {% if is_admin and not pkg.purged_at %}
+    <form class="decision-form" hx-post="/console/packages/{{ pkg.package_id }}/legal-hold"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#lifecycle-panel" hx-swap="outerHTML">
+      <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+      <strong style="font-size:.85rem">Legal hold</strong>
+      {% if pkg.legal_hold %}
+      <input type="hidden" name="hold" value="0">
+      <button type="submit" class="btn approve">Clear legal hold</button>
+      {% else %}
+      <input type="hidden" name="hold" value="1">
+      <input type="text" name="reason" placeholder="reason (required)" required>
+      <button type="submit" class="btn reject">Set legal hold</button>
+      {% endif %}
+    </form>
+    {% endif %}
+
+    {% if can_export and not pkg.purged_at %}
+    <div class="decision-form">
+      <strong style="font-size:.85rem">Export</strong>
+      <a class="btn" style="display:inline-block;text-decoration:none;width:fit-content"
+        href="/packages/{{ pkg.package_id }}/export?version={{ pkg.package_version }}">Download package (.tar.gz)</a>
+    </div>
+    {% endif %}
+
+    {% if is_admin and pkg.status != "approved" and not pkg.purged_at %}
+    <form class="decision-form" hx-post="/console/packages/{{ pkg.package_id }}/purge"
+      hx-headers='{"X-Csrf": "{{ csrf_token }}"}' hx-target="#lifecycle-panel" hx-swap="outerHTML"
+      hx-confirm="This permanently deletes the package's blob. This cannot be undone. Continue?">
+      <input type="hidden" name="package_version" value="{{ pkg.package_version }}">
+      <strong style="font-size:.85rem;color:#ff8a8a">Purge (irreversible)</strong>
+      <p style="color:var(--drift);font-size:.82rem;margin:0">
+        Deletes this version's stored bytes for good; the audit trail survives as a "purged" record.
+        {% if pkg.legal_hold %}Blocked while under legal hold - clear the hold first.{% endif %}
+      </p>
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        type the package id ({{ pkg.package_id }}) to confirm
+        <input type="text" name="confirm_package_id" placeholder="{{ pkg.package_id }}" required {{ "disabled" if pkg.legal_hold else "" }}>
+      </label>
+      <button type="submit" class="btn reject" {{ "disabled" if pkg.legal_hold else "" }}>Purge this version</button>
+    </form>
+    {% endif %}
+
+    {% if pkg.purged_at %}
+    <p style="color:var(--drift);font-size:.82rem;margin:0">Purged {{ pkg.purged_at }} - blob deleted, audit trail preserved above.</p>
+    {% endif %}
+  </div>
+</div>
