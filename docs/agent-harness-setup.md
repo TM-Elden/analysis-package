@@ -23,17 +23,23 @@ arguments directly (self-declared, same-machine-tooling trust model - see CLAUDE
 model note) rather than an HTTP bearer token, so there's no `ap-auth token` step *required* to run
 the tools themselves. There is still a real identity to provision if this planner should also:
 
-- log into the manager console to see their own packages, or
 - be distinguishable in `package_audit`/review-queue history from every other planner, or
 - eventually use the remote-capable publish path (NC.2) once it ships, which *does* require a
-  bearer token.
+  bearer token, or
+- log into the manager console to see their own packages - this one needs a real password, not
+  `--no-password` (a `--no-password` user is service-account-only and `AuthStore`'s login check
+  refuses it - see below).
 
-Provision it now so all three are already true:
+Provision it now so the first two are already true:
 
 ```bash
 ap-auth adduser tom.planner --display-name "Tom Planner" --roles analyst --no-password
 ap-auth token tom.planner   # prints a bearer token once - copy it now, it is not stored/shown again
 ```
+
+If this planner should also log into the console, drop `--no-password` and set a real password
+instead (interactively-prompted, or `--password` non-interactively) - `ap-auth adduser
+tom.planner --display-name "Tom Planner" --roles analyst`.
 
 `analyst` is the minimum role `package_submit_review` requires (`ReviewWorkflow._check_submit`);
 add `reviewer` too only if this same person will also decide packages (self-review is blocked by
