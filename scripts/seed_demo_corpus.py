@@ -185,6 +185,11 @@ def _ensure_users(auth_db: Path) -> None:
                 print(f"[user] {identity.id!r} already provisioned - skipping")
 
 
+def _indexed(index: IndexStore, package_id: str, part: str) -> bool:
+    hits = index.search(part, filters=None)
+    return any(h.chunk.package_id == package_id for h in hits)
+
+
 def _seed_one(
     scenario: Scenario, *, store: PackageStore, index: IndexStore, store_root: Path, workdir: Path
 ) -> str:
@@ -198,6 +203,23 @@ def _seed_one(
             f"{package_id} already exists but is status={existing.status!r}, not approved - "
             "a previous partial seed run may have left the store in a bad state"
         )
+        if not _indexed(index, package_id, scenario.part):
+            # A prior run committed the approval but never completed indexing (e.g. reindex_package
+            # raised after the status CAS above already landed) - repair it now rather than silently
+            # skipping, since reindex_package is idempotent (redact + index for an already-approved
+            # package) and skipping here would leave the corpus approved-but-unsearchable forever.
+            print(f"[repairing] {package_id} is approved but missing from the FTS5 index - reindexing")
+            redaction_report = reindex_package(
+                store=store, index=index, store_root=store_root,
+                package_id=package_id, package_version=existing.package_version,
+            )
+            assert redaction_report is not None and not redaction_report.blocked, (
+                f"{package_id} was blocked from indexing: {redaction_report}"
+            )
+            assert _indexed(index, package_id, scenario.part), (
+                f"{package_id} still not found in the FTS5 index for query {scenario.part!r} "
+                "after reindexing"
+            )
         print(f"[skipped, already present] {package_id} ({scenario.supplier} {scenario.part})")
         return package_id
 
@@ -251,8 +273,7 @@ def _seed_one(
         f"{package_id} was blocked from indexing: {redaction_report}"
     )
 
-    hits = index.search(scenario.part, filters=None)
-    assert any(h.chunk.package_id == package_id for h in hits), (
+    assert _indexed(index, package_id, scenario.part), (
         f"{package_id} approved and reindexed but not found in the FTS5 index for query {scenario.part!r}"
     )
 
@@ -276,12 +297,17 @@ def seed_demo_corpus(*, store_root: Path, index_root: Path, auth_db: Path) -> li
             )
 
         # Final verification pass: every package approved, gate-pass at publish time, and
-        # discoverable in the index - asserted programmatically, not assumed from the loop above.
+        # discoverable in the index - asserted programmatically, not assumed from the loop above
+        # (the loop's own skip branch repairs indexing gaps, but this pass re-confirms the outcome
+        # for every package regardless of which branch produced it).
         assert len(package_ids) == 7
-        for package_id in package_ids:
+        for scenario, package_id in zip(SCENARIOS, package_ids):
             record = store.get(package_id)
             assert record is not None and record.status == "approved", package_id
             assert record.gate_overall == "pass", package_id
+            assert _indexed(index, package_id, scenario.part), (
+                f"{package_id} approved but not found in the FTS5 index for query {scenario.part!r}"
+            )
 
     return package_ids
 
