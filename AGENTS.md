@@ -710,6 +710,54 @@ reused directly, not reimplemented.
   two discard-path tests. `test_console_standard.py`'s fixture now also overrides `get_store` /
   `get_index` / `get_llm_client` for the sweep-button tests.
 
+## Phase 4 (complete): C6/C7 notify-agents v0 (`ap_proposals.notify` + `ap_chat.telegram.notify`)
+
+The last Phase 4 chunk - `data/fathm-phase4-readiness/report.md` §5.8 in the firstmate repo is the
+design authority. Wiring, not a new subsystem: rides the already-merged `ap_proposals` (audit rows)
+and apply-on-approve mechanism (changelog rows, version bumps) and the already-merged, already-live
+`ap_chat` Telegram integration - explicitly **not** C16 (no HMAC webhooks, retry/backoff, or
+payload versioning; see §11's exclusion).
+
+- **`ap_proposals/notify.py`**'s `ProposalNotifier` is a `Protocol` (`notify_created` /
+  `notify_decision` / `notify_version_released`), not an `ap_chat` import - same layering
+  discipline as `ap_review` never importing `ap_index`. `ProposalWorkflow` gains an optional
+  `notifier` field (default `None` = notifications off, not an error) and calls the hook *after*
+  the real state change already committed (`ProposalStore.create`/`set_status` returned) -
+  `create` fires `notify_created`; `decide` fires `notify_decision` for every approve/reject/
+  withdraw, then `notify_version_released` too when a declarative approval's `apply_declarative`
+  call actually bumped a profile version (`applied_version is not None`). Every hook call is
+  wrapped in `ProposalWorkflow._notify` (broad `except Exception`, logged, never raised) - §5.8's
+  "notification is a courtesy, not the contract" applies to delivery failures too: a Telegram
+  outage must never fail a proposal decision.
+- **`ap_chat/telegram/notify.py`**'s `TelegramProposalNotifier` is the concrete notifier - reuses
+  `TelegramBotClient.send_message` directly (the same client `TelegramPlatform` uses to answer
+  chat questions), just with no `reply_to_message_id` (these are proactive posts, not replies) to
+  one configured `chat_id`. Messages are short and factual (proposal id, kind, one-line
+  summary/outcome) by design - the console's "Standard" tab is where the full detail lives.
+  `notifier_from_env()` builds one from `TELEGRAM_BOT_TOKEN` (existing) + `AP_CHAT_NOTIFY_CHAT_ID`
+  (new; see `docs/telegram-bot-setup.md` §7) and returns `None` if either is unset - wired into
+  `ap_api/deps.py::get_proposal_notifier` (feeds `get_proposal_workflow`, reaching both the JSON
+  API and `ap_console`'s Standard-tab decision route, which share that one dependency) and into
+  `ap_planner_bot/sweep.py::run_sweep`'s new `notifier` param (threaded from `main()`'s
+  `notifier_from_env()` call for the weekly systemd sweep, and from the console's "Run planner
+  sweep" button via the same `get_proposal_notifier` dependency).
+- **Agent/CI pull surface**: `skills/fathm-planning/SKILL.md` gained a "Check for a Standard
+  update at session start" section (`GET /standard/versions`) - notification is a courtesy nudge
+  for humans, the gate's version-pinning/fail-closed knob (see the registry-seam section above) is
+  what an agent must actually rely on, so the skill says that explicitly rather than implying the
+  Telegram post is part of the contract.
+- **Tests**: `tests/test_proposal_notify.py` covers the `ProposalWorkflow` hook-firing contract
+  (created/decision/version-released, the courtesy-failure-swallow behavior, and
+  `TelegramProposalNotifier`'s real request shaping against `httpx.MockTransport` - same seam
+  pattern as `test_chat_telegram_client.py`). `tests/test_proposal_api_notify.py` proves the same
+  end to end through the real (un-overridden) `ap_api.deps.get_proposal_workflow` dependency graph,
+  not a hand-built workflow - every other proposal test file overrides that dependency directly,
+  which would bypass this exact wiring.
+- **This closes the Phase 4 loop end to end**: a proposal drafted by the sweep (P4.4) is reviewed
+  and decided through the workflow/API/console (P4.1/P4.6), applied transactionally to the profile
+  registry or exported as a spec artifact (P4.5), and now notified over Telegram (P4.7) - all seven
+  dispatched chunks are merged.
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and

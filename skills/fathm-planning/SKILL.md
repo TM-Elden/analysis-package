@@ -91,6 +91,22 @@ If a tool call is rejected, the error message names the field and how to fix it 
 retry in the same turn, while your reasoning is still available, rather than deferring the fix to
 a later turn.
 
+## Check for a Standard update at session start
+
+The Standard (profile rules: reason-code allow-lists, labels-row shape, etc.) can change under
+you between sessions - a captain-approved proposal (C6/C7) may have bumped a profile's version.
+Call `GET /standard/versions` at the start of a session to see the current version and changelog
+for every profile in play before you start writing overrides against it.
+
+You are not required to poll for this yourself beyond that one session-start check, and a missed
+check is not a silent failure: **the gate's version pinning is the actual enforcement, not this
+check** - `package_check` (and CI's `ap-gate check`) resolves a manifest's declared profile
+version against the same registry, and (where a deployment has turned on the fail-closed knob)
+refuses an unrecognized version outright rather than silently falling back to older rules. A
+Telegram notification may also announce a new version to the team chat when one lands, but that is
+a courtesy for humans, not something this skill's contract depends on - `GET /standard/versions`
+is the pull surface built for you.
+
 ## Out of scope for this skill
 
 This skill does not cover package review/approval (`ap_review`, the human-facing C10 flow) or

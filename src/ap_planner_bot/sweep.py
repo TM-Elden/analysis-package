@@ -23,11 +23,13 @@ import sys
 from pathlib import Path
 
 from ap_auth.identity import Identity, identity_from_env
+from ap_chat.telegram.notify import notifier_from_env
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import AnthropicHTTPClient
 from ap_planner_bot.detectors import run_all_detectors
 from ap_planner_bot.scan import scan_corpus
 from ap_planner_bot.service import SweepDraftResult, draft_proposals
+from ap_proposals.notify import ProposalNotifier
 from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore
 from ap_proposals.workflow import ProposalWorkflow
@@ -47,13 +49,15 @@ def run_sweep(
     proposal_store: ProposalStore,
     llm_client: AnthropicHTTPClient,
     identity: Identity,
+    notifier: ProposalNotifier | None = None,
 ) -> SweepDraftResult:
     """Scan -> detect -> draft -> persist, over the stores/client given. Pure library call - no
     env resolution, no process I/O - so `main()` and tests (and the console route) share exactly
-    this one code path."""
+    this one code path. `notifier` (§5.8, default `None` = no notifications) fires
+    `proposal.created` for each proposal `draft_proposals` persists - see `ap_proposals.notify`."""
     scan = scan_corpus(store)
     findings = run_all_detectors(scan)
-    workflow = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy())
+    workflow = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy(), notifier=notifier)
     return draft_proposals(findings, index=index, workflow=workflow, llm_client=llm_client, identity=identity)
 
 
@@ -62,9 +66,15 @@ def main() -> None:
     store = PackageStore(DEFAULT_STORE_ROOT)
     index = IndexStore(DEFAULT_INDEX_ROOT)
     proposal_store = ProposalStore(DEFAULT_STORE_ROOT)
+    notifier = notifier_from_env()
     with AnthropicHTTPClient() as llm_client:
         result = run_sweep(
-            store=store, index=index, proposal_store=proposal_store, llm_client=llm_client, identity=identity
+            store=store,
+            index=index,
+            proposal_store=proposal_store,
+            llm_client=llm_client,
+            identity=identity,
+            notifier=notifier,
         )
     discarded = ", ".join(f"{reason}={count}" for reason, count in sorted(result.discarded.items()))
     print(

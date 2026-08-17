@@ -68,6 +68,7 @@ Environment variables (`EnvironmentFile=` for the systemd unit, or export direct
 | `AP_CHAT_CONSOLE_BASE_URL` | `<manager base>/console` | base URL for citation links into package detail pages |
 | `AP_CHAT_POLL_TIMEOUT` | `30` | `getUpdates` long-poll wait, seconds |
 | `AP_CHAT_UNAUTHORIZED_REPLY` | `true` | reply with a refusal to an unmapped Telegram user vs. silently drop |
+| `AP_CHAT_NOTIFY_CHAT_ID` | *(unset = notifications off)* | C6/C7 proposal-lifecycle notify-v0 (§7 below) - the chat id `proposal.created`/`proposal.decision`/version-released messages post to |
 
 Run directly:
 
@@ -106,7 +107,21 @@ deployment path first - it ships with placeholder values (`/opt/fathm`, a `fathm
   restart doesn't cause Telegram to redeliver (and the bot to re-answer) every message since the
   last *process-lifetime* offset - it resumes from the last *persisted* one.
 
-## 6. Adding Slack later
+## 7. Proposal lifecycle notifications (C6/C7 notify-v0)
+
+Separate from the planner-chat bot above: `AP_CHAT_NOTIFY_CHAT_ID` (a chat id, typically a
+fathm-team group chat, not any one planner's DM) points `ap_api`'s and `ap_planner_bot`'s
+`ProposalWorkflow` instances at a `TelegramProposalNotifier`
+(`src/ap_chat/telegram/notify.py::notifier_from_env`), reusing the same `TELEGRAM_BOT_TOKEN` and
+`TelegramBotClient` this doc already sets up - no second bot, no second token. Set it in the same
+`ap-api`/console server environment (and in `fathm-planner-sweep`'s environment if the weekly
+systemd sweep should also notify) to get short, factual posts when a proposal is drafted, decided,
+or its approval bumps a profile version. Leaving it unset is a valid, supported state
+(notifications off) - the gate's version pinning, not this channel, is what actually enforces a
+Standard change; see `skills/fathm-planning/SKILL.md`'s "Check for a Standard update at session
+start" section and CLAUDE.md's notify-v0 note.
+
+## 8. Adding Slack later
 
 Per the captain decision, only Telegram ships in this task. When Slack is added: implement
 `ap_chat.core.ChatPlatform` against Slack's API (Socket Mode is the equivalent outbound-only
