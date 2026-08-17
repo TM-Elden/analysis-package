@@ -581,7 +581,9 @@ def dashboard_recompute(
             snapshot=snapshot, findings=findings, live=True, series=read_snapshots(store.root)
         )
     else:
-        live_ctx = _dashboard_live_context(snapshot=None, findings=[], live=False, series=read_snapshots(store.root))
+        series = read_snapshots(store.root)
+        latest = series[-1] if series else None
+        live_ctx = _dashboard_live_context(snapshot=latest, findings=[], live=False, series=series)
 
     return templates.TemplateResponse(
         request, "_dashboard_live.html", {"csrf_token": console_csrf_token(request), "error": error, **live_ctx}
