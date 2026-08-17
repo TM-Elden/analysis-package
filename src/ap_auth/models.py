@@ -19,3 +19,28 @@ class UserRecord:
 
     def to_identity(self) -> Identity:
         return Identity(id=self.id, roles=_parse_roles(self.roles))
+
+
+@dataclass(frozen=True)
+class SessionRecord:
+    """A `sessions` row for admin/audit display only - never the raw token (see `ap_auth.db`
+    module docstring). `token_hash` is a sha256 digest, not a secret derivable back to the raw
+    token, so it is safe to use as the row identifier the console's revoke button posts back."""
+
+    token_hash: str
+    user_id: str
+    kind: str  # "session" (browser login) or "bearer" (service-account token)
+    created_at: str
+    expires_at: str | None
+    revoked: bool
+
+
+@dataclass(frozen=True)
+class AuthAuditEntry:
+    id: int
+    actor_id: str | None
+    actor_roles: str | None
+    target_user_id: str
+    action: str
+    detail: str | None
+    ts: str

@@ -1,0 +1,66 @@
+{# Partial: swapped in place (outerHTML) after create-user, and reused as the initial render for
+   the full users page - mirrors _review_queue_table.html's one-markup-one-place-to-change pattern. #}
+<div id="admin-users-body">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Create user</h2>
+    <form hx-post="/console/admin/users" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-users-body" hx-swap="outerHTML"
+      style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        User id
+        <input type="text" name="user_id" required>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        Display name
+        <input type="text" name="display_name" required>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        Password (blank = service account only)
+        <input type="password" name="password">
+      </label>
+      <fieldset style="border:1px solid var(--line);border-radius:6px;padding:8px 12px">
+        <legend class="mono" style="font-size:.72rem;color:var(--drift)">Roles</legend>
+        {% for r in roles %}
+        <label style="display:inline-flex;gap:4px;align-items:center;font-size:13px;margin-right:10px">
+          <input type="checkbox" name="roles" value="{{ r.value }}"> {{ r.value }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <button type="submit" class="btn approve">Create</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Display name</th>
+          <th>Roles</th>
+          <th>Status</th>
+          <th>Password set</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="mono">{{ u.id }}</td>
+          <td>{{ u.display_name }}</td>
+          <td class="mono">{{ u.roles }}</td>
+          <td><span class="badge {{ 'rejected' if u.disabled else 'approved' }}">{{ "disabled" if u.disabled else "enabled" }}</span></td>
+          <td>{{ "yes" if u.has_password else "no" }}</td>
+          <td class="mono">{{ u.created_at }}</td>
+          <td><a href="/console/admin/users/{{ u.id }}">Manage</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="empty">No users yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

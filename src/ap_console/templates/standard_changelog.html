@@ -11,6 +11,35 @@
 </p>
 
 <div class="card">
+  <h2 style="margin-top:0;font-size:16px">Registry state</h2>
+  <p style="color:var(--drift);font-size:13px;margin-top:0">
+    Current profile-registry pointer version and seed state, per profile - the tenant's live,
+    mutable rules a proposal approval writes to (<span class="mono">ap_registry.ProfileRegistry</span>).
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Profile</th>
+        <th>Current version</th>
+        <th>Seeded</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in registry_profiles %}
+      <tr>
+        <td class="mono">{{ p.name }}</td>
+        <td class="mono">{{ p.current_version or "—" }}</td>
+        <td>{{ "yes" if p.seeded else "no" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="empty">No profile has been touched in the registry yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0;font-size:16px">Proposal decisions</h2>
   <table>
     <thead>
       <tr>

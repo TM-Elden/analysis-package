@@ -758,6 +758,69 @@ payload versioning; see §11's exclusion).
   registry or exported as a spec artifact (P4.5), and now notified over Telegram (P4.7) - all seven
   dispatched chunks are merged.
 
+## Phase 5 (in progress): Admin tab (users & access, index health, registry state, settings)
+
+Implements `data/fathm-phase5-readiness/report.md` §5.3 in the firstmate repo plus the C14
+redaction-visibility debt the Phase 3 report flagged and never discharged. One nav item **Admin**
+(`base.html`, shown only when `"admin" in identity.roles`); every route under `/console/admin*`
+(`src/ap_console/admin_routes.py`) is gated by `ap_console.deps.require_console_admin`, which
+403s an authenticated-but-non-admin caller rather than redirecting (a redirect there would read as
+a broken session, not a permissions wall) - a logged-out request still redirects to
+`/console/login` via the usual `ConsoleAuthRequired` path. Same htmx-partial-swap/CSRF/inline-flash
+patterns as the P3.5 review queue throughout (`_render` for full pages, `templates.TemplateResponse`
+over a `_admin_*_body.html`/`_index_health_table.html` partial for every POST, `verify_console_csrf`
+called explicitly before any mutation).
+
+- **Users & access** (`/console/admin/users`, `/console/admin/users/{id}`): create user, edit
+  roles, reset password, disable/enable, issue/revoke service-account tokens, per-user
+  sessions/tokens view. `AuthStore.set_roles` (`src/ap_auth/store.py`) was the one genuinely
+  missing store method; every mutation here (`create_user`/`set_roles`/`set_password`/
+  `set_disabled`/`create_service_token`/`revoke_session_by_hash`) now takes an optional
+  `actor: Identity | None` and writes an `auth_audit` row (`src/ap_auth/db.py`) - `actor=None` is
+  reserved for the `ap-auth` CLI's bootstrap path (no HTTP identity exists yet), which stays
+  unchanged and un-role-gated (it must work before the first admin can log in). **Last-admin
+  guard**: `set_roles` (removing `admin`) and `set_disabled` (disabling) both refuse
+  (`LastAdminError`, a subclass of `AuthError`) an edit that would leave zero enabled admin users
+  - `AuthStore._count_enabled_admins` is the check, run before the mutation, inside the same
+    lock/transaction as the read it's judging. Editing a *disabled* admin's roles, or re-enabling
+    anyone, is never guarded - only a transition that would zero out the enabled-admin count is
+  refused. The console never displays a raw token after issuance (shown once in the flash
+  notice, same as `ap-auth token`'s one-time stdout print) and never accepts one back for revoke -
+  `AuthStore.list_sessions`/`revoke_session_by_hash` operate on the stored `token_hash` (a sha256
+  digest, not a secret) instead.
+- **Index health** (`/console/admin/index-health`): every `approved` package whose
+  `ap_redact.report.read_report` sidecar says `blocked=True`, with the detector hits/severity from
+  that report and a "re-run redaction + reindex" button calling the real
+  `ap_index.reindex.reindex_package` (the identical hook the review-decision path calls) - not a
+  bespoke redaction re-run. A still-blocked package after the re-run is expected, not a bug:
+  packages are immutable, so a genuinely-leaked secret only clears once a new version is
+  published without it.
+- **Registry state**: not a fifth screen - `GET /console/standard/changelog`
+  (`src/ap_console/routes.py::standard_changelog`) was extended with a `ProfileRegistry(store.root)`
+  table (current pointer version + seeded yes/no per profile), reusing the exact registry read
+  `ap_api/standard_routes.py`'s `GET /standard/versions` already does.
+- **Settings** (`/console/admin/settings`): `retention_days` lives in a new, audited
+  `store_settings` KV table in `ap_store`'s `index.sqlite3` (`PackageStore.get_setting`/
+  `set_setting`/`settings_audit_trail`, mirroring `store_settings_audit`'s
+  old-value/new-value/actor/when shape after `package_audit`) - **not** `auth.sqlite3` (config is a
+  store/tenant concern, credentials are a different blast radius; see `ap_auth.db`'s own reasoning
+  in reverse). This task added the table since the later lifecycle task (`fathm-p5-lifecycle`, which
+  reads the same key) may land before or after it - coordinate the schema, don't fork it, if you
+  touch this table from that task. The read-only effective-config panel (store/index/auth roots,
+  registry root env var, model id env var, allowlist path env var) is a plain env-var dump, the
+  lowest-priority item in this task's brief - trim it first if a future change needs the room.
+- **Tests**: `tests/test_auth_store.py` covers `set_roles`/last-admin guard/`auth_audit` at the
+  store level (including "a role edit changes a *live session's* resolved `Identity.has_role`, not
+  just the DB row" - re-resolving the same still-valid session token after the edit, not just
+  re-reading `list_users`). `tests/test_store_roundtrip.py` covers `store_settings`/its audit trail.
+  `tests/test_console_admin.py` is the route-level suite: the full 403 matrix (every
+  `/console/admin*` GET/POST for a non-admin identity, plus the nav item's own visibility), the
+  last-admin guard refusing a real console POST (not just the store method), a role edit changing
+  what a second live session can reach, and an index-health test that injects the same
+  AWS-key-shaped secret `tests/test_ap_index.py::test_secret_salted_package_never_reaches_index`
+  uses into a copy of the gold-pack example, publishes+approves it with `gate_before_review=False`,
+  and asserts the console lists it as blocked.
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and

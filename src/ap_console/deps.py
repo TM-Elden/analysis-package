@@ -11,11 +11,12 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 
 from ap_api.deps import SESSION_COOKIE_NAME, get_auth_store
 from ap_auth.csrf import csrf_token_for, csrf_token_matches
 from ap_auth.identity import Identity
+from ap_auth.roles import Role
 from ap_auth.store import AuthStore
 
 
@@ -43,6 +44,21 @@ def get_console_identity(
     identity = auth_store.identity_for_token(raw_token)
     if identity is None:
         raise ConsoleAuthRequired()
+    return identity
+
+
+def require_console_admin(
+    identity: Annotated[Identity, Depends(get_console_identity)],
+) -> Identity:
+    """Route-level gate for every `/console/admin*` route (P5.3). Deliberately raises a plain
+    `HTTPException(403)` rather than another `ConsoleAuthRequired` redirect: an authenticated but
+    non-admin user hitting an admin page should see a clear 403, not get silently bounced to the
+    login page they're already past (that would look like a broken session, not a permissions
+    wall) - see the acceptance criterion "every /console/admin* route returns 403 for a non-admin
+    identity" in CLAUDE.md's admin-tab section. A genuinely logged-out request still redirects,
+    since `get_console_identity` raises `ConsoleAuthRequired` first in that case."""
+    if not identity.has_role(Role.ADMIN):
+        raise HTTPException(status_code=403, detail="this page requires the admin role")
     return identity
 
 

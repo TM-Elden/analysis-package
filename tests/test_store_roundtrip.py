@@ -120,3 +120,29 @@ def test_list_pagination_and_filters(tmp_path):
     by_owner = store.list(ListFilter(owner="tom.analyst"))
     assert by_owner.total == 3
     store.close()
+
+
+# -- P5.3: store_settings KV (retention_days et al.) -------------------------------------------
+
+
+def test_store_setting_round_trips_and_defaults_to_none(tmp_path):
+    store = PackageStore(tmp_path / "store")
+    assert store.get_setting("retention_days") is None
+    store.set_setting("retention_days", "90", actor=_analyst())
+    assert store.get_setting("retention_days") == "90"
+    store.close()
+
+
+def test_store_setting_write_is_audited_with_old_and_new_value(tmp_path):
+    store = PackageStore(tmp_path / "store")
+    store.set_setting("retention_days", "30", actor=_analyst())
+    store.set_setting("retention_days", "60", actor=_analyst())
+
+    entries = store.settings_audit_trail("retention_days")
+    assert len(entries) == 2
+    newest = entries[0]  # newest first
+    assert newest["old_value"] == "30"
+    assert newest["new_value"] == "60"
+    assert newest["actor_id"] == _analyst().id
+    assert newest["ts"]
+    store.close()

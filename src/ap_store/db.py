@@ -10,6 +10,13 @@ the immutability contract. `status` is the one mutable column: it is the review 
 state (ap_review), tracked separately from whatever `qa.status` the immutable manifest bytes
 happened to declare at publish time (mirrors the existing ap_gate precedent that a package's
 manifest-declared qa.checks[] is historical, not the live source of truth - see CLAUDE.md).
+
+`store_settings` (P5.3) is a small audited tenant/store-level config KV table - it lives here, not
+in `auth.sqlite3`, because store/tenant configuration (e.g. `retention_days`, read by the later
+lifecycle task) is a different domain than credentials (see `ap_auth.db`'s own "wrong home"
+reasoning in reverse). Every write is mirrored into `store_settings_audit` (old value, new value,
+actor, when) by `PackageStore.set_setting` - same "no mutation without an audit row" standard as
+`package_audit`.
 """
 
 from __future__ import annotations
@@ -50,10 +57,29 @@ CREATE TABLE IF NOT EXISTS package_audit (
     ts TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS store_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by_id TEXT,
+    updated_by_roles TEXT
+);
+
+CREATE TABLE IF NOT EXISTS store_settings_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
+    old_value TEXT,
+    new_value TEXT NOT NULL,
+    actor_id TEXT,
+    actor_roles TEXT,
+    ts TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_packages_status ON packages(status);
 CREATE INDEX IF NOT EXISTS idx_packages_profile ON packages(profile);
 CREATE INDEX IF NOT EXISTS idx_packages_as_of ON packages(as_of);
 CREATE INDEX IF NOT EXISTS idx_audit_package ON package_audit(package_id, package_version);
+CREATE INDEX IF NOT EXISTS idx_settings_audit_key ON store_settings_audit(key);
 """
 
 

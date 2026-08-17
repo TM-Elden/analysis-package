@@ -1,0 +1,45 @@
+{# Partial: swapped in place (outerHTML) after the retention_days edit - mirrors
+   _review_queue_table.html's pattern. #}
+<div id="admin-settings-body">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Retention</h2>
+    <p style="color:var(--drift);font-size:13px;margin-top:0">
+      Marker only - a scheduled job never deletes analysis data; the retention/holds screen (once
+      the lifecycle task lands) lists packages past this many days for an admin to explicitly
+      recall/supersede/purge.
+    </p>
+    <form hx-post="/console/admin/settings" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-settings-body" hx-swap="outerHTML" style="display:flex;gap:10px;align-items:center">
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        retention_days
+        <input type="number" name="retention_days" min="1" value="{{ retention_days or '' }}" required>
+      </label>
+      <button type="submit" class="btn approve">Save</button>
+    </form>
+    <ul class="timeline" style="margin-top:14px">
+      {% for a in audit_entries %}
+      <li>
+        <span class="ts">{{ a.ts }}</span> —
+        <span class="mono">{{ a.old_value or "unset" }}</span> → <span class="mono">{{ a.new_value }}</span>
+        by <span class="mono">{{ a.actor_id or "—" }}</span>
+      </li>
+      {% else %}
+      <li class="empty">No retention changes yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Effective configuration <span style="color:var(--drift);font-weight:400;font-size:12px">(read-only, support aid)</span></h2>
+    <table>
+      <tbody>
+        {% for k, v in effective_config.items() %}
+        <tr><th style="width:40%">{{ k }}</th><td class="mono">{{ v }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
