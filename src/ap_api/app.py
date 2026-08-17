@@ -29,6 +29,9 @@ shapes ... designed for a UI consumer, not just curl"):
     POST /packages/{id}/restore    - C12 lifecycle: admin-only recalled/superseded -> approved
     POST /packages/{id}/legal-hold - C12 lifecycle: admin-only hold set/clear (blocks purge only)
     GET  /packages/{id}/export     - C12 lifecycle: stream the stored tar.gz (see ap_api/lifecycle_routes.py)
+    POST /packages/upload          - NC.2 remote-capable publish path: tar.gz body -> publish, for
+                                      an agent harness that isn't running on the store host (see
+                                      ap_api/upload_routes.py + CLAUDE.md's NC.2 section)
 
 Local-first scope note: this phase-2 slice runs on the same machine/filesystem as its callers (Pi,
 CI runner, agent harness) - `package_dir` in /packages/validate and /packages is a path the *server*
@@ -64,6 +67,7 @@ from ap_api.deps import get_index, get_store, get_workflow, identity_from_reques
 from ap_api.lifecycle_routes import router as lifecycle_router
 from ap_api.proposal_routes import router as proposal_router
 from ap_api.standard_routes import router as standard_router
+from ap_api.upload_routes import router as upload_router
 from ap_api.schemas import (
     AuditEntryOut,
     ListResponse,
@@ -94,6 +98,7 @@ app.include_router(chat_router)
 app.include_router(lifecycle_router)  # C12 lifecycle API - see ap_api/lifecycle_routes.py
 app.include_router(proposal_router)  # C6/C7 proposal API - see ap_api/proposal_routes.py
 app.include_router(standard_router)  # GET /standard/versions - see ap_api/standard_routes.py
+app.include_router(upload_router)  # POST /packages/upload - NC.2, see ap_api/upload_routes.py
 include_console(app)  # ap_console: the server-rendered HTML console, mounted under /console - see
 # CLAUDE.md's "Phase 3 manager console" section for the ap_console/ap_api module boundary.
 

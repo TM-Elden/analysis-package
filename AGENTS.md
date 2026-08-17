@@ -486,9 +486,9 @@ a verified act rather than tribal knowledge.
   quality bar): `.mcp.json` config for Claude Code and any MCP-capable harness, `ap-auth`
   provisioning for a planner identity (`analyst` role, `--no-password`), the `--selfcheck`
   verification step, a five-minute smoke test walking the full loop (scaffold -> override ->
-  check -> finalize -> submit -> confirm `in_review` in the review queue), a note that the MCP
-  server is local-store-only until NC.2's remote publish path lands (run the harness on/near the
-  store host meanwhile), and troubleshooting for the policy-rejection messages above.
+  check -> finalize -> submit -> confirm `in_review` in the review queue), a §5 "remote harnesses"
+  section covering NC.2's laptop-over-tailnet setup (see the dedicated section below), and
+  troubleshooting for the policy-rejection messages above.
 - **`tests/test_mcp_e2e_authoring_loop.py`** drives the entire loop through
   `ap_mcp.server.handle_request` (real JSON-RPC `tools/call` messages, the same dispatch path a
   live MCP client uses - not a direct call into `ap_mcp.tools`), asserting the package lands
@@ -499,6 +499,62 @@ a verified act rather than tribal knowledge.
 - `skills/fathm-planning/SKILL.md` documents both new tools in its tool reference table and states
   the completed loop explicitly ("`package_finalize` then `package_submit_review` once the planner
   says 'ship it'") - keep that table in sync with `ap_mcp.tools.TOOL_SCHEMAS` if either changes.
+
+## Remote-capable publish path (NC.2): `POST /packages/upload` + MCP remote mode
+
+Widens the NC.1 authoring loop above to a harness that isn't running on the store host - a laptop
+over Tailscale, per `data/fathm-native-chat-readiness/report.md` §5.2 in the firstmate repo.
+Two halves, both anticipated by phase 2's own scope note (`ap_api/app.py`: "a remote deployment
+would swap `package_dir` for an upload step ahead of these endpoints, not change any endpoint
+shape").
+
+- **`POST /packages/upload`** (`src/ap_api/upload_routes.py`): accepts the package as a tar.gz body
+  in the *exact* deterministic shape `ap_store.blobstore.make_blob` already produces (no new
+  archive format), unpacks it to a scratch directory, and calls `PackageStore.publish` unchanged -
+  the same function every other publish path uses. Bearer-token auth + the `analyst` role, same
+  `require_any_role`/`identity_from_request` machinery every other write route uses - no new auth
+  model. **This is a review-blocking security surface** (an authenticated upload that unpacks
+  archives is a classic path-traversal/zip-bomb surface, same severity as the `ap_proposals`
+  path-traversal fix precedent, commit 07dc246) - see `ap_store.blobstore.extract_tar_gz`, the
+  shared safe-extraction helper this route and `BlobStore.extract` both call: every archive member
+  is validated *before* any extraction happens - containment via
+  `ap_gate.checks.pathsafe.resolve_contained` (the same discipline every manifest-path-resolving
+  check already applies, now applied to raw archive bytes for the first time), member type
+  restricted to plain files/directories (a symlink member could otherwise point its target outside
+  the destination even with an in-bounds *name*), and total declared size checked against a cap
+  from the tar's own member metadata (the zip-bomb guard) - a rejected archive is never partially
+  unpacked. Two independent size caps, both env-overridable and both checked before the expensive
+  work they guard: `AP_UPLOAD_MAX_BYTES` (raw/compressed body, checked against `Content-Length`
+  before the body is even read, and again against the bytes actually read) and
+  `AP_UPLOAD_MAX_UNCOMPRESSED_BYTES` (declared uncompressed size, checked from tar headers before
+  any member is extracted).
+- **MCP server remote mode** (`src/ap_mcp/remote.py` + `ap_mcp/tools.py`): env-selected via
+  `AP_API_URL` + `AP_API_TOKEN` (both required - `remote_mode_config()` is the single switch both
+  tools check). When active, `package_finalize` calls `POST /packages/upload` and
+  `package_submit_review` calls `POST /packages/{id}/review` via `RemoteApiClient` (a thin
+  `httpx.Client` wrapper, injectable `transport` for tests - mirrors
+  `ap_manager_bot.llm_client.AnthropicHTTPClient`'s pattern) instead of touching a local
+  `PackageStore`; `store_root`/`actor_id`/`actor_roles` become schema-optional and are ignored in
+  this mode - identity comes from the bearer token server-side, a client-declared identity would be
+  meaningless against a real auth boundary. **`package_create`/`package_check`/`override_record`
+  never consult remote mode at all** - they always operate on the planner's own working tree,
+  local or remote harness alike, per the design report's explicit "these stay local" call (they
+  need the planner's filesystem, not the store). In local mode (the default, no env vars set),
+  `store_root`/`actor_id`/`actor_roles` are still required - enforced in Python
+  (`_require_local_mode_fields`) rather than the JSON schema, since the same schema now serves both
+  modes and can't statically know which fields are required.
+- **Tests**: `tests/test_upload_api.py` covers the upload endpoint's auth matrix, idempotent
+  republish, and the containment/size-cap rejections above (path-traversal entry, absolute-path
+  entry, symlink entry, oversized-declared-size archive, oversized raw body) - each asserting the
+  store received nothing, not just that the HTTP response was an error.
+  `tests/test_mcp_remote_mode.py` is the real e2e round trip: drives `package_finalize` then
+  `package_submit_review` through `ap_mcp.server.handle_request` (real JSON-RPC `tools/call`
+  messages) against a real `ap_api.app.app` FastAPI instance reached via a `TestClient`-backed
+  `httpx` transport (`ap_mcp.tools._build_remote_client` is the one seam monkeypatched to inject
+  it - not mocked at the transport layer only), asserting the package actually lands `in_review` in
+  the real store behind that API; a companion test confirms `package_create`/`package_check`/
+  `override_record` are unaffected by the remote-mode env vars being set, and another confirms
+  local mode is unaffected by this task's changes when the env vars are unset.
 
 ## Phase 4 (in progress): C6/C7 Standard-change proposal storage and workflow
 
