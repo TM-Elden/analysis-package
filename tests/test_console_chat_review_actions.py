@@ -78,6 +78,58 @@ def test_review_actions_partial_renders_buttons_for_in_review_package(client_and
     assert f'value="{record.package_version}"' in r.text
 
 
+def test_review_actions_partial_scopes_id_and_target_to_slot_id(client_and_store):
+    """A single Ask-tab answer can cite the same in_review package twice (different field_paths),
+    which appends two slots for the same package_id. Each slot passes its own `slot_id` query param
+    (base.html's citationSlotSeq) - the rendered fragment's id and each form's hx-target must key off
+    that slot_id, not package_id alone, or the two slots' htmx targets collide on the same DOM id."""
+    client, store, _auth = client_and_store
+    record = _publish_example(store)
+    _submit_for_review(store, record)
+    _login_reviewer(client)
+
+    r_a = client.get(f"/console/packages/{record.package_id}/review-actions", params={"slot_id": "slot-A"})
+    r_b = client.get(f"/console/packages/{record.package_id}/review-actions", params={"slot_id": "slot-B"})
+    assert r_a.status_code == 200 and r_b.status_code == 200
+
+    assert 'id="slot-A"' in r_a.text
+    assert 'id="slot-B"' not in r_a.text
+    assert 'hx-target="#slot-A"' in r_a.text
+    assert 'value="slot-A"' in r_a.text  # hidden slot_id field round-trips on submit
+
+    assert 'id="slot-B"' in r_b.text
+    assert 'id="slot-A"' not in r_b.text
+    assert 'hx-target="#slot-B"' in r_b.text
+    assert 'value="slot-B"' in r_b.text
+
+
+def test_chat_source_approve_re_renders_the_posted_slot_id(client_and_store):
+    """Approving from one of two same-package slots must re-render scoped to that slot's own id,
+    not the other slot's - otherwise the second slot's still-open buttons would get silently
+    overwritten by the first slot's decision (or vice versa)."""
+    client, store, _auth = client_and_store
+    record = _publish_example(store)
+    _submit_for_review(store, record)
+    csrf = _login_reviewer(client)
+
+    r = client.post(
+        f"/console/packages/{record.package_id}/review",
+        data={
+            "package_version": record.package_version,
+            "to_status": "approved",
+            "source": "chat",
+            "slot_id": "slot-A",
+        },
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+    assert 'id="slot-A"' in r.text
+    assert "btn approve" not in r.text
+
+    updated = store.get(record.package_id, record.package_version)
+    assert updated.status == "approved"
+
+
 @pytest.mark.parametrize("to_status", ["approved", "rejected"])
 def test_review_actions_partial_renders_no_buttons_once_decided(client_and_store, to_status):
     client, store, _auth = client_and_store

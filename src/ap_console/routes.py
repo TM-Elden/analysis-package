@@ -177,13 +177,23 @@ def review_queue(
     return _render(request, "review_queue.html", identity=identity, **ctx)
 
 
-def _citation_review_context(store: PackageStore, package_id: str, *, error: str | None = None) -> dict:
+def _citation_review_context(
+    store: PackageStore, package_id: str, *, slot_id: str | None = None, error: str | None = None
+) -> dict:
     """Looks up the package's CURRENT status fresh from the store - no version pinned, so this
     always reads the most recently published version's live status, never the (possibly stale)
     version a chat citation happened to point at. Backs both `citation_review_actions` (initial
-    render) and `console_review_action`'s `source="chat"` branch (re-render after a decision)."""
+    render) and `console_review_action`'s `source="chat"` branch (re-render after a decision).
+    `slot_id` scopes the rendered fragment's DOM id/hx-target to one citation instance - falls back
+    to a package_id-only id when absent (a caller that never supplied one, e.g. a direct GET with no
+    query param) rather than raising, since a single-citation page still renders correctly either way."""
     record = store.get(package_id)
-    return {"package_id": package_id, "record": record, "error": error}
+    return {
+        "package_id": package_id,
+        "slot_id": slot_id or f"citation-actions-{package_id}",
+        "record": record,
+        "error": error,
+    }
 
 
 @router.get("/packages/{package_id}/review-actions", response_class=HTMLResponse)
@@ -192,6 +202,7 @@ def citation_review_actions(
     package_id: str,
     identity: Annotated[Identity, Depends(get_console_identity)],
     store: Annotated[PackageStore, Depends(get_store)],
+    slot_id: Annotated[str | None, Query()] = None,
 ) -> HTMLResponse:
     """NC.3: the Ask tab's citation rendering (`base.html`'s `htmx:sseBeforeMessage` handler)
     inserts one small `hx-get`-wired element per citation that loads this partial on `load` (see
@@ -201,8 +212,10 @@ def citation_review_actions(
     read + a template branch - the buttons themselves post to the exact same
     `console_review_action` route below (`source=chat`), so the actual transition, CSRF check, and
     policy enforcement are identical to the review queue's. `ManagerBot` is not involved at all:
-    this route isn't reachable from the chat/tool loop, only from a human clicking in the console."""
-    ctx = _citation_review_context(store, package_id)
+    this route isn't reachable from the chat/tool loop, only from a human clicking in the console.
+    `slot_id` is the caller-supplied (base.html JS) per-citation-instance id - see
+    `_citation_review_context`'s docstring for why package_id alone isn't enough."""
+    ctx = _citation_review_context(store, package_id, slot_id=slot_id)
     return templates.TemplateResponse(
         request, "_citation_review_actions.html", {"csrf_token": console_csrf_token(request), **ctx}
     )
@@ -220,6 +233,7 @@ def console_review_action(
     to_status: Annotated[str, Form()],
     reason: Annotated[str | None, Form()] = None,
     source: Annotated[str, Form()] = "queue",
+    slot_id: Annotated[str | None, Form()] = None,
 ) -> HTMLResponse:
     """The queue's approve/reject buttons post here (htmx, `hx-target="#review-queue-table"
     hx-swap="outerHTML"`) - calls the real `ReviewWorkflow.transition` (same policy: gate-before-
@@ -260,7 +274,7 @@ def console_review_action(
         reindex_after_transition(store, index, package_id, package_version)
 
     if source == "chat":
-        ctx = _citation_review_context(store, package_id, error=error)
+        ctx = _citation_review_context(store, package_id, slot_id=slot_id, error=error)
         return templates.TemplateResponse(
             request, "_citation_review_actions.html", {"csrf_token": console_csrf_token(request), **ctx}
         )
