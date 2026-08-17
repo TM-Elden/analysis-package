@@ -13,6 +13,7 @@ from _planner_bot_corpus import (
 from _planner_bot_fake_llm import (
     InvalidDiffLLMClient,
     InventedEvidenceLLMClient,
+    RaisingOnceLLMClient,
     ScriptedDraftingLLMClient,
 )
 
@@ -125,6 +126,26 @@ def test_a_draft_with_an_invalid_diff_is_discarded_not_stored(tmp_path):
     assert result.created == ()
     assert result.discarded.get("invalid_diff") == len(findings)
     assert proposal_store.list().total == 0
+
+
+def test_an_llm_client_error_on_one_finding_is_discarded_not_raised_and_the_sweep_continues(tmp_path):
+    """D1 regression: a `LLMClientError` (rate limit/transport) on one finding must not propagate
+    out of `draft_proposals` and must not abort drafting the remaining findings in the sweep."""
+    store, index = build_drift_corpus_with_index(tmp_path)
+    findings = _findings(store)
+    assert len(findings) >= 2, "fixture regression: need at least two findings to prove the sweep continues"
+
+    proposal_store = ProposalStore(tmp_path / "proposals")
+    workflow = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy())
+    result = draft_proposals(
+        findings, index=index, workflow=workflow, llm_client=RaisingOnceLLMClient(fail_on_call=1), identity=SWEEP_IDENTITY
+    )
+
+    assert result.discarded.get("llm_error") == 1
+    # every other finding still got a real drafting attempt (created, or discarded for one of the
+    # existing, non-llm_error reasons) - the raising call did not abort the sweep.
+    assert len(result.created) + sum(result.discarded.values()) == len(findings)
+    assert len(result.created) + result.discarded.get("duplicate", 0) == len(findings) - 1
 
 
 def test_finding_with_no_indexed_packages_is_discarded_not_a_crash(tmp_path):
