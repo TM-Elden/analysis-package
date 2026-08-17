@@ -42,18 +42,35 @@ class ArchiveContainmentError(ArchiveError):
 def extract_tar_gz(data: bytes, dest_dir: Path, *, max_uncompressed_bytes: int | None = None) -> None:
     """Safely extract gzip-compressed tar bytes into dest_dir.
 
-    Every member is validated *before* any extraction happens (containment via
-    ap_gate.checks.pathsafe.resolve_contained, applied to raw archive bytes exactly as it's
-    applied to manifest-declared paths elsewhere; member type restricted to plain files/
-    directories; total declared size checked against max_uncompressed_bytes if given) - a rejected
+    Decompression itself is bounded, not just its output: the gzip stream is read in fixed-size
+    chunks and max_uncompressed_bytes is enforced against the running decompressed total as each
+    chunk arrives, so a highly-compressible zip-bomb-style archive is aborted mid-decompression
+    instead of first being fully materialized in memory. Every member is then also validated
+    *before* any extraction happens (containment via ap_gate.checks.pathsafe.resolve_contained,
+    applied to raw archive bytes exactly as it's applied to manifest-declared paths elsewhere;
+    member type restricted to plain files/directories; total declared size checked against
+    max_uncompressed_bytes if given, as a second, cheap check against the tar headers) - a rejected
     archive leaves dest_dir empty, never a partial unpack. Shared by BlobStore.extract (our own
     trusted, self-produced blobs - no cap) and ap_api's upload endpoint (untrusted planner-
     submitted archives - cap enforced, see CLAUDE.md's NC.2 section).
     """
     dest_dir = Path(dest_dir)
     dest_dir.mkdir(parents=True, exist_ok=True)
+    chunk_size = 1024 * 1024
+    tar_buf = io.BytesIO()
+    total_decompressed = 0
     with gzip.GzipFile(fileobj=io.BytesIO(data), mode="rb") as gz:
-        tar_bytes = gz.read()
+        while True:
+            chunk = gz.read(chunk_size)
+            if not chunk:
+                break
+            total_decompressed += len(chunk)
+            if max_uncompressed_bytes is not None and total_decompressed > max_uncompressed_bytes:
+                raise ArchiveTooLargeError(
+                    f"archive decompresses to more than the {max_uncompressed_bytes} byte cap"
+                )
+            tar_buf.write(chunk)
+    tar_bytes = tar_buf.getvalue()
     with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r") as tar:
         members = tar.getmembers()
 
