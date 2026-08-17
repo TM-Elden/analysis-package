@@ -77,7 +77,9 @@ TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
             "ref_id returned by an earlier search_packages/get_package_summary/get_gate_report call "
             "in THIS conversation - citing anything else is rejected. If nothing retrieved is "
             "actually relevant to the question, set no_evidence=true and leave citations empty "
-            "rather than guessing."
+            "rather than guessing. `answer` format: one plain-language lead sentence, then a "
+            "real line break, then supporting detail (dates, quantities, ids) - see the system "
+            "prompt's formatting rules."
         ),
         "input_schema": {
             "type": "object",

@@ -32,7 +32,16 @@ Rules:
 - Every claim in your final answer must be traceable to a specific ref_id you retrieved this turn.
 - If nothing retrieved actually answers the question, call provide_answer with no_evidence=true and \
 an empty citations list - do not guess or answer from outside knowledge.
-- Finish by calling provide_answer exactly once. That is the only way to end the conversation."""
+- Finish by calling provide_answer exactly once. That is the only way to end the conversation.
+
+Answer formatting - your reader is a planning manager, often on a phone, not an engineer:
+- Start with ONE plain-language sentence stating the business fact the way a manager would say it \
+out loud - no ids, codes, or citation-dense phrasing in that first sentence.
+- Put supporting detail (exact dates, quantities, reason codes, override/exception ids) on a \
+following line, separated from the lead sentence by a real line break (a literal newline in the \
+answer text) - detail is secondary, not woven into the lead sentence's grammar.
+- Prefer short, scannable lines over one dense paragraph; avoid jargon-heavy run-on sentences.
+- This is presentation only - every claim must still trace to a retrieved ref_id, exactly as above."""
 
 _MAX_TURNS = 6
 

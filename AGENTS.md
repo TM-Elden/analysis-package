@@ -299,6 +299,15 @@ planner chat (`src/ap_chat/`, below) are both consumers of `POST /chat/manager`.
     the post-search scope check) is discarded, and if every citation on an answer turns out fake the
     whole answer downgrades to the same refusal path as an empty retrieval
     (`NO_EVIDENCE_ANSWER`) - never a partially-grounded answer shipped as if fully grounded.
+  - **Answer formatting is prompt-only, not a template concern** (captain feedback with a real
+    screenshot: citation-dense answers read as one hard-to-scan paragraph on a phone):
+    `_SYSTEM_PROMPT` asks for a plain-language lead sentence stating the business fact, then a real
+    newline, then supporting detail (dates, quantities, reason codes, override/exception ids) -
+    detail set apart, not woven into the lead sentence's grammar. The console's `.chat-answer` CSS
+    already has `white-space: pre-wrap`, so a `\n` in `answer` renders as a line break with no
+    template change needed. This is presentation guidance layered on top of the citation contract
+    above, not a relaxation of it - see `tests/test_manager_bot_answer_formatting.py` for a
+    before/after demonstration of the two answer shapes through the same harness.
   - **LLM egress**: `llm_client.py::AnthropicHTTPClient` speaks the Anthropic Messages API directly
     over `httpx` (no SDK dependency, per the apt-only sandbox note) - this is the captain-approved
     posture (resolved decision `fathm-phase3-readiness-decision-llm-egress-posture`, 2026-08-16):
