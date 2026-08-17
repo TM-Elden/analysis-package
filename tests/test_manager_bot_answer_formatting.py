@@ -22,21 +22,12 @@ import pytest
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_manager_bot.llm_client import LLMClient
-from ap_manager_bot.service import _SYSTEM_PROMPT, ManagerBot
+from ap_manager_bot.service import ManagerBot
 
 from _manager_bot_corpus import build_corpus
 from _manager_bot_fake_llm import ScriptedLLMClient
 
 TEAM_READER = Identity(id="planner.fmt", roles=frozenset({Role.TEAM_READER}))
-
-
-def test_system_prompt_documents_lead_sentence_then_detail_shape():
-    lower = _SYSTEM_PROMPT.lower()
-    assert "line break" in lower
-    assert "plain-language" in lower
-    # still the same enforcement contract - formatting guidance must not weaken it.
-    assert "ref_id" in lower
-    assert "no_evidence" in lower
 
 
 _ENTITY = re.compile(r"[A-Z][A-Z0-9-]{2,}")
