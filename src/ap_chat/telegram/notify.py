@@ -48,19 +48,19 @@ class TelegramProposalNotifier:
         self._chat_id = chat_id
 
     def _send(self, text: str) -> None:
-        self._client.send_message(chat_id=self._chat_id, text=_escape(text))
+        self._client.send_message(chat_id=self._chat_id, text=text)
 
     def notify_created(self, record: ProposalRecord) -> None:
         self._send(
             f"🆕 <b>Proposal {record.proposal_id}</b> created ({record.kind})\n"
-            f"{_one_line(record.summary)}"
+            f"{_escape(_one_line(record.summary))}"
         )
 
     def notify_decision(self, record: ProposalRecord, *, from_status: str) -> None:
         icon = {"approved": "✅", "rejected": "❌", "withdrawn": "↩️"}.get(record.status, "•")
-        outcome = f"{record.status} by {record.decided_by_id}"
+        outcome = f"{record.status} by {_escape(record.decided_by_id or '')}"
         if record.status == "rejected" and record.decision_reason:
-            outcome += f": {_one_line(record.decision_reason)}"
+            outcome += f": {_escape(_one_line(record.decision_reason))}"
         elif record.status == "approved" and record.edited_diff_json is not None:
             outcome += " (with edits)"
         self._send(f"{icon} <b>Proposal {record.proposal_id}</b> {outcome} ({record.kind})")
