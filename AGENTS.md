@@ -830,6 +830,63 @@ called explicitly before any mutation).
   uses into a copy of the gold-pack example, publishes+approves it with `gate_before_review=False`,
   and asserts the console lists it as blocked.
 
+## Phase 5 (in progress): gate-analytics dashboard (`GET /console/dashboard`)
+
+Implements the C19 gate-dashboard remainder of §20a's Phase 5 - `data/fathm-phase5-readiness/
+report.md` §5.2 in the firstmate repo is the design authority. Server-rendered Jinja2 + the
+existing vendored htmx, same as every other console tab - no SPA, no charting library. Three
+tiers, cheapest first, each a thin render over a computation engine that already exists elsewhere:
+
+- **Hard invariant, non-negotiable: no dashboard tile, table, snapshot row, or template context
+  is keyed by `author`, `analyst_id`, `reviewer_id`, or any `owners.*` identifier** - aggregation
+  is by `check_id`/`reason_code`/`profile`/`status`/time only. This is the same rule
+  `ap_planner_bot/scan.py`'s `OverrideRow` and the drift detectors already enforce (see Phase 4's
+  section above); the dashboard is the first surface where it isn't automatic, because tier 1
+  reads `PackageStore`'s `packages` table directly, which *does* carry `analyst_id`/`reviewer_id`.
+  `PackageStore.stats()` (`src/ap_store/store.py`) is the one place that boundary is enforced by
+  construction: its `GROUP BY`s are hardcoded to `status`/`profile`/`gate_overall` only, and it
+  never selects the identifier columns at all - there is no filter to bypass because the columns
+  are never read. `tests/test_planner_bot_detectors.py::test_no_author_or_owner_keys_anywhere_in_scan_or_findings`
+  is extended (not duplicated) to also walk `ap_planner_bot.analytics`'s snapshot dict recursively
+  for forbidden keys/values; `tests/test_console_dashboard.py` separately asserts the same against
+  the real on-disk `snapshots.jsonl` and the rendered dashboard HTML.
+- **Tier 1 - instant store stats** (`ap_store.store.PackageStore.stats()` -> `StoreStats`): package
+  counts by status/profile, publish-time `gate_overall` distribution - plain SQL, no corpus scan.
+  Review-queue and proposal-queue depth reuse the exact `ListFilter(status=..., page_size=1).total`
+  pattern the review-queue/Standard-tab contexts already use elsewhere in `ap_console/routes.py`,
+  not a new query shape. Always live: `dashboard()` and `dashboard_recompute()` both compute it
+  fresh, cheaply enough to not need caching.
+- **Tier 2 - fresh corpus scan** (`src/ap_planner_bot/analytics.py`'s `compute_corpus_analytics`):
+  per-check fail rate post-waiver / waiver rate, reason-code distribution + OTHER share,
+  profile-version mix, and the `agent_draft_present` advisory-check fail rate as its own tile -
+  computed over the *same* `CorpusScan` object `ap_planner_bot.detectors.run_all_detectors`
+  consumes (`ap_planner_bot.scan.scan_corpus`), one computation engine feeding both the drift
+  detectors and the dashboard, never two. Pure function, no I/O - `ap_planner_bot.snapshot_store`
+  is the separate module that persists its output. The current `run_all_detectors` findings render
+  alongside as a "drift signals" list linking into the Standard tab, where any resulting proposals
+  already live - the dashboard does not duplicate proposal storage or drafting.
+- **Tier 3 - trend over time** (`src/ap_planner_bot/snapshot_store.py`): one JSON line per run,
+  append-only, at `<store_root>/analytics/snapshots.jsonl` (write-to-temp-then-`os.replace`, same
+  atomic-write pattern `ap_registry.profile_registry` uses - a reader never observes a torn line).
+  `ap_planner_bot.sweep.run_sweep` appends a row on every call (the weekly systemd timer and the
+  Standard tab's "Run planner sweep" button both call it, so trend recording rides along for free -
+  no new job, no new infrastructure) using the exact scan it already ran for detection; the
+  dashboard's own "Recompute now" button (`POST /console/dashboard/recompute`) runs a second,
+  independent live `scan_corpus` + `compute_corpus_analytics` + `append_snapshot` (it does not
+  call `run_sweep`, since a dashboard refresh must not also draft proposals) and swaps in only the
+  `#dashboard-live` fragment - tier 1 doesn't need recomputing on that click.
+- **Freshness**: `GET /console/dashboard` renders tier 1 (live) + tier 2/3 from the *latest
+  recorded* snapshot (`ap_planner_bot.snapshot_store.read_snapshots`) - no scan on page load, per
+  the brief's freshness choice. Drift signals are the one thing that never comes from a snapshot
+  (a snapshot row is aggregate stats only, not findings) - the initial page load shows an honest
+  "click Recompute now" note there rather than stale or fabricated findings; only a live scan
+  (button or sweep-adjacent code path) populates that list.
+- **Templates**: `ap_console/templates/dashboard.html` (page shell, tier 1) `{% include %}`s
+  `_dashboard_live.html` (tier 2 + drift signals + tier 3), the same partial both the initial page
+  render and the recompute button's htmx swap use - one markup, matching the
+  `_proposal_queue_table.html`/`_packages_table.html` precedent. Rates render as CSS width-percent
+  bars (`.bar-track`/`.bar-fill` in `base.html`), not an SVG/JS charting library, per the brief.
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and

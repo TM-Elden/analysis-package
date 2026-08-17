@@ -1,0 +1,134 @@
+{# Partial: tier 2 (fresh-scan analytics) + drift signals + tier 3 (trend series). Rendered both
+   as part of the full dashboard page (tier2 sourced from the latest recorded snapshot, no scan)
+   and swapped in place by the "Recompute now" button (tier2 freshly computed live) - see
+   ap_console/routes.py's dashboard()/dashboard_recompute(). #}
+<div id="dashboard-live">
+  {% if error %}
+  <div class="flash">{{ error }}</div>
+  {% endif %}
+
+  <h2 class="section-heading">Gate health</h2>
+  {% if has_data %}
+  <p class="stale-note">
+    {% if live %}Live scan just now.{% else %}As of last recorded snapshot: {{ tier2.as_of }} · click
+    "Recompute now" for live numbers.{% endif %}
+    ({{ tier2.package_count }} approved package{{ "" if tier2.package_count == 1 else "s" }} scanned)
+  </p>
+  {% else %}
+  <p class="stale-note">No scan has ever run yet - click "Recompute now" to compute gate health for the first time.</p>
+  {% endif %}
+
+  <form hx-post="/console/dashboard/recompute" hx-target="#dashboard-live" hx-swap="outerHTML"
+    hx-headers='{"X-Csrf": "{{ csrf_token }}"}' style="margin:12px 0">
+    <button type="submit" class="btn">Recompute now</button>
+  </form>
+
+  {% if has_data %}
+  <div class="stat-grid">
+    <div class="stat-tile">
+      <div class="stat-label">agent_draft_present fail rate</div>
+      <div class="stat-value mono">
+        {% if tier2.agent_draft_fail_rate is not none %}{{ "%.0f"|format(tier2.agent_draft_fail_rate * 100) }}%{% else %}—{% endif %}
+      </div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">OTHER reason-code share</div>
+      <div class="stat-value mono">{{ "%.0f"|format(tier2.other_reason_code_share * 100) }}%</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Check</th><th>Severity</th><th>Fail rate (post-waiver)</th><th>Waiver rate</th></tr></thead>
+      <tbody>
+        {% for s in tier2.check_stats %}
+        <tr>
+          <td class="mono">{{ s.check_id }}</td>
+          <td class="mono">{{ s.severity }}</td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill rust" style="width:{{ (s.fail_rate * 100)|round(1) }}%"></div></div>
+              <span class="bar-pct mono">{{ "%.0f"|format(s.fail_rate * 100) }}%</span>
+            </div>
+          </td>
+          <td>
+            <div class="bar-cell">
+              <div class="bar-track"><div class="bar-fill" style="width:{{ (s.waiver_rate * 100)|round(1) }}%"></div></div>
+              <span class="bar-pct mono">{{ "%.0f"|format(s.waiver_rate * 100) }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">Nothing scanned yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Reason code</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for code, count in tier2.reason_code_rows %}
+        <tr><td class="mono">{{ code }}</td><td class="mono">{{ count }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="empty">No override rows in the scanned corpus.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Profile</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for profile, count in tier2.profile_version_rows %}
+        <tr><td class="mono">{{ profile }}</td><td class="mono">{{ count }}</td></tr>
+        {% else %}
+        <tr><td colspan="2" class="empty">Nothing scanned yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h2 class="section-heading">Drift signals</h2>
+  {% if live %}
+  <div class="card">
+    <table>
+      <thead><tr><th>Detector</th><th>Kind</th><th>Summary</th><th>Evidence</th></tr></thead>
+      <tbody>
+        {% for f in findings %}
+        <tr>
+          <td class="mono">{{ f.detector }}</td>
+          <td class="mono">{{ f.kind }}</td>
+          <td>{{ f.summary }}</td>
+          <td class="mono"><a href="/console/standard">{{ f.package_ids|length }} package{{ "" if f.package_ids|length == 1 else "s" }} →</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="empty">No drift signals in this scan.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="stale-note">Drift signals reflect a live scan only - click "Recompute now" to compute them.
+    Already-drafted proposals live on the <a href="/console/standard">Standard tab</a>.</p>
+  {% endif %}
+
+  <h2 class="section-heading">Trend</h2>
+  {% if series %}
+  <div class="card">
+    <table>
+      <thead><tr><th>Snapshot</th><th>Packages scanned</th></tr></thead>
+      <tbody>
+        {% for row in series|reverse %}
+        <tr><td class="mono">{{ row.ts }}</td><td class="mono">{{ row.package_count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="stale-note">No snapshots recorded yet - the weekly planner sweep and "Recompute now" both append one.</p>
+  {% endif %}
+</div>

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block content %}
+<div class="eyebrow">the chart room</div>
+<h1>Dashboard</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Gate health at a glance: pass/waiver rates, reason-code and profile drift, and the drift signals
+  the C6 sweep already computes. No `author`/`analyst_id`/`reviewer_id`/`owners.*` breakdown
+  appears anywhere on this page, by design.
+</p>
+
+<h2 class="section-heading">Store</h2>
+<div class="stat-grid">
+  <div class="stat-tile">
+    <div class="stat-label">Total packages</div>
+    <div class="stat-value mono">{{ store_stats.total }}</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-label">Review queue</div>
+    <div class="stat-value mono">{{ review_queue_depth }}</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-label">Standard proposal queue</div>
+    <div class="stat-value mono">{{ proposal_queue_depth }}</div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-label">Publish-time gate pass</div>
+    <div class="stat-value mono">{{ store_stats.gate_overall_counts.get("pass", 0) }}
+      <span style="font-size:.9rem;color:var(--drift)">/ {{ store_stats.total }}</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Status</th><th>Count</th></tr></thead>
+    <tbody>
+      {% for status, count in store_stats.status_counts.items()|sort %}
+      <tr><td><span class="badge {{ status }}">{{ status }}</span></td><td class="mono">{{ count }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="empty">No packages published yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th>Profile</th><th>Count</th></tr></thead>
+    <tbody>
+      {% for profile, count in store_stats.profile_counts.items()|sort %}
+      <tr><td class="mono">{{ profile }}</td><td class="mono">{{ count }}</td></tr>
+      {% else %}
+      <tr><td colspan="2" class="empty">No packages published yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% include "_dashboard_live.html" %}
+{% endblock %}

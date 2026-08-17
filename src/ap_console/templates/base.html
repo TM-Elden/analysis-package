@@ -119,6 +119,19 @@
   .chat-error:empty{display:none}
   .chat-error{color:#ff8a8a;border:1px solid #612929;background:rgba(182,92,74,.1);border-radius:8px;
     padding:10px 14px;margin-top:12px;font-size:.85rem}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+  .stat-tile{border:1px solid var(--line);border-radius:8px;padding:14px 16px;background:rgba(4,6,10,.4)}
+  .stat-tile .stat-label{font-family:'IBM Plex Mono',monospace;font-size:.72rem;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--drift)}
+  .stat-tile .stat-value{font-size:1.7rem;font-weight:640;margin-top:4px;font-variation-settings:"wdth" 88}
+  .bar-track{background:rgba(147,133,111,.14);border-radius:999px;height:8px;width:100%;overflow:hidden}
+  .bar-fill{background:var(--brass);height:100%;border-radius:999px}
+  .bar-fill.rust{background:var(--rust)}
+  .bar-cell{display:flex;align-items:center;gap:8px;min-width:120px}
+  .bar-cell .bar-track{flex:1}
+  .bar-cell .bar-pct{font-family:'IBM Plex Mono',monospace;font-size:.76rem;color:var(--drift);width:3.4em;text-align:right}
+  .section-heading{margin-top:28px;margin-bottom:4px}
+  .stale-note{color:var(--drift);font-size:.8rem;font-style:italic;margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -139,6 +152,7 @@
     <a href="/console/packages" class="{% block nav_packages %}{% endblock %}">Packages</a>
     <a href="/console/review-queue" class="{% block nav_review_queue %}{% endblock %}">Review Queue</a>
     <a href="/console/standard" class="{% block nav_standard %}{% endblock %}">Standard</a>
+    <a href="/console/dashboard" class="{% block nav_dashboard %}{% endblock %}">Dashboard</a>
     <a href="/console/chat" class="{% block nav_chat %}{% endblock %}">Ask</a>
     {% if "admin" in identity.roles|map(attribute="value")|list %}
     <a href="/console/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>
