@@ -226,15 +226,15 @@ def test_chat_source_requires_csrf_same_as_queue(client_and_store):
     assert updated.status == "in_review"
 
 
-# -- Base template wiring: the Ask tab actually inserts the per-citation slot --------------------
-
-
-def test_ask_tab_citation_handler_wires_the_review_actions_slot():
-    base_html = (
-        __import__("pathlib").Path(__file__).resolve().parents[1] / "src" / "ap_console" / "templates" / "base.html"
-    ).read_text()
-    assert "review-actions" in base_html
-    assert "htmx.process" in base_html
+# Base template wiring (the citation JS appending the per-citation `hx-get` slot and calling
+# `htmx.process` on it) is real browser DOM/htmx behavior that TestClient/pytest cannot execute -
+# same coverage-gap class as the `htmx:sseBeforeMessage` "done"-event fix documented inline in
+# base.html. There is no source-grep substitute for it (grepping base.html for "review-actions" /
+# "htmx.process" would only prove the strings are present, not that the slot is appended with
+# correct attributes or that htmx.process runs on it), so this task relies on the same manual
+# live-server verification path as that precedent rather than adding a hollow test. The routes this
+# slot ultimately calls (`GET .../review-actions`, `POST .../review`) are covered above at the HTTP
+# level, which is the executable boundary that actually exists here.
 
 
 # -- Hard constraint: ManagerBot gains no new tool ------------------------------------------------

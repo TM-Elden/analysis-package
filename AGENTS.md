@@ -1091,6 +1091,11 @@ snapshot - is `in_review`, the citation gets an inline approve/reject affordance
   with `rowid DESC`: `created_at` is second-precision, so two versions of one package published
   within the same second used to have undefined ordering, which this feature's live-status lookup
   depends on being right. Fixed in `ap_store/store.py`, not console-local.
+- The citation-JS slot insertion + `htmx.process(...)` call in `base.html` is real browser DOM/htmx
+  behavior `tests/test_console_chat_review_actions.py` cannot execute (same class of gap as the
+  `htmx:sseBeforeMessage` "done"-event fix, P3.7 above) - deliberately not covered by a source-grep
+  test (see that test file's comment), relying instead on the HTTP-level coverage of the routes the
+  slot calls plus manual live-server verification.
 
 ## Gold-pack regression
 
