@@ -830,6 +830,55 @@ called explicitly before any mutation).
   uses into a copy of the gold-pack example, publishes+approves it with `gate_before_review=False`,
   and asserts the console lists it as blocked.
 
+## Phase 5 (in progress): team-bot provisioning (`/console/admin/team-bot`)
+
+Implements `data/fathm-phase5-readiness/report.md` §5.4 in the firstmate repo - absorbs the queued
+`fathm-phase3-team-bot-provisioning` task. Replaces the manual operator steps
+`docs/telegram-bot-setup.md` §2/§3 documented (still there as the bootstrap/headless fallback) with
+one Admin-tab console flow, same `admin_routes.py` module and `admin`-role gate as the rest of the
+Admin tab (see above) - no new role.
+
+- **Provision** (`admin_provision_team_bot`) composes three existing primitives in one POST:
+  `AuthStore.create_user(password=None)`, `AuthStore.create_service_token`, and
+  `ap_chat.identity_map.add_entry` (new write helper, write-temp-then-`os.replace` in the
+  allowlist's own directory - same pattern as `ap_registry.profile_registry`'s pointer writes).
+  Not a real cross-store transaction (a SQL DB and a JSON file can't share one) - if the allowlist
+  write fails after the user/token already exist, the route disables the just-created user
+  (`set_disabled`, which also revokes the token) so a failed provision never leaves a live,
+  unreachable account behind; see `ap_proposals.apply`'s "ordering, not a shared transaction"
+  precedent for the same honest framing. The raw token is written straight into the allowlist file
+  and never appears in the response, a flash message, or a log line - unlike the users & access
+  tab's one-time-shown token issuance.
+- **`ap_chat/identity_map.py`** gained `add_entry`/`remove_entry`/`read_entries` (module functions,
+  not `IdentityAllowlist` methods - the console reads/writes the file directly, it doesn't hold a
+  loaded `IdentityAllowlist` instance) plus `DEFAULT_ALLOWLIST_PATH`, now the one place both
+  `ap_chat.telegram.__main__` and `ap_console.admin_routes` resolve the default from.
+  `read_entries`/`add_entry`/`remove_entry` treat a missing file as empty (nobody provisioned yet);
+  `IdentityAllowlist.load()` itself keeps its stricter startup contract (missing file -> fail
+  closed) - see the module docstring for why the two must differ.
+- **Runner reload-on-miss** (`ap_chat/runner.py::BotRunner._handle_message`): a resolve-miss now
+  triggers exactly one `identity_map.load()` retry before refusing - the smallest change that
+  makes a just-provisioned planner's first message work without bouncing the systemd unit. Not a
+  file watcher, not per-message; a reload failure (or a miss that's still a miss after reload) is
+  swallowed and falls through to the existing unauthorized-reply path, never a crash.
+- **Revoke** (`admin_revoke_team_bot`): `set_disabled(user_id, True)` (already revokes every
+  token) + `remove_entry` - the provision flow inverted, one button.
+- **Access list**: `/console/admin/team-bot`'s GET renders allowlist entries joined to `users` rows
+  (fathm user id, display name, most recent live bearer token's issue date, disabled state) via
+  `_team_bot_context` - "who can talk to the bot" has one visible answer. An allowlist row whose
+  user no longer exists renders as an explicit orphaned-entry state rather than erroring.
+- A small `_admin_subnav.html` partial (included at the top of every `/console/admin/*` full-page
+  template) cross-links users/team-bot/index-health/settings - previously each admin sub-screen was
+  reachable only by typed URL.
+- **Tests**: `tests/test_chat_identity_map.py` covers `add_entry`/`remove_entry`/`read_entries`
+  (including "no leftover `.allowlist-*.tmp` sibling after a write" - the atomicity check).
+  `tests/test_chat_runner.py` adds the reload-on-miss acceptance tests, both against a fake
+  identity map (exact-one-reload-attempt behavior) and against a *real* `IdentityAllowlist` +
+  `add_entry` (no restart needed, matching the acceptance criterion). `tests/test_console_admin.py`
+  covers the full provision/revoke round trip end to end (`AuthStore` + the allowlist file, real
+  `os.replace` atomicity, the last-admin/role/token assertions) and specifically asserts the raw
+  token is absent from every rendered response.
+
 ## Gold-pack regression
 
 `examples/commodity-commit-v1` must always pass `ap-gate check`. `.github/workflows/ci.yml` and

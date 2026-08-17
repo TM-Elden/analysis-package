@@ -1,0 +1,71 @@
+{# Partial: swapped in place (outerHTML) after provision/revoke - mirrors _admin_users_body.html's
+   one-markup-one-place-to-change pattern. #}
+<div id="admin-team-bot-body">
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  {% if notice %}<div class="notice">{{ notice }}</div>{% endif %}
+
+  <div class="card">
+    <h2 style="margin-top:0;font-size:16px">Provision a planner</h2>
+    <form hx-post="/console/admin/team-bot" hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+      hx-target="#admin-team-bot-body" hx-swap="outerHTML"
+      style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        fathm user id
+        <input type="text" name="fathm_user_id" required>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        Display name
+        <input type="text" name="display_name" required>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:5px;font-size:.75rem;color:var(--drift);text-transform:uppercase;letter-spacing:.06em;font-family:'IBM Plex Mono',monospace">
+        Telegram user id
+        <input type="text" name="telegram_user_id" required>
+      </label>
+      <fieldset style="border:1px solid var(--line);border-radius:6px;padding:8px 12px">
+        <legend class="mono" style="font-size:.72rem;color:var(--drift)">Roles (default: team_reader)</legend>
+        {% for r in roles %}
+        <label style="display:inline-flex;gap:4px;align-items:center;font-size:13px;margin-right:10px">
+          <input type="checkbox" name="roles" value="{{ r.value }}" {{ "checked" if r.value == "team_reader" else "" }}> {{ r.value }}
+        </label>
+        {% endfor %}
+      </fieldset>
+      <button type="submit" class="btn approve">Provision</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Telegram id</th>
+          <th>fathm user</th>
+          <th>Display name</th>
+          <th>Status</th>
+          <th>Token issued</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in members %}
+        <tr>
+          <td class="mono">{{ m.telegram_id }}</td>
+          <td class="mono">{{ m.fathm_user_id }}</td>
+          <td>{{ m.display_name }}</td>
+          <td><span class="badge {{ 'rejected' if m.disabled else 'approved' }}">{{ "disabled" if m.disabled else "enabled" }}</span></td>
+          <td class="mono">{{ m.token_issued_at or "—" }}</td>
+          <td>
+            <form hx-post="/console/admin/team-bot/{{ m.telegram_id }}/revoke"
+              hx-headers='{"X-Csrf": "{{ csrf_token }}"}'
+              hx-target="#admin-team-bot-body" hx-swap="outerHTML"
+              hx-confirm="Revoke bot access for {{ m.fathm_user_id }} (Telegram id {{ m.telegram_id }})?">
+              <button type="submit" class="btn reject" {{ "disabled" if m.disabled else "" }}>Revoke</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="empty">No team members provisioned for the bot yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

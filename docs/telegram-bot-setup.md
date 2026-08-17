@@ -18,15 +18,28 @@ slack later"). Code: `src/ap_chat/` (platform-neutral core + runner) and `src/ap
    needs to see all messages, e.g. for a future non-mention trigger; the v0 design doesn't need
    this, so leaving privacy mode ON is the recommended default).
 
-## 2. Provision each planner a fathm service account (explicit allowlist, no auto-provisioning)
+## 2. Provision each planner (recommended: the console)
 
 Per task requirement 3, a Telegram user only gets fathm answers after being added by an operator -
-there is no self-service signup path. For each planner:
+there is no self-service signup path. The recommended path is the console's **Admin → Team bot
+access** screen (`/console/admin/team-bot`, P5.4): get the planner's numeric Telegram user id
+(have them message @userinfobot, or read it off the first message they send the new bot, logged at
+INFO level: "refusing message from unmapped platform user '<id>'"), then fill in the fathm user id,
+display name, and Telegram user id (roles default to `team_reader`, the minimum role that gets any
+C4 answers - `ap_manager_bot.scoping` - use a broader role only if that planner should also see
+`internal_restricted` chunks). One submit creates the service account, issues its bearer token, and
+writes the allowlist row - the raw token is never shown or logged. **No bot restart needed**: the
+running `BotRunner` reloads the allowlist on its next resolve-miss and the planner's very first
+message goes through (`ap_chat/runner.py`'s reload-on-miss). Revoking is a button on the same
+screen (disables the user, which also revokes every token, and removes the allowlist row).
+
+### Bootstrap / headless fallback (CLI)
+
+Before any admin can log into the console (or in a fully headless deployment), provision the same
+way by hand:
 
 ```bash
-# 1. Get their numeric Telegram user id - e.g. have them message @userinfobot, or read it off the
-#    first message they send the new bot (logged at INFO level: "refusing message from unmapped
-#    platform user '<id>'").
+# 1. Get their numeric Telegram user id (see above).
 
 # 2. Create a scoped, password-less service account (no-password = bearer-token-only, no login UI):
 ap-auth adduser planner.alice --display-name "Alice Planner" --roles team_reader --no-password
@@ -35,10 +48,7 @@ ap-auth adduser planner.alice --display-name "Alice Planner" --roles team_reader
 ap-auth token planner.alice
 ```
 
-`team_reader` is the minimum role that gets any C4 answers (`ap_manager_bot.scoping`); use a
-broader role only if that planner should also see `internal_restricted` chunks.
-
-## 3. Write the allowlist file
+## 3. Write the allowlist file (only needed for the CLI fallback)
 
 `AP_CHAT_ALLOWLIST_PATH` (default `~/.fathm/chat_telegram_allowlist.json`) - one entry per
 provisioned planner, keyed by their Telegram user id:
@@ -50,10 +60,12 @@ provisioned planner, keyed by their Telegram user id:
 }
 ```
 
-`IdentityAllowlist.load()` reads the file once, at process startup - editing it takes effect only
-after a restart (`sudo systemctl restart fathm-chat-telegram`, or re-run the process directly).
-Live-reload-on-SIGHUP would let an edit take effect without a restart; see `ap_chat/identity_map.py`
-if you want that later, not built for v0.
+The console flow above writes this file for you (atomically, via `ap_chat.identity_map.add_entry`)
+and the running bot picks up the new row on its next resolve-miss with no restart - see step 2. If
+you edit the file by hand instead (the CLI fallback path), the same reload-on-miss behavior applies:
+the *next* message from a newly-added id triggers the reload, so no restart is needed there either;
+a restart (`sudo systemctl restart fathm-chat-telegram`) is only needed to pick up an edit before
+anyone actually messages the bot.
 
 ## 4. Configure and run
 

@@ -21,7 +21,7 @@ def main() -> None:
 
     # Imports deferred past logging.basicConfig so early import-time errors (e.g. a missing
     # TELEGRAM_BOT_TOKEN) still land in the configured log format, not bare stderr.
-    from ap_chat.identity_map import IdentityAllowlist
+    from ap_chat.identity_map import DEFAULT_ALLOWLIST_PATH, IdentityAllowlist
     from ap_chat.manager_client import ManagerBotClient
     from ap_chat.runner import BotRunner
     from ap_chat.telegram.adapter import TelegramPlatform
@@ -33,7 +33,7 @@ def main() -> None:
         raise SystemExit("TELEGRAM_BOT_TOKEN is not set - see docs/telegram-bot-setup.md")
 
     fathm_home = Path.home() / ".fathm"
-    allowlist_path = Path(os.environ.get("AP_CHAT_ALLOWLIST_PATH", str(fathm_home / "chat_telegram_allowlist.json")))
+    allowlist_path = Path(os.environ.get("AP_CHAT_ALLOWLIST_PATH", str(DEFAULT_ALLOWLIST_PATH)))
     offset_path = Path(os.environ.get("AP_CHAT_OFFSET_PATH", str(fathm_home / "chat_telegram_offset.json")))
     manager_base_url = os.environ.get("AP_CHAT_MANAGER_BASE_URL", "http://127.0.0.1:8000")
     console_base_url = os.environ.get("AP_CHAT_CONSOLE_BASE_URL", f"{manager_base_url.rstrip('/')}/console")
