@@ -960,10 +960,12 @@ Implements P5.5 (`data/fathm-phase5-readiness/report.md` §5.5) over the already
   purge" is stated as literal UI copy on this screen, not just an enforced rule; the screen's own
   inline "Recall" action on a retention-due row is a shortcut into `LifecycleWorkflow.recall`
   (supersede needs a successor picked on the package detail page, so it isn't offered inline here).
-  A shared `_admin_tabs.html` partial now links between all four `/console/admin*` screens
-  (users/index-health/retention-holds/settings) - the pre-existing admin pages had no way to
-  navigate between each other except by typing a URL; this task added that sub-nav for all of them,
-  not just its own new screen.
+  A shared `_admin_tabs.html` partial now links between all five `/console/admin*` screens
+  (users/team-bot/index-health/retention-holds/settings) - the pre-existing admin pages had no way
+  to navigate between each other except by typing a URL; this task added that sub-nav for all of
+  them, not just its own new screen (the earlier P5.4 team-bot task's own `_admin_subnav.html`
+  duplicated this same idea with a different link set - the two were merged into this one partial,
+  see the team-bot provisioning section below).
 - **Tests**: `tests/test_console_lifecycle.py` drives every action through the real HTTP routes and
   asserts against `PackageStore` state (not just the rendered page) - the same-role-rejection
   cases (recall as analyst, restore as reviewer, legal-hold as reviewer) assert zero mutation
@@ -1068,9 +1070,11 @@ Admin tab (see above) - no new role.
   (fathm user id, display name, most recent live bearer token's issue date, disabled state) via
   `_team_bot_context` - "who can talk to the bot" has one visible answer. An allowlist row whose
   user no longer exists renders as an explicit orphaned-entry state rather than erroring.
-- A small `_admin_subnav.html` partial (included at the top of every `/console/admin/*` full-page
-  template) cross-links users/team-bot/index-health/settings - previously each admin sub-screen was
-  reachable only by typed URL.
+- A small sub-nav partial (included at the top of every `/console/admin/*` full-page template)
+  cross-links users/team-bot/index-health/settings - previously each admin sub-screen was reachable
+  only by typed URL. Later merged into the P5.5 lifecycle-screens task's `_admin_tabs.html` (see
+  above) once that task added a fifth screen (retention & holds) with its own, initially separate,
+  overlapping nav partial.
 - **Tests**: `tests/test_chat_identity_map.py` covers `add_entry`/`remove_entry`/`read_entries`
   (including "no leftover `.allowlist-*.tmp` sibling after a write" - the atomicity check).
   `tests/test_chat_runner.py` adds the reload-on-miss acceptance tests, both against a fake

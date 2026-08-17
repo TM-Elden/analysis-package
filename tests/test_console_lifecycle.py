@@ -226,6 +226,33 @@ def test_supersede_links_chain_rendered_both_directions(client_and_store):
     assert f"{a.package_id}?version={a.package_version}" in r_b.text
 
 
+def test_supersede_rejected_for_analyst_same_as_workflow_policy(client_and_store):
+    """A non-privileged actor's console supersede action is rejected the same way
+    LifecycleWorkflow (and thus the JSON API) already rejects it - no store mutation happens."""
+    client, store, _index, tmp_path = client_and_store
+    a = _approved(store, tmp_path, "a")
+    b = _approved(store, tmp_path, "a-v2", package_id=a.package_id, package_version="2.0.0")
+    csrf = _login(client, "tom.analyst", "pw-tom")
+
+    r = _post(
+        client,
+        f"/console/packages/{a.package_id}/supersede",
+        csrf=csrf,
+        package_version=a.package_version,
+        successor_package_version=b.package_version,
+        reason="trying anyway",
+    )
+    assert r.status_code == 200
+    assert "flash" in r.text
+    assert "reviewer" in r.text.lower()
+
+    predecessor_row = store.get(a.package_id, a.package_version)
+    successor_row = store.get(b.package_id, b.package_version)
+    assert predecessor_row.status == "approved"
+    assert successor_row.replaces_package_id is None
+    assert successor_row.replaces_package_version is None
+
+
 # -- purge -------------------------------------------------------------------------------------------
 
 
