@@ -179,6 +179,10 @@
 // /console/packages/... link shape is presentation logic that belongs here, not in the
 // format-neutral ap_api layer, see CLAUDE.md's console module-boundary note), so it needs its own
 // render step: intercept it via htmx's pre-swap hook, cancel the default dump, render links instead.
+// citationSlotSeq gives each NC.3 review-action slot a page-lifetime-unique id - package_id alone
+// collides when one answer cites the same in_review package twice (e.g. two different field_paths),
+// which would otherwise leave two slots sharing one DOM id and hx-target resolving to only the first.
+var citationSlotSeq = 0;
 document.body.addEventListener('htmx:sseBeforeMessage', function (evt) {
   var native = evt.detail; // the raw SSE MessageEvent; .type is the named event, .data its payload
   if (!native) return;
@@ -219,6 +223,24 @@ document.body.addEventListener('htmx:sseBeforeMessage', function (evt) {
       + '#' + encodeURIComponent(c.field_path);
     a.textContent = c.package_id + ' · ' + c.field_path;
     container.appendChild(a);
+    // NC.3: a per-citation slot that loads the review-action partial on insertion. This is a
+    // human-clicked UI affordance layered over the existing /console/packages/{id}/review route -
+    // ManagerBot gains no tool here (see CLAUDE.md's Ask-tab section). The slot's package status
+    // lookup is a real, fresh store read server-side (citation_review_actions in
+    // ap_console/routes.py), never derived from the chunk this citation came from - it renders
+    // approve/reject buttons only when the package's CURRENT status is in_review. htmx does not
+    // auto-scan elements inserted outside its own swap machinery, so htmx.process(...) is required
+    // here to make the hx-get/hx-trigger attributes below actually fire. slotId is unique per
+    // citation instance (not just per package_id, see citationSlotSeq above) and travels through
+    // as a query param so the server-rendered fragment's id/hx-target match this exact slot.
+    var slotId = 'citation-actions-' + encodeURIComponent(c.package_id) + '-' + (citationSlotSeq++);
+    var slot = document.createElement('span');
+    slot.setAttribute('hx-get', '/console/packages/' + encodeURIComponent(c.package_id)
+      + '/review-actions?slot_id=' + encodeURIComponent(slotId));
+    slot.setAttribute('hx-trigger', 'load');
+    slot.setAttribute('hx-swap', 'innerHTML');
+    container.appendChild(slot);
+    htmx.process(slot);
   });
 });
 // A dropped/failed connection (network error, server crash mid-stream) fires htmx's own sseError
