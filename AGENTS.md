@@ -962,6 +962,66 @@ acceptance test: it drives the real HTTP routes (not `reindex_package` directly,
 `test_ap_index.py`) and asserts a newly-approved package's chunks are actually indexed, then that a
 recalled package's chunks are actually gone.
 
+## Phase 5 (in progress): console UI over C12 lifecycle (`ap_lifecycle` screens)
+
+Implements P5.5 (`data/fathm-phase5-readiness/report.md` §5.5) over the already-merged
+`ap_lifecycle` mechanism above - no new workflow logic, just console routes/templates calling
+`LifecycleWorkflow` directly.
+
+- **Package detail additions** (`ap_console/templates/_lifecycle_panel.html`, included from
+  `package_detail.html`; routes `console_supersede`/`console_recall`/`console_restore`/
+  `console_legal_hold`/`console_purge` in `ap_console/routes.py`): same
+  `verify_console_csrf`-then-inline-`.flash` pattern as `console_review_action`, htmx `outerHTML`
+  swap of `#lifecycle-panel` on every action. The supersede picker only ever offers other
+  currently-`approved` versions of the *same* `package_id` (`routes.py::_supersede_candidates`) -
+  `LifecycleWorkflow.supersede` itself accepts any approved package/version as successor, the
+  console just narrows the UI to the common case. The chain (`_lifecycle_context`) resolves both
+  directions: `predecessor` from the package's own `replaces_*` columns, `successor` via
+  `_find_successor` (pages through `store.list()` looking for a row whose `replaces_*` points back
+  - no dedicated store query for this, same bounded-corpus paging assumption `_index_health_context`
+  already makes). Role-gating in the template (`is_admin`/`is_reviewer_or_admin`/`can_export`) is a
+  UI convenience only - every route re-checks via `LifecycleWorkflow`, so a direct POST from a
+  non-privileged actor is rejected the same way the JSON API rejects it, just rendered as an inline
+  flash instead of a 403 body (same pattern as every other console mutation). Export is a plain
+  `<a href>` to the root-mounted `GET /packages/{id}/export` (not a `/console/*` route, same
+  reasoning as `/login`/`/logout`/the SSE chat stream: a safe GET, no CSRF needed, cookie carries
+  auth) - shown only when the identity holds one of the elevated roles that route requires.
+  `superseded`/`recalled`/`purged` status badges are three new CSS classes on the existing
+  `.badge` rule in `base.html` - every place `pkg.status` already renders a badge (packages list,
+  detail page) picks them up for free, no template change needed there.
+- **Purge confirmation is server-enforced, not just a UI nudge**: `console_purge` compares the
+  posted `confirm_package_id` form field against the URL's `package_id` *before* ever calling
+  `LifecycleWorkflow.purge` - a mismatch raises the same `LifecyclePolicyError` the flash-rendering
+  path already handles, so a wrong id produces zero mutation, not a partially-applied purge. A
+  successful purge also calls `IndexStore.remove_package` directly in the route (purge is
+  deliberately not wired through `reindex_after_transition` - see that fix's note above); the
+  package detail page keeps rendering normally afterward (`PackageStore.get` still returns the
+  tombstoned row) with `purged` as the visible status badge and the full audit trail intact, per
+  `PackageStore.purge`'s tombstone-not-delete contract.
+- **Admin "Retention & holds"** (`/console/admin/retention-holds`, `admin_routes.py`, gated by the
+  same `require_console_admin` every other `/console/admin*` route uses): three lists - legal
+  holds (any status, since a hold isn't restricted to `approved`), recalled packages, and
+  retention-due packages (`approved` only, `as_of` older than `store.get_retention_days()` - the
+  same `store_settings` key P5.3's Settings screen already writes). "Recall or supersede before
+  purge" is stated as literal UI copy on this screen, not just an enforced rule; the screen's own
+  inline "Recall" action on a retention-due row is a shortcut into `LifecycleWorkflow.recall`
+  (supersede needs a successor picked on the package detail page, so it isn't offered inline here).
+  A shared `_admin_tabs.html` partial now links between all five `/console/admin*` screens
+  (users/team-bot/index-health/retention-holds/settings) - the pre-existing admin pages had no way
+  to navigate between each other except by typing a URL; this task added that sub-nav for all of
+  them, not just its own new screen (the earlier P5.4 team-bot task's own `_admin_subnav.html`
+  duplicated this same idea with a different link set - the two were merged into this one partial,
+  see the team-bot provisioning section below).
+- **Tests**: `tests/test_console_lifecycle.py` drives every action through the real HTTP routes and
+  asserts against `PackageStore` state (not just the rendered page) - the same-role-rejection
+  cases (recall as analyst, restore as reviewer, legal-hold as reviewer) assert zero mutation
+  happened; the supersede test asserts the chain renders on *both* the predecessor's and the
+  successor's detail page; the purge test asserts a wrong `confirm_package_id` leaves the blob and
+  status untouched, then that a correct one actually deletes the blob
+  (`store.blob_store.has(...)`) while the audit trail still resolves and the detail page still
+  renders; the retention-due test plants packages at exactly 31/29 days past a 30-day
+  `retention_days` marker to prove the boundary lands on the right side.
+
 ## Phase 5 (in progress): gate-analytics dashboard (`GET /console/dashboard`)
 
 Implements the C19 gate-dashboard remainder of §20a's Phase 5 - `data/fathm-phase5-readiness/
@@ -1056,9 +1116,11 @@ Admin tab (see above) - no new role.
   (fathm user id, display name, most recent live bearer token's issue date, disabled state) via
   `_team_bot_context` - "who can talk to the bot" has one visible answer. An allowlist row whose
   user no longer exists renders as an explicit orphaned-entry state rather than erroring.
-- A small `_admin_subnav.html` partial (included at the top of every `/console/admin/*` full-page
-  template) cross-links users/team-bot/index-health/settings - previously each admin sub-screen was
-  reachable only by typed URL.
+- A small sub-nav partial (included at the top of every `/console/admin/*` full-page template)
+  cross-links users/team-bot/index-health/settings - previously each admin sub-screen was reachable
+  only by typed URL. Later merged into the P5.5 lifecycle-screens task's `_admin_tabs.html` (see
+  above) once that task added a fifth screen (retention & holds) with its own, initially separate,
+  overlapping nav partial.
 - **Tests**: `tests/test_chat_identity_map.py` covers `add_entry`/`remove_entry`/`read_entries`
   (including "no leftover `.allowlist-*.tmp` sibling after a write" - the atomicity check).
   `tests/test_chat_runner.py` adds the reload-on-miss acceptance tests, both against a fake

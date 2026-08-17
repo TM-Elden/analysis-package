@@ -1,0 +1,9 @@
+{# Shared sub-nav across every /console/admin* screen - same .tabs styling standard_queue.html
+   uses for its status tabs. #}
+<div class="tabs" style="margin-bottom:8px">
+  <a href="/console/admin/users" class="{{ 'active' if admin_tab == 'users' else '' }}">Users &amp; access</a>
+  <a href="/console/admin/team-bot" class="{{ 'active' if admin_tab == 'team-bot' else '' }}">Team bot access</a>
+  <a href="/console/admin/index-health" class="{{ 'active' if admin_tab == 'index-health' else '' }}">Index health</a>
+  <a href="/console/admin/retention-holds" class="{{ 'active' if admin_tab == 'retention-holds' else '' }}">Retention &amp; holds</a>
+  <a href="/console/admin/settings" class="{{ 'active' if admin_tab == 'settings' else '' }}">Settings</a>
+</div>

@@ -14,6 +14,7 @@ CLAUDE.md's Phase 3 console section).
 
 from __future__ import annotations
 
+import datetime as dt
 import os
 from pathlib import Path
 from typing import Annotated
@@ -21,7 +22,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from ap_api.deps import DEFAULT_INDEX_ROOT, DEFAULT_STORE_ROOT, get_auth_store, get_index, get_store
+from ap_api.deps import DEFAULT_INDEX_ROOT, DEFAULT_STORE_ROOT, get_auth_store, get_index, get_lifecycle_workflow, get_store
 from ap_auth.identity import Identity, IdentityError, parse_roles
 from ap_auth.roles import Role
 from ap_auth.store import AuthError, AuthStore, LastAdminError
@@ -30,8 +31,10 @@ from ap_console.deps import ConsoleCsrfInvalid, console_csrf_token, require_cons
 from ap_console.routes import _render, templates
 from ap_index.index_store import IndexStore
 from ap_index.reindex import reindex_package
+from ap_lifecycle.workflow import LifecyclePolicyError, LifecycleWorkflow
 from ap_redact.report import read_report
-from ap_store.store import ListFilter, PackageStore
+from ap_store.models import PackageRecord
+from ap_store.store import ListFilter, PackageStore, StoreError
 
 router = APIRouter(prefix="/console/admin")
 
@@ -436,6 +439,107 @@ def admin_reindex_package(
     ctx["error"] = error
     return templates.TemplateResponse(
         request, "_index_health_table.html", {"csrf_token": console_csrf_token(request), **ctx}
+    )
+
+
+# -- retention & holds (C12 lifecycle, P5.5) ---------------------------------
+
+
+def _parse_as_of_date(value: str) -> dt.date | None:
+    """`as_of` is a plain `YYYY-MM-DD` string per the Standard's manifest schema, but parse
+    defensively (an ISO datetime prefix works too) rather than assuming the exact format - a bad
+    value just drops that package from the retention-due list instead of 500ing the whole screen."""
+    try:
+        return dt.date.fromisoformat(value[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+def _retention_holds_context(store: PackageStore) -> dict:
+    """Three lists (design brief P5.5): legal-held packages (any status - a hold can be set on any
+    non-purged version), recalled packages, and retention-due packages (still `approved`, whose
+    `as_of` is more than `retention_days` in the past - the "past the threshold" packages an admin
+    should recall/supersede/purge). Pages through `PackageStore.list()` (bounded corpus at pilot
+    scale - same assumption `_index_health_context` above and `ap_planner_bot.scan.scan_corpus`
+    already make), since none of these three cuts has a dedicated store-level query."""
+    legal_held: list[PackageRecord] = []
+    page = 1
+    while True:
+        result = store.list(ListFilter(page=page, page_size=200))
+        legal_held.extend(r for r in result.items if r.legal_hold)
+        if page * result.page_size >= result.total:
+            break
+        page += 1
+
+    recalled: list[PackageRecord] = []
+    page = 1
+    while True:
+        result = store.list(ListFilter(status="recalled", page=page, page_size=200))
+        recalled.extend(result.items)
+        if page * result.page_size >= result.total:
+            break
+        page += 1
+
+    retention_days = store.get_retention_days()
+    retention_due: list[PackageRecord] = []
+    if retention_days is not None:
+        cutoff = dt.date.today() - dt.timedelta(days=retention_days)
+        page = 1
+        while True:
+            result = store.list(ListFilter(status="approved", page=page, page_size=200))
+            for r in result.items:
+                as_of_date = _parse_as_of_date(r.as_of)
+                if as_of_date is not None and as_of_date <= cutoff:
+                    retention_due.append(r)
+            if page * result.page_size >= result.total:
+                break
+            page += 1
+
+    return {
+        "legal_held": legal_held,
+        "recalled": recalled,
+        "retention_due": retention_due,
+        "retention_days": retention_days,
+    }
+
+
+@router.get("/retention-holds", response_class=HTMLResponse)
+def admin_retention_holds(
+    request: Request,
+    identity: Annotated[Identity, Depends(require_console_admin)],
+    store: Annotated[PackageStore, Depends(get_store)],
+) -> HTMLResponse:
+    return _render(request, "admin_retention_holds.html", identity, **_retention_holds_context(store))
+
+
+@router.post("/retention-holds/{package_id}/{package_version}/recall", response_class=HTMLResponse)
+def admin_retention_recall(
+    request: Request,
+    package_id: str,
+    package_version: str,
+    identity: Annotated[Identity, Depends(require_console_admin)],
+    workflow: Annotated[LifecycleWorkflow, Depends(get_lifecycle_workflow)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    index: Annotated[IndexStore, Depends(get_index)],
+    reason: Annotated[str, Form()],
+) -> HTMLResponse:
+    """Recall action offered right on the retention-due row - "recall or supersede before purge"
+    is stated as UI copy on this screen (see the template), and this is the one-click half of that
+    (supersede needs a successor picked on the package detail page instead)."""
+    error = None
+    try:
+        verify_console_csrf(request)
+        workflow.recall(package_id, package_version, actor=identity, reason=reason)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (LifecyclePolicyError, StoreError) as exc:
+        error = str(exc)
+    else:
+        reindex_package(store=store, index=index, store_root=store.root, package_id=package_id, package_version=package_version)
+    ctx = _retention_holds_context(store)
+    ctx["error"] = error
+    return templates.TemplateResponse(
+        request, "_retention_holds_body.html", {"csrf_token": console_csrf_token(request), **ctx}
     )
 
 

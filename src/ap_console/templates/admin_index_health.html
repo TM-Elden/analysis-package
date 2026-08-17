@@ -2,7 +2,6 @@
 {% block title %}Admin · index health{% endblock %}
 {% block nav_admin %}active{% endblock %}
 {% block content %}
-{% include "_admin_subnav.html" %}
 <div class="eyebrow">the chart room</div>
 <h1>Index health</h1>
 <p style="color:var(--drift);font-size:14px;margin:0">
@@ -12,6 +11,8 @@
   runs; a package stays listed if it is still blocked afterwards (expected until a new,
   secret-scrubbed version is published - packages are immutable).
 </p>
+{% set admin_tab = "index-health" %}
+{% include "_admin_tabs.html" %}
 <div class="card">
   {% include "_index_health_table.html" %}
 </div>
