@@ -79,6 +79,15 @@ class BlobStore:
     def get(self, sha256: str) -> bytes:
         return self._path_for(sha256).read_bytes()
 
+    def delete(self, sha256: str) -> None:
+        """Unlink a blob's bytes. Callers (PackageStore.purge) must refcount against every
+        non-purged `packages` row sharing this `blob_sha256` before calling - blobs are
+        content-addressed and shared across (package_id, package_version) pairs, so this method
+        itself has no notion of "is anyone else still using this" and trusts the caller."""
+        path = self._path_for(sha256)
+        if path.is_file():
+            path.unlink()
+
     def extract(self, sha256: str, dest_dir: Path) -> None:
         dest_dir = Path(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)

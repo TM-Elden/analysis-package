@@ -32,6 +32,7 @@ from ap_gate.checks.context import CheckContext
 from ap_gate.checks.registry import run_all
 from ap_gate.load_manifest import load_manifest
 from ap_gate.report.model import build_report
+from ap_redact.report import sidecar_path
 from ap_store.blobstore import BlobStore, blob_sha256, make_blob
 from ap_store.db import connect
 from ap_store.models import AuditEntry, PackageRecord
@@ -273,6 +274,146 @@ class PackageStore:
             self._insert_audit(package_id, package_version, from_status, to_status, actor, reason)
             return self._row_to_record(self._get_row(package_id, package_version))
 
+    # -- C12 lifecycle mechanism (policy lives in ap_lifecycle.LifecycleWorkflow) -----------------
+
+    def link_replaces(
+        self,
+        package_id: str,
+        package_version: str,
+        *,
+        replaces_package_id: str,
+        replaces_package_version: str,
+        actor: Identity,
+    ) -> PackageRecord:
+        """Write the successor's `replaces_*` columns - the supersede link. An audited one-column
+        (pair) UPDATE, same shape as `set_status`, but not a status transition itself: the caller
+        (`ap_lifecycle.LifecycleWorkflow.supersede`) separately flips the predecessor's own status
+        to `superseded` via `set_status`."""
+        with self._lock, self.conn:
+            cur = self.conn.execute(
+                "UPDATE packages SET replaces_package_id=?, replaces_package_version=? "
+                "WHERE package_id=? AND package_version=?",
+                (replaces_package_id, replaces_package_version, package_id, package_version),
+            )
+            if cur.rowcount == 0:
+                raise StoreError(f"no such package_version: {package_id}/{package_version}")
+            self._insert_audit(
+                package_id,
+                package_version,
+                None,
+                "replaces_linked",
+                actor,
+                f"replaces {replaces_package_id}/{replaces_package_version}",
+            )
+            return self._row_to_record(self._get_row(package_id, package_version))
+
+    def set_legal_hold(
+        self,
+        package_id: str,
+        package_version: str,
+        *,
+        hold: bool,
+        reason: str | None,
+        actor: Identity,
+    ) -> PackageRecord:
+        """Set or clear the legal-hold flag. Mechanism only (admin-only enforcement, and requiring
+        a reason to *set* a hold, are `ap_lifecycle.LifecycleWorkflow`'s job) - writes a
+        `package_audit` row exactly like a status transition, using `legal_hold_set`/
+        `legal_hold_cleared` as the (pseudo) `to_status` value since this is not itself a status
+        change."""
+        with self._lock, self.conn:
+            cur = self.conn.execute(
+                "UPDATE packages SET legal_hold=?, legal_hold_reason=? WHERE package_id=? AND package_version=?",
+                (1 if hold else 0, reason if hold else None, package_id, package_version),
+            )
+            if cur.rowcount == 0:
+                raise StoreError(f"no such package_version: {package_id}/{package_version}")
+            self._insert_audit(
+                package_id,
+                package_version,
+                None,
+                "legal_hold_set" if hold else "legal_hold_cleared",
+                actor,
+                reason,
+            )
+            return self._row_to_record(self._get_row(package_id, package_version))
+
+    def purge(self, package_id: str, package_version: str, *, actor: Identity, reason: str | None = None) -> PackageRecord:
+        """The first genuinely irreversible operation in the product. Mechanism only - the admin
+        role check and the "recall/supersede first" nudge live in `ap_lifecycle.LifecycleWorkflow`
+        - but the two hard safety invariants (never purge an `approved` package, never purge under
+        legal hold) are enforced here too, defense-in-depth, the same double-check discipline
+        `ap_manager_bot.scoping` applies to confidentiality: a caller that reaches this method by
+        any path but the workflow still cannot destroy an approved or held package.
+
+        Deletes the blob only if no other non-purged package row shares its `blob_sha256` (blobs
+        are content-addressed and shared - see ap_store.blobstore); deletes the C14 redaction
+        sidecar; tombstones the row (`purged_at` set, `status` -> `purged`, content-bearing
+        metadata blanked, `package_id`/`package_version`/audit history kept) so audit rows,
+        proposal evidence links, and supersede chains resolve to an honest "purged" record instead
+        of dangling. Does NOT touch the C4 search index - purge is not wired into
+        `ap_index.reindex.reindex_package`'s approved-only rule (that would require this module to
+        import `ap_index`, which would be circular: `ap_index.reindex` already imports
+        `ap_store.store`). A purge caller must separately call `IndexStore.remove_package` -
+        same "call stays in the caller, not the workflow/store" layering the reindex-wiring fix
+        elsewhere in this task established, documented in `ap_lifecycle`'s module docstring.
+        """
+        with self._lock, self.conn:
+            row = self._get_row(package_id, package_version)
+            if row is None:
+                raise StoreError(f"no such package_version: {package_id}/{package_version}")
+            if row["purged_at"]:
+                return self._row_to_record(row)  # idempotent: already purged
+            if row["status"] == "approved":
+                raise StoreError(
+                    f"cannot purge {package_id}/{package_version} - it is 'approved'; recall or "
+                    "supersede it first"
+                )
+            if row["legal_hold"]:
+                raise StoreError(
+                    f"cannot purge {package_id}/{package_version} - it is under legal hold "
+                    f"({row['legal_hold_reason']!r}); clear the hold first"
+                )
+
+            blob_sha = row["blob_sha256"]
+            other_refs = self.conn.execute(
+                "SELECT COUNT(*) FROM packages WHERE blob_sha256=? "
+                "AND NOT (package_id=? AND package_version=?) AND purged_at IS NULL",
+                (blob_sha, package_id, package_version),
+            ).fetchone()[0]
+            if other_refs == 0:
+                self.blob_store.delete(blob_sha)
+
+            sidecar = sidecar_path(self.root, package_id, package_version)
+            if sidecar.is_file():
+                sidecar.unlink()
+
+            now = _utcnow()
+            self.conn.execute(
+                """UPDATE packages SET status='purged', purged_at=?, title='', as_of='',
+                   owners_json='{}', analyst_id=NULL, reviewer_id=NULL
+                   WHERE package_id=? AND package_version=?""",
+                (now, package_id, package_version),
+            )
+            self._insert_audit(package_id, package_version, row["status"], "purged", actor, reason)
+            return self._row_to_record(self._get_row(package_id, package_version))
+
+    # -- retention marker (C12; get_setting/set_setting mechanism below is shared with P5.3's -----
+    # admin tab settings) --------------------------------------------------------------------------
+
+    RETENTION_DAYS_KEY = "retention_days"
+
+    def get_retention_days(self) -> int | None:
+        """No automatic deletion reads this - it is purely a marker a human (or a future retention
+        screen, §5.5, out of scope here) uses to decide which packages are due for review."""
+        value = self.get_setting(self.RETENTION_DAYS_KEY)
+        return int(value) if value is not None else None
+
+    def set_retention_days(self, days: int, *, actor: Identity) -> None:
+        if days < 0:
+            raise StoreError("retention_days must be >= 0")
+        self.set_setting(self.RETENTION_DAYS_KEY, str(days), actor=actor)
+
     def audit_trail(self, package_id: str, package_version: str) -> list[AuditEntry]:
         with self._lock:
             rows = self.conn.execute(
@@ -373,4 +514,7 @@ class PackageStore:
             published_by_roles=row["published_by_roles"],
             replaces_package_id=row["replaces_package_id"],
             replaces_package_version=row["replaces_package_version"],
+            legal_hold=bool(row["legal_hold"]),
+            legal_hold_reason=row["legal_hold_reason"],
+            purged_at=row["purged_at"],
         )

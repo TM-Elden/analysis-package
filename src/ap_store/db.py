@@ -12,11 +12,16 @@ happened to declare at publish time (mirrors the existing ap_gate precedent that
 manifest-declared qa.checks[] is historical, not the live source of truth - see CLAUDE.md).
 
 `store_settings` (P5.3) is a small audited tenant/store-level config KV table - it lives here, not
-in `auth.sqlite3`, because store/tenant configuration (e.g. `retention_days`, read by the later
+in `auth.sqlite3`, because store/tenant configuration (e.g. `retention_days`, read by the C12
 lifecycle task) is a different domain than credentials (see `ap_auth.db`'s own "wrong home"
 reasoning in reverse). Every write is mirrored into `store_settings_audit` (old value, new value,
 actor, when) by `PackageStore.set_setting` - same "no mutation without an audit row" standard as
 `package_audit`.
+
+`legal_hold` / `legal_hold_reason` / `purged_at` on `packages` (C12, ap_lifecycle) are the lifecycle
+columns: hold blocks purge only (recall/supersede stay allowed under hold - see ap_lifecycle);
+`purged_at` marks the first genuinely irreversible operation in the product (see
+`PackageStore.purge`).
 """
 
 from __future__ import annotations
@@ -42,6 +47,9 @@ CREATE TABLE IF NOT EXISTS packages (
     published_by_roles TEXT NOT NULL,
     replaces_package_id TEXT,
     replaces_package_version TEXT,
+    legal_hold INTEGER NOT NULL DEFAULT 0,
+    legal_hold_reason TEXT,
+    purged_at TEXT,
     PRIMARY KEY (package_id, package_version)
 );
 

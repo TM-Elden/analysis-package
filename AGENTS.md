@@ -15,7 +15,8 @@ interface layer, agent-capture MCP server; see "Phase 2" below), and **phase-3-i
 the C4 manager-bot backend; `src/ap_console/` - the server-rendered manager console; `src/ap_chat/` -
 the planner-chat-v0 bot (Telegram adapter in `ap_chat/telegram/`); see "Phase 3" below), and
 **phase-4-in-progress** (`src/ap_proposals/` - C6/C7 Standard-change proposal storage and workflow;
-see "Phase 4" below). Brand is
+see "Phase 4" below), and **phase-5-in-progress** (`src/ap_lifecycle/` - C12 package lifecycle:
+supersede, recall, legal hold, retention marker, purge; see "Phase 5" below). Brand is
 **fathm**; the CLI/library name **ap-gate** stays format-neutral - never rename
 normative identifiers to "fathm X" in
 code. See `docs/DESIGN-FATHM-SYSTEM.md` (build authority for full-system scope, section 20a for the
@@ -813,9 +814,9 @@ called explicitly before any mutation).
   `set_setting`/`settings_audit_trail`, mirroring `store_settings_audit`'s
   old-value/new-value/actor/when shape after `package_audit`) - **not** `auth.sqlite3` (config is a
   store/tenant concern, credentials are a different blast radius; see `ap_auth.db`'s own reasoning
-  in reverse). This task added the table since the later lifecycle task (`fathm-p5-lifecycle`, which
-  reads the same key) may land before or after it - coordinate the schema, don't fork it, if you
-  touch this table from that task. The read-only effective-config panel (store/index/auth roots,
+  in reverse). This task added the table; the later `fathm-p5-lifecycle` task (see below) adds a
+  `retention_days` key on top of this same table and its audited `get_setting`/`set_setting`
+  mechanism, unforked. The read-only effective-config panel (store/index/auth roots,
   registry root env var, model id env var, allowlist path env var) is a plain env-var dump, the
   lowest-priority item in this task's brief - trim it first if a future change needs the room.
 - **Tests**: `tests/test_auth_store.py` covers `set_roles`/last-admin guard/`auth_audit` at the
@@ -829,6 +830,85 @@ called explicitly before any mutation).
   AWS-key-shaped secret `tests/test_ap_index.py::test_secret_salted_package_never_reaches_index`
   uses into a copy of the gold-pack example, publishes+approves it with `gate_before_review=False`,
   and asserts the console lists it as blocked.
+## Phase 5 (in progress): C12 package lifecycle core (`ap_lifecycle`)
+
+Design authority: `data/fathm-phase5-readiness/report.md` §5.1 in the firstmate repo; original
+requirements are `docs/DESIGN-FATHM-SYSTEM.md` §13c (C12).
+
+- **`src/ap_lifecycle/`** (`LifecycleWorkflow` + `LifecyclePolicy`) mirrors `ap_review.ReviewWorkflow`'s
+  policy/mechanism split exactly, over the same `PackageStore.set_status` CAS + audit mechanism plus
+  three new store mechanism methods (`link_replaces`, `set_legal_hold`, `purge`). **Union state
+  machine**: `ReviewWorkflow.TRANSITIONS` (draft/in_review/approved/rejected) is untouched;
+  `LifecycleWorkflow.TRANSITIONS` is a separate set layered on top of it -
+  `approved -> superseded` (reviewer or admin; requires naming an existing *approved*
+  `(package_id, package_version)` successor - no corpus gaps by construction; writes the successor's
+  `replaces_package_id`/`replaces_package_version` via `PackageStore.link_replaces`, an audited
+  column update distinct from the predecessor's own `status` flip), `approved -> recalled` (reviewer
+  or admin, reason REQUIRED), `recalled -> approved` and `superseded -> approved` (admin only,
+  unified as `LifecycleWorkflow.restore` - both are the same "only an admin reverses this" policy).
+  A recalled/superseded package cannot re-enter `ReviewWorkflow`'s states except through `restore`.
+- **Legal hold**: `legal_hold`/`legal_hold_reason` columns on `packages` (`PackageStore.set_legal_hold`,
+  mechanism; `LifecycleWorkflow.set_legal_hold`, admin-only + reason-required-to-set policy). Hold
+  blocks **purge only** - recall/supersede stay allowed under hold, deliberately: they are reversible
+  status moves, and freezing them would let a hold keep bad content live in the corpus.
+- **Retention marker**: reuses `store_settings` (the small generic key/value table in
+  `index.sqlite3`, not `auth.sqlite3`, the P5.3 admin tab introduced - see above; store/tenant
+  config, not credentials, self-auditing per row via `updated_at`/`updated_by_id`/`updated_by_roles`
+  rather than routed through `package_audit`, since a setting here isn't scoped to one
+  `(package_id, package_version)`) with a new `retention_days` key. `PackageStore.get_retention_days`/
+  `set_retention_days` are thin wrappers over the same `get_setting`/`set_setting` mechanism;
+  `LifecycleWorkflow.set_retention_days` is admin-only. No automatic deletion reads this value - it
+  is purely a human-reviewed marker (a future retention screen, out of scope here).
+- **Purge (`PackageStore.purge`) is the first genuinely irreversible operation in the product.**
+  `LifecycleWorkflow.purge` is admin-only and refuses an `approved` or held package; `PackageStore.purge`
+  re-checks both guards itself (defense in depth, the same double-check discipline
+  `ap_manager_bot.scoping` applies to confidentiality - a caller reaching the store method by any
+  path but the workflow still cannot destroy an approved or held package). Mechanism: **refcount the
+  blob before deleting it** - `blob_sha256` is content-addressed and shared across `(package_id,
+  package_version)` rows (two rows can share one blob only via direct row insertion today; the normal
+  publish path can't produce this naturally since each package's own `package_id`/`package_version`
+  are embedded in its MANIFEST.yaml bytes, which is why `test_lifecycle_workflow.py`'s refcount test
+  inserts a synthetic second row directly - see that test's docstring), so the blob file is only
+  unlinked when no other non-purged row references it (`SELECT COUNT(*) ... AND purged_at IS NULL`).
+  Also deletes the C14 redaction sidecar (`ap_redact.report.sidecar_path` - safe for `ap_store` to
+  import directly, since `ap_redact` has zero internal-project imports and there is no circularity
+  risk, unlike `ap_index` below) and tombstones the row (`purged_at` set, `status` -> `'purged'`,
+  content-bearing fields blanked - `title`/`as_of`/`owners_json`/`analyst_id`/`reviewer_id` - while
+  `package_id`/`package_version`/`blob_sha256`/audit history survive) so audit rows, proposal
+  evidence links, and supersede chains resolve to an honest "purged" record instead of dangling.
+  **Purge does NOT touch the C4 search index itself** - `ap_store` cannot import `ap_index` (that
+  would be circular: `ap_index.reindex` already imports `ap_store.store`), so a purge caller must
+  separately call `IndexStore.remove_package(package_id, package_version)`. No `POST
+  /packages/{id}/purge` route exists yet (purge is console-confirmed, and console UI is a separate,
+  later task) - `LifecycleWorkflow.purge` is fully implemented and tested at the workflow/store layer,
+  ready for a future console route to call.
+- **Export**: `GET /packages/{id}/export?version=` (`ap_api/lifecycle_routes.py`) streams
+  `BlobStore.get`'s bytes directly - the blob *is* the deterministic tar.gz. Requires the same
+  elevated role set (`analyst`/`reviewer`/`standard_approver`, admin bypass) `ap_manager_bot/scoping.py`
+  already uses for `internal_restricted` content, since an export is full raw bytes including
+  unredacted author fields.
+- **JSON API** (`src/ap_api/lifecycle_routes.py`, mounted in `ap_api/app.py`): `POST
+  /packages/{id}/supersede`, `POST /packages/{id}/recall`, `POST /packages/{id}/restore`, `POST
+  /packages/{id}/legal-hold`, `GET /packages/{id}/export` - thin routes over `LifecycleWorkflow`,
+  `LifecyclePolicyError` -> 403 / plain `StoreError` -> 404 (no such package_version) or 409 (CAS
+  conflict), mirroring `ap_api.app.review_package`'s error-code mapping exactly.
+
+**The reindex-wiring fix (a real, live bug fixed alongside the above).**
+`ap_index.reindex.reindex_package` was always correct - approved-only index membership, `redact_package`
++ `IndexStore.index_package`/`remove_package` - but before this task, nothing outside the test suite
+ever called it: neither `ap_api.app`'s review route nor `ap_console.routes.console_review_action`
+invoked it after a status transition, so in a live deployment **approving a package never actually
+added it to the bot's searchable index**. The fix is wiring, not a workflow change:
+`ap_api.deps.reindex_after_transition(store, index, package_id, package_version)` is now called from
+every status-changing route - the existing review route (`ap_api.app.review_package`,
+`ap_console.routes.console_review_action`) AND every new C12 lifecycle route except `export` (a
+read) and `purge` (no route yet, and not wired through this hook regardless - see above). The call
+is deliberately kept in the routes layer, never inside `ReviewWorkflow`/`LifecycleWorkflow`
+themselves - preserving the existing rule that `ap_review` (and now `ap_lifecycle`) must not import
+`ap_index`. `test_lifecycle_api.py::test_approve_reaches_the_index_and_recall_removes_it` is the
+acceptance test: it drives the real HTTP routes (not `reindex_package` directly, unlike
+`test_ap_index.py`) and asserts a newly-approved package's chunks are actually indexed, then that a
+recalled package's chunks are actually gone.
 
 ## Gold-pack regression
 

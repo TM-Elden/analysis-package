@@ -25,6 +25,9 @@ class PackageRecord:
     published_by_roles: str
     replaces_package_id: str | None = None
     replaces_package_version: str | None = None
+    legal_hold: bool = False
+    legal_hold_reason: str | None = None
+    purged_at: str | None = None  # non-None once ap_lifecycle.LifecycleWorkflow.purge has run
 
     def owners(self) -> dict[str, Any]:
         return json.loads(self.owners_json)
