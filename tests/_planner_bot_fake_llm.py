@@ -15,7 +15,7 @@ import json
 import re
 from typing import Any
 
-from ap_manager_bot.llm_client import LLMClient
+from ap_manager_bot.llm_client import LLMClient, LLMClientError
 
 _KIND_RE = re.compile(r"kind='(\w+)'")
 _DETAIL_RE = re.compile(r"^Detail: (.*)$", re.MULTILINE)
@@ -119,6 +119,37 @@ class InventedEvidenceLLMClient(LLMClient):
             "rationale": "This evidence was never shown to the model.",
             "diff": diff,
             "evidence": [{"ref_id": "chunk_does_not_exist_12345"}],
+        }
+        return _tool_use(f"toolu_{next(self._ids)}", "draft_proposal", draft_input)
+
+
+class RaisingOnceLLMClient(LLMClient):
+    """Drafts a mechanically-correct proposal (`ScriptedDraftingLLMClient`'s logic) for every call
+    except the `fail_on_call` one (1-indexed), which raises `LLMClientError` - simulates a
+    transient transport/rate-limit failure on a single finding out of a sweep (D1's regression
+    fixture)."""
+
+    def __init__(self, *, fail_on_call: int = 1) -> None:
+        self._ids = itertools.count(1)
+        self._fail_on_call = fail_on_call
+        self._call_count = 0
+
+    def complete(self, *, system: str, messages: list[dict], tools: list[dict]) -> dict:
+        del system, tools
+        self._call_count += 1
+        if self._call_count == self._fail_on_call:
+            raise LLMClientError("simulated transport failure (429)")
+        prompt = messages[-1]["content"][0]["text"]
+        kind, detail, refs = _parse_prompt(prompt)
+        diff = _mechanical_diff(kind, detail)
+        if diff is None or not refs:
+            return _decline()
+        draft_input = {
+            "kind": kind,
+            "summary": f"Drafted from a {kind} finding",
+            "rationale": "Deterministic drift signal from the corpus scan (see finding detail).",
+            "diff": diff,
+            "evidence": [{"ref_id": ref_id} for ref_id, _package_id in refs],
         }
         return _tool_use(f"toolu_{next(self._ids)}", "draft_proposal", draft_input)
 

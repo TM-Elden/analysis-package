@@ -36,7 +36,7 @@ from typing import Any
 from ap_auth.identity import Identity
 from ap_index.index_store import IndexStore
 from ap_index.models import SearchFilters
-from ap_manager_bot.llm_client import LLMClient
+from ap_manager_bot.llm_client import LLMClient, LLMClientError
 from ap_manager_bot.scoping import chunk_in_scope, confidentiality_filter_for
 from ap_planner_bot.detectors import Finding
 from ap_proposals.kinds import ProposalValidationError, validate_diff
@@ -113,7 +113,9 @@ class DraftOutcome:
     `discarded_reason` explains why nothing was persisted otherwise - `"declined"` (model made no
     draft call), `"no_evidence_resolved"` (no chunk evidence available, or every cited ref_id was
     invented / out of scope), `"invalid_diff"` (schema-invalid diff, or missing summary/rationale),
-    or `"duplicate"` (an open proposal already covers this kind/target)."""
+    `"duplicate"` (an open proposal already covers this kind/target), or `"llm_error"` (the model
+    call itself raised `LLMClientError` - a transport/rate-limit failure, not a bad response to
+    judge)."""
 
     proposal: ProposalRecord | None = None
     discarded_reason: str | None = None
@@ -144,11 +146,14 @@ class ProposalDrafter:
             return DraftOutcome(discarded_reason="no_evidence_resolved")
 
         prompt = _finding_prompt(finding, citable)
-        response = self._llm_client.complete(
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
-            tools=[{"name": "draft_proposal", **DRAFT_PROPOSAL_TOOL_SCHEMA}],
-        )
+        try:
+            response = self._llm_client.complete(
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": [{"type": "text", "text": prompt}]}],
+                tools=[{"name": "draft_proposal", **DRAFT_PROPOSAL_TOOL_SCHEMA}],
+            )
+        except LLMClientError:
+            return DraftOutcome(discarded_reason="llm_error")
         tool_uses = [
             b for b in (response.get("content") or []) if b.get("type") == "tool_use" and b.get("name") == "draft_proposal"
         ]
@@ -225,8 +230,9 @@ def draft_proposals(
     findings: list[Finding], *, index: IndexStore, workflow: ProposalWorkflow, llm_client: LLMClient, identity: Identity
 ) -> SweepDraftResult:
     """Draft + persist proposals for every finding in one sweep. Never raises on a single
-    finding's bad draft - discards are counted, not propagated, so one malformed model response
-    can't abort an otherwise-good sweep."""
+    finding's bad draft, nor on the LLM call itself failing (`LLMClientError` - rate limit,
+    transport, etc.) - discards are counted, not propagated, so one malformed model response or
+    one transient API failure can't abort an otherwise-good sweep."""
     drafter = ProposalDrafter(index=index, workflow=workflow, llm_client=llm_client, identity=identity)
     created: list[ProposalRecord] = []
     discarded: dict[str, int] = {}

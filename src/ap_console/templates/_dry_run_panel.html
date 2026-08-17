@@ -1,9 +1,8 @@
-{# Partial: the dry-run panel, swapped in place (outerHTML) by the "Run dry-run" button. Renders
-   whatever `dry_run_json` already exists on the proposal record rather than triggering a run
-   itself - the dry-run engine and its API trigger (POST /proposals/{id}/dry-run) exist and
-   populate this field for real, but this button isn't wired to call it yet, so this panel is
-   deliberately honest that pressing it here won't compute anything new. Once this button is
-   wired to the real trigger, this same template renders those results with no changes needed. #}
+{# Partial: the dry-run panel, swapped in place (outerHTML) by the "Run dry-run" button. Wired
+   (D4 fix) to `ProposalWorkflow.record_dry_run` - pressing the button actually runs a fresh
+   dry-run against the proposal's current diff and persists the result; this template then
+   renders whatever `dry_run_json` is on record (freshly computed, or from an earlier run/API
+   call - either way, the real value). #}
 <div class="card" id="dry-run-panel">
   <div class="eyebrow" style="margin-bottom:6px">Dry run</div>
   {% if dry_run_error %}
@@ -18,10 +17,7 @@
   <pre class="diff-json" style="margin-top:12px">{{ dry_run_text }}</pre>
   {% else %}
   <p class="notice" style="margin-top:12px">
-    Not yet available - this proposal has no recorded <span class="mono">dry_run_json</span>, and
-    this button doesn't trigger a run yet (record one via the
-    <span class="mono">POST /proposals/{id}/dry-run</span> API). This panel will show the real
-    result here once it's recorded.
+    No dry-run recorded yet for this proposal - click "Run dry-run" above to compute one.
   </p>
   {% endif %}
 </div>

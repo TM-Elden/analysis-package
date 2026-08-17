@@ -629,12 +629,14 @@ dry-run-mandatory invariant.
   and re-renders `_proposal_detail_body.html` in place. `POST /console/standard/sweep` (the "Run
   planner sweep" button) now runs the real `ap_planner_bot` scan/detect/draft pipeline in-request
   (`fathm-p4-sweep` - see the dedicated section below). The dry-run panel
-  (`_dry_run_panel.html`, driven by `POST .../dry-run`) only ever echoes the proposal's existing
-  `dry_run_json` rather than triggering a run itself - the dry-run engine and its API trigger
-  (`POST /proposals/{id}/dry-run`) exist now (see "Apply-on-approve mechanism" below), but wiring
-  this console button to call `ProposalWorkflow.record_dry_run` is still a separate, unwired UI
-  task; until then `dry_run_json` only gets populated by calling the API route directly. `GET
-  /console/standard/changelog` remains a proposal-decision-history view (every non-`pending_hitl`
+  (`_dry_run_panel.html`, driven by `POST .../dry-run`) is wired for real (D4 fix, MVP review
+  `data/fathm-mvp-review/report.md` in the firstmate repo): the button calls
+  `ProposalWorkflow.record_dry_run` directly (`ap_console/routes.py::standard_dry_run` - same
+  engine `POST /proposals/{id}/dry-run` uses, not reimplemented), persists the result, and renders
+  it - previously it only ever echoed a pre-existing `dry_run_json`, which nothing in the console
+  ever populated, so a standard_approver could not approve a declarative proposal
+  (`profile_change`/`reason_code_add`) from the browser at all under the default
+  `require_dry_run_for_declarative` policy. `GET /console/standard/changelog` remains a proposal-decision-history view (every non-`pending_hitl`
   proposal from `ProposalStore.list`), distinct from - not a substitute for - the now-real `GET
   /standard/versions` (registry versions + changelogs; see "Apply-on-approve mechanism" below).
 
@@ -755,9 +757,8 @@ reimplemented here. See `tests/test_proposal_apply.py` for the acceptance-level 
   `POST /proposals/{id}/dry-run` (deliberately not role-gated - running one changes nothing
   decision-relevant by itself; `decide` still independently policy-checks). Code kinds skip this
   entirely and `record_dry_run` refuses them outright (`ProposalPolicyError`) - you cannot dry-run
-  a check that doesn't exist yet, so there is nothing to fake here, unlike the console dry-run
-  panel's honest-stub echo (see the Console "Standard" tab bullet above, still a separate,
-  unwired UI concern).
+  a check that doesn't exist yet, so there is nothing to fake here - the console dry-run panel
+  (see the Console "Standard" tab bullet above) now calls this same trigger for real (D4 fix).
 - **`GET /standard/versions`** (`src/ap_api/standard_routes.py`): supported `standard_version`s
   (`ap_gate.versions.supported_versions`, unrelated to profile versions) plus, per profile
   registry name (`ProfileRegistry.names()`, new - every name with a `_pointer.json`), its current
@@ -803,7 +804,14 @@ reused directly, not reimplemented.
     every finding need become a proposal, and this is not "no tool_uses -> refusal" (C4's fail-closed
     read of the same shape) but the opposite: silence here is a legitimate, expected outcome.
   - `draft_proposals` never lets one finding's bad draft abort a sweep - every discard reason is
-    counted (`SweepDraftResult.discarded`), not raised.
+    counted (`SweepDraftResult.discarded`), not raised. This includes the per-finding LLM call
+    itself failing (`LLMClientError` - rate limit, transport; `AnthropicHTTPClient` has no retry
+    logic) - `draft_for_finding` catches it around the `complete(...)` call and counts an
+    `"llm_error"` discard rather than letting it propagate (D1 fix, MVP review
+    `data/fathm-mvp-review/report.md` in the firstmate repo); `ap_console.routes.standard_sweep`
+    additionally wraps its own `run_sweep` call in the same try/except-and-flash pattern as
+    `console_review_action` as defense in depth, so the sweep button can never raw-500 even if
+    that per-finding guarantee is ever weakened.
 - **`python3 -m ap_planner_bot.sweep`** (`src/ap_planner_bot/sweep.py`): the actual entry point.
   `run_sweep` is the plain library call (scan -> detect -> draft -> persist) both callers share;
   `main()` resolves identity via `identity_from_env` (systemd/CLI path) and the store/index roots

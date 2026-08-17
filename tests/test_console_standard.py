@@ -21,7 +21,7 @@ from ap_proposals.workflow import ProposalWorkflow
 from ap_store.store import PackageStore
 
 from _planner_bot_corpus import build_drift_corpus_with_index
-from _planner_bot_fake_llm import ScriptedDraftingLLMClient
+from _planner_bot_fake_llm import RaisingOnceLLMClient, ScriptedDraftingLLMClient
 
 
 @pytest.fixture()
@@ -152,7 +152,50 @@ def test_sweep_button_drafts_real_proposals_from_a_seeded_drift_corpus(client_an
     index_store.close()
 
 
-def test_proposal_detail_renders_diff_evidence_and_dry_run_not_available(client_and_store):
+def test_sweep_button_discards_a_single_llm_error_and_continues_no_500(client_and_store, tmp_path):
+    """D1 regression, end to end through the real route: a raising fake client on one finding out
+    of a multi-finding drift corpus must not 500 the sweep button - the per-finding guard in
+    `ap_planner_bot.service` discards just that finding (a counted, visible `llm_error` reason)
+    and the rest of the sweep still runs, exactly as the console's other flash/notice patterns
+    expect."""
+    client, proposal_store, _auth = client_and_store
+    package_store, index_store = build_drift_corpus_with_index(tmp_path)
+    app.dependency_overrides[deps.get_store] = lambda: package_store
+    app.dependency_overrides[deps.get_index] = lambda: index_store
+    app.dependency_overrides[deps.get_llm_client] = lambda: RaisingOnceLLMClient(fail_on_call=1)
+    csrf = _login(client, "cap.tan", "pw-cap")
+
+    r = client.post("/console/standard/sweep", data={"status": "pending_hitl"}, headers={"X-Csrf": csrf})
+    assert r.status_code == 200
+    assert "llm_error" in r.text
+    package_store.close()
+    index_store.close()
+
+
+def test_sweep_button_renders_inline_flash_not_a_raw_500_when_run_sweep_itself_raises(client_and_store, monkeypatch):
+    """D1 route-level defense-in-depth: `standard_sweep`'s own try/except around `run_sweep` must
+    turn *any* `LLMClientError` that reaches the route - not just the per-finding case the service
+    layer already guards - into an inline `.flash` error, never a raw 500 (htmx's default swap
+    silently ignores non-2xx, which is exactly the failure mode D1 reported). Monkeypatches
+    `ap_console.routes.run_sweep` directly so this test exercises the route's own guard rather than
+    re-testing the service-layer guard covered above and in test_planner_bot_service.py."""
+    import ap_console.routes as routes_module
+    from ap_manager_bot.llm_client import LLMClientError
+
+    client, _proposal_store, _auth = client_and_store
+
+    def _raising_run_sweep(*args, **kwargs):
+        raise LLMClientError("simulated transport failure (429)")
+
+    monkeypatch.setattr(routes_module, "run_sweep", _raising_run_sweep)
+    csrf = _login(client, "cap.tan", "pw-cap")
+
+    r = client.post("/console/standard/sweep", data={"status": "pending_hitl"}, headers={"X-Csrf": csrf})
+    assert r.status_code == 200
+    assert 'class="flash"' in r.text
+
+
+def test_proposal_detail_renders_diff_evidence_and_no_dry_run_recorded_yet(client_and_store):
     client, store, _auth = client_and_store
     record = _create_proposal(store)
     _login(client, "cap.tan", "pw-cap")
@@ -161,7 +204,7 @@ def test_proposal_detail_renders_diff_evidence_and_dry_run_not_available(client_
     assert r.status_code == 200
     assert "SUPPLIER_CHANGE" in r.text  # after-diff content
     assert "pkg-1" in r.text and "pkg-2" in r.text  # evidence links
-    assert "not yet available" in r.text.lower()  # dry-run panel is honest about the stub
+    assert "no dry-run recorded yet" in r.text.lower()
 
 
 def test_proposal_detail_missing_proposal_is_404(client_and_store):
@@ -171,18 +214,53 @@ def test_proposal_detail_missing_proposal_is_404(client_and_store):
     assert r.status_code == 404
 
 
-def test_dry_run_button_shows_not_available_state_not_a_fake_result(client_and_store):
+def test_dry_run_button_actually_records_a_real_dry_run(client_and_store):
+    """D4: the console button now calls `ProposalWorkflow.record_dry_run` for real (previously it
+    only ever echoed a pre-existing `dry_run_json`, which nothing in the console ever populated).
+    Verified against the store, not just the rendered panel text."""
     client, store, _auth = client_and_store
     record = _create_proposal(store)
+    assert record.dry_run() is None
     csrf = _login(client, "cap.tan", "pw-cap")
 
     r = client.post(f"/console/standard/proposals/{record.proposal_id}/dry-run", headers={"X-Csrf": csrf})
     assert r.status_code == 200
-    assert "not yet available" in r.text.lower()
-    # The registry dry-run engine (fathm-p4-registry-dryrun) landed and is reachable via
-    # POST /proposals/{id}/dry-run - this console button just isn't wired to call it yet, so the
-    # panel should say that honestly rather than claim the engine itself doesn't exist.
-    assert "doesn't trigger a run yet" in r.text
+    assert "no dry-run recorded yet" not in r.text.lower()
+
+    updated = store.get(record.proposal_id)
+    assert updated.dry_run() is not None
+
+
+def test_dry_run_wiring_unblocks_an_approve_that_previously_flashed_no_recorded_dry_run(client_and_store):
+    """D4 acceptance: with `require_dry_run_for_declarative` on (the real default, unlike this
+    file's other tests which disable it to isolate decision-flow behavior), approving a
+    declarative proposal must fail until the dry-run is recorded, then succeed once the console's
+    "Run dry-run" button has actually run one."""
+    client, store, _auth = client_and_store
+    record = _create_proposal(store)
+    app.dependency_overrides[deps.get_proposal_workflow] = lambda: ProposalWorkflow(store=store)
+    csrf = _login(client, "cap.tan", "pw-cap")
+
+    blocked = client.post(
+        f"/console/standard/proposals/{record.proposal_id}/decision",
+        data={"to_status": "approved"},
+        headers={"X-Csrf": csrf},
+    )
+    assert blocked.status_code == 200
+    assert "dry-run" in blocked.text.lower()
+    assert store.get(record.proposal_id).status == "pending_hitl"
+
+    dry_run_resp = client.post(f"/console/standard/proposals/{record.proposal_id}/dry-run", headers={"X-Csrf": csrf})
+    assert dry_run_resp.status_code == 200
+    assert store.get(record.proposal_id).dry_run() is not None
+
+    approved = client.post(
+        f"/console/standard/proposals/{record.proposal_id}/decision",
+        data={"to_status": "approved"},
+        headers={"X-Csrf": csrf},
+    )
+    assert approved.status_code == 200
+    assert store.get(record.proposal_id).status == "approved"
 
 
 def test_approve_decision_changes_real_store_status(client_and_store):

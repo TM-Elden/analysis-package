@@ -42,7 +42,7 @@ from ap_console.deps import (
 from ap_console.gate_report import render_gate_report_html
 from ap_index.index_store import IndexStore
 from ap_lifecycle.workflow import LifecyclePolicyError, LifecycleWorkflow
-from ap_manager_bot.llm_client import LLMClient
+from ap_manager_bot.llm_client import LLMClient, LLMClientError
 from ap_planner_bot.analytics import build_snapshot, compute_corpus_analytics
 from ap_planner_bot.detectors import Finding, run_all_detectors
 from ap_planner_bot.scan import scan_corpus
@@ -390,21 +390,29 @@ def standard_sweep(
 
     notice = None
     if error is None:
-        result = run_sweep(
-            store=package_store,
-            index=index,
-            proposal_store=store,
-            llm_client=llm_client,
-            identity=identity,
-            notifier=notifier,
-        )
-        discarded = sum(result.discarded.values())
-        notice = (
-            f"Planner sweep: {len(result.created) + discarded} finding(s) scanned, "
-            f"{len(result.created)} proposal(s) created"
-            + (f", {discarded} discarded ({result.discarded})" if discarded else "")
-            + "."
-        )
+        try:
+            result = run_sweep(
+                store=package_store,
+                index=index,
+                proposal_store=store,
+                llm_client=llm_client,
+                identity=identity,
+                notifier=notifier,
+            )
+        except LLMClientError as exc:
+            # D1: draft_proposals/draft_for_finding already guard the per-finding LLM call and
+            # count an "llm_error" discard instead of raising - this except is defense in depth
+            # for any other LLMClientError surface (e.g. a future non-per-finding call), so the
+            # sweep button still never raw-500s even if that guarantee is ever weakened upstream.
+            error = f"Planner sweep failed to reach the model: {exc}"
+        else:
+            discarded = sum(result.discarded.values())
+            notice = (
+                f"Planner sweep: {len(result.created) + discarded} finding(s) scanned, "
+                f"{len(result.created)} proposal(s) created"
+                + (f", {discarded} discarded ({result.discarded})" if discarded else "")
+                + "."
+            )
 
     ctx = _proposal_queue_context(store, status=status, kind=kind, notice=notice)
     return templates.TemplateResponse(
@@ -517,23 +525,27 @@ def standard_dry_run(
     proposal_id: str,
     identity: Annotated[Identity, Depends(get_console_identity)],
     store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    workflow: Annotated[ProposalWorkflow, Depends(get_proposal_workflow)],
+    package_store: Annotated[PackageStore, Depends(get_store)],
 ) -> HTMLResponse:
-    """"Run dry-run" button target. Renders whatever `dry_run_json` already exists on the proposal
-    record (the real field `ap_proposals` stores it under) rather than computing anything itself.
-    The dry-run engine and its API trigger (`ProposalWorkflow.record_dry_run`,
-    `POST /proposals/{id}/dry-run`) exist and populate this field for real - but this button isn't
-    wired to call it, so `dry_run_json` here reflects whatever the API route (or a direct
-    `record_dry_run` call) has already recorded, never what this button itself computes. Wiring
-    this button to trigger a run is a separate, still-open UI task; this same rendering path picks
-    up real results with no template changes once it lands."""
+    """"Run dry-run" button target. Actually runs the dry-run now (D4 fix): calls
+    `ProposalWorkflow.record_dry_run` - the same engine `POST /proposals/{id}/dry-run` uses, not
+    reimplemented here - against the proposal's current `diff_json`, persists the result, and
+    renders it via the same `_dry_run_panel.html` path that used to only echo a pre-existing
+    result. This is what makes `ProposalWorkflow.decide`'s "no declarative approval without a
+    recorded dry-run" requirement satisfiable from the browser at all (previously only a direct
+    `POST /proposals/{id}/dry-run` API call, or a script, could populate `dry_run_json`)."""
     error = None
-    try:
-        verify_console_csrf(request)
-    except ConsoleCsrfInvalid:
-        error = "Security token expired or missing - refresh the page and try again."
     record = store.get(proposal_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"no such proposal: {proposal_id}")
+    try:
+        verify_console_csrf(request)
+        record = workflow.record_dry_run(proposal_id, package_store)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (ProposalPolicyError, ProposalStoreError) as exc:
+        error = str(exc)
     dry_run = record.dry_run()
     return templates.TemplateResponse(
         request,
