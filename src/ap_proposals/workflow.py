@@ -28,17 +28,21 @@ reject-requires-reason, dry-run-required); `ProposalStore.set_status` owns mecha
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_proposals.apply import apply_declarative, export_spec, run_dry_run
 from ap_proposals.kinds import CODE_KINDS, DECLARATIVE_KINDS, validate_diff
 from ap_proposals.models import ProposalRecord
+from ap_proposals.notify import ProposalNotifier
 from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore, ProposalStoreError
 from ap_registry.profile_registry import ProfileRegistry
+
+logger = logging.getLogger(__name__)
 
 # Allowed (from_status, to_status) pairs.
 TRANSITIONS: frozenset[tuple[str, str]] = frozenset(
@@ -69,10 +73,25 @@ class ProposalWorkflow:
     #: (see CLAUDE.md's ap_proposals section). Pass explicitly only for tests that want an
     #: isolated registry.
     registry: ProfileRegistry | None = None
+    #: Optional §5.8 notify-agents-v0 hook - `None` (the default) means "no notifier configured",
+    #: not an error; see ap_proposals.notify's module docstring for why this is a Protocol rather
+    #: than a hard ap_chat import.
+    notifier: ProposalNotifier | None = None
 
     def __post_init__(self) -> None:
         if self.registry is None:
             self.registry = ProfileRegistry(self.store.root)
+
+    def _notify(self, call: Callable[[ProposalNotifier], None]) -> None:
+        """Best-effort: a notifier failure is logged, never propagated - §5.8's "notification is
+        a courtesy, not the contract" applies to delivery failures the same way it applies to the
+        gate being the real enforcement."""
+        if self.notifier is None:
+            return
+        try:
+            call(self.notifier)
+        except Exception:  # noqa: BLE001 - deliberately broad, see docstring
+            logger.warning("proposal notifier raised - notification dropped", exc_info=True)
 
     def create(
         self,
@@ -89,9 +108,11 @@ class ProposalWorkflow:
         route is a later API addition, not a policy or schema change, so this deliberately does not
         encode a "bot vs. human" distinction anywhere.
         """
-        return self.store.create(
+        record = self.store.create(
             kind=kind, summary=summary, rationale=rationale, diff=diff, evidence=evidence, actor=actor
         )
+        self._notify(lambda notifier: notifier.notify_created(record))
+        return record
 
     def decide(
         self,
@@ -127,6 +148,7 @@ class ProposalWorkflow:
 
         applied_version: str | None = None
         spec_artifact_path: str | None = None
+        effective_diff: dict[str, Any] | None = None
         if to_status == "approved":
             effective_diff = edited_diff if edited_diff is not None else record.diff()
             if record.kind in DECLARATIVE_KINDS:
@@ -154,7 +176,7 @@ class ProposalWorkflow:
             else:  # pragma: no cover - unreachable, kind was already schema-validated at create time
                 raise ProposalPolicyError(f"unknown proposal kind {record.kind!r}")
 
-        return self.store.set_status(
+        decided = self.store.set_status(
             proposal_id,
             from_status=from_status,
             to_status=to_status,
@@ -164,6 +186,17 @@ class ProposalWorkflow:
             applied_version=applied_version,
             spec_artifact_path=spec_artifact_path,
         )
+        self._notify(lambda notifier: notifier.notify_decision(decided, from_status=from_status))
+        if applied_version is not None:
+            # effective_diff is guaranteed set here: applied_version is only ever non-None inside
+            # the `to_status == "approved"` / DECLARATIVE_KINDS branch above, which always sets it.
+            profile_name = effective_diff["profile"]
+            self._notify(
+                lambda notifier: notifier.notify_version_released(
+                    decided, profile_name=profile_name, version=applied_version
+                )
+            )
+        return decided
 
     def record_dry_run(self, proposal_id: str, package_store: Any, *, edited_diff: dict[str, Any] | None = None) -> ProposalRecord:
         """Run `ap_planner_bot.dry_run.dry_run` for a still-`pending_hitl` declarative-kind

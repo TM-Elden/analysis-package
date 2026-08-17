@@ -20,7 +20,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from ap_api.deps import get_index, get_llm_client, get_proposal_store, get_proposal_workflow, get_store, get_workflow
+from ap_api.deps import (
+    get_index,
+    get_llm_client,
+    get_proposal_notifier,
+    get_proposal_store,
+    get_proposal_workflow,
+    get_store,
+    get_workflow,
+)
 from ap_auth.identity import Identity
 from ap_console.deps import (
     ConsoleAuthRequired,
@@ -34,6 +42,7 @@ from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import LLMClient
 from ap_planner_bot.sweep import run_sweep
 from ap_proposals.kinds import ProposalValidationError
+from ap_proposals.notify import ProposalNotifier
 from ap_proposals.store import ListFilter as ProposalListFilter
 from ap_proposals.store import ProposalStore, ProposalStoreError
 from ap_proposals.workflow import ProposalPolicyError, ProposalWorkflow
@@ -285,6 +294,7 @@ def standard_sweep(
     package_store: Annotated[PackageStore, Depends(get_store)],
     index: Annotated[IndexStore, Depends(get_index)],
     llm_client: Annotated[LLMClient, Depends(get_llm_client)],
+    notifier: Annotated[ProposalNotifier | None, Depends(get_proposal_notifier)],
     status: str = "pending_hitl",
     kind: str | None = None,
 ) -> HTMLResponse:
@@ -307,7 +317,12 @@ def standard_sweep(
     notice = None
     if error is None:
         result = run_sweep(
-            store=package_store, index=index, proposal_store=store, llm_client=llm_client, identity=identity
+            store=package_store,
+            index=index,
+            proposal_store=store,
+            llm_client=llm_client,
+            identity=identity,
+            notifier=notifier,
         )
         discarded = sum(result.discarded.values())
         notice = (

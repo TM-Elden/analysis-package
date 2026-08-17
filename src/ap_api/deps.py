@@ -19,8 +19,10 @@ from ap_auth.csrf import csrf_token_matches
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import DEFAULT_AUTH_DB, AuthStore
+from ap_chat.telegram.notify import notifier_from_env
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import AnthropicHTTPClient, LLMClient
+from ap_proposals.notify import ProposalNotifier
 from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore
 from ap_proposals.workflow import ProposalWorkflow
@@ -96,10 +98,21 @@ def get_proposal_store() -> ProposalStore:
     return ProposalStore(DEFAULT_STORE_ROOT)
 
 
-def get_proposal_workflow(store: Annotated[ProposalStore, Depends(get_proposal_store)]) -> ProposalWorkflow:
+@lru_cache(maxsize=1)
+def get_proposal_notifier() -> ProposalNotifier | None:
+    """§5.8 notify-agents-v0: `None` unless `TELEGRAM_BOT_TOKEN` + `AP_CHAT_NOTIFY_CHAT_ID` are
+    both set - see `ap_chat.telegram.notify.notifier_from_env`. Cached like the other singleton
+    dependencies above; tests override this the same way they override `get_llm_client`."""
+    return notifier_from_env()
+
+
+def get_proposal_workflow(
+    store: Annotated[ProposalStore, Depends(get_proposal_store)],
+    notifier: Annotated[ProposalNotifier | None, Depends(get_proposal_notifier)],
+) -> ProposalWorkflow:
     """Same dependency-injection reasoning as get_workflow above - takes `store` as a Depends
     parameter so `app.dependency_overrides[get_proposal_store]` reaches every ProposalWorkflow."""
-    return ProposalWorkflow(store=store, policy=ProposalPolicy())
+    return ProposalWorkflow(store=store, policy=ProposalPolicy(), notifier=notifier)
 
 
 def identity_from_request(
