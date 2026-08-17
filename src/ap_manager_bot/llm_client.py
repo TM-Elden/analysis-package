@@ -22,9 +22,12 @@ from typing import Any, Protocol
 
 import httpx
 
-#: Overridable so a tenant can pin whichever model id the captain's posture approves; no single
-#: model id is "the" approved one baked in here - see the module docstring.
-DEFAULT_MODEL = os.environ.get("AP_MANAGER_BOT_MODEL", "claude-sonnet-5")
+#: Required, not defaulted (D6, `data/fathm-mvp-review/report.md` section 5 item 5): a tenant must
+#: pin whichever model id the captain's posture approves via AP_MANAGER_BOT_MODEL - there is no
+#: silent fallback baked in here, see the module docstring. Resolved at AnthropicHTTPClient
+#: construction time (not import time), so setting the env var after import still takes effect -
+#: see `__init__` below.
+_MODEL_ENV_VAR = "AP_MANAGER_BOT_MODEL"
 _API_URL = "https://api.anthropic.com/v1/messages"
 _API_VERSION = "2023-06-01"
 DEFAULT_MAX_TOKENS = 1024
@@ -48,17 +51,21 @@ class AnthropicHTTPClient:
         self,
         *,
         api_key: str | None = None,
-        model: str = DEFAULT_MODEL,
+        model: str | None = None,
         timeout: float = 60.0,
         transport: httpx.BaseTransport | None = None,
     ):
+        # Deliberately does NOT raise here (D5, `data/fathm-mvp-review/report.md` section 5 item 5):
+        # this constructor runs inside FastAPI dependency resolution (`ap_api/deps.py::get_llm_client`),
+        # *before* a route body executes - raising here would produce a raw 500 that never reaches
+        # any of the three call sites' own clean-error handling (the SSE route's error event, the
+        # JSON route's HTTPException mapping, the console sweep button's inline flash). Missing
+        # config is instead surfaced from `complete()`, the first point that actually needs it - see
+        # that method below. Also resolved here (construction time), not at import time (the old
+        # module-level `DEFAULT_MODEL = os.environ.get(...)` bug this replaces) - setting either env
+        # var after import now takes effect on the next `get_llm_client()` call.
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not self.api_key:
-            raise LLMClientError(
-                "ANTHROPIC_API_KEY is not set - required to call the captain-approved frontier-model "
-                "API (see llm_client.py module docstring for the egress-posture decision this backs)"
-            )
-        self.model = model
+        self.model = model or os.environ.get(_MODEL_ENV_VAR)
         # `transport` is a test seam (httpx.MockTransport) - production never sets it, so this
         # still opens a real HTTPS connection pool by default.
         self._client = httpx.Client(timeout=timeout, transport=transport)
@@ -73,6 +80,16 @@ class AnthropicHTTPClient:
         self.close()
 
     def complete(self, *, system: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+        if not self.api_key:
+            raise LLMClientError(
+                "ANTHROPIC_API_KEY is not set - required to call the captain-approved frontier-model "
+                "API (see llm_client.py module docstring for the egress-posture decision this backs)"
+            )
+        if not self.model:
+            raise LLMClientError(
+                f"{_MODEL_ENV_VAR} is not set - required model id, no default is baked in (D6, "
+                "see llm_client.py module docstring and CLAUDE.md's C4 section)"
+            )
         response = self._client.post(
             _API_URL,
             headers={

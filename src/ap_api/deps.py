@@ -70,9 +70,13 @@ def get_index() -> IndexStore:
 
 @lru_cache(maxsize=1)
 def get_llm_client() -> LLMClient:
-    """Constructed lazily (not at import time) so a server that never gets a /chat/manager request
-    doesn't require ANTHROPIC_API_KEY to boot; tests override this dependency rather than setting a
-    real key - see tests/test_manager_bot_api.py."""
+    """Constructing `AnthropicHTTPClient` never raises (D5, `data/fathm-mvp-review/report.md`
+    section 5 item 5): a server that never gets a /chat/manager (or sweep) request doesn't require
+    ANTHROPIC_API_KEY/AP_MANAGER_BOT_MODEL to boot, and a request that does hit a misconfigured
+    server fails inside `complete()` - late enough that every call site's own error handling
+    (chat_routes.py's SSE error event and HTTPException mapping, ap_console's sweep-button flash)
+    actually gets a chance to run, instead of a raw 500 out of dependency resolution. Tests override
+    this dependency rather than setting a real key - see tests/test_manager_bot_api.py."""
     return AnthropicHTTPClient()
 
 

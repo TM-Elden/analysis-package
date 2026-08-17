@@ -1,0 +1,33 @@
+[Unit]
+Description=fathm API + console server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/WorkingDirectory/ExecStart for the real deployment path - this assumes a venv (or
+# PYTHONPATH=src checkout) owned by a dedicated "fathm" service user, mirroring
+# fathm-chat-telegram.service's assumptions. See docs/deployment.md for the full setup this unit
+# assumes is already done (env vars, tailscale serve).
+User=fathm
+WorkingDirectory=/opt/fathm
+Environment=PYTHONPATH=/opt/fathm/src
+EnvironmentFile=/etc/fathm/api.env
+ExecStart=/opt/fathm/.venv/bin/ap-api
+
+# Same outer safety net as fathm-chat-telegram.service - systemd restarts the process if it dies
+# outright (unhandled exception, OOM); this is the primary application server, so it also gets a
+# generous StartLimitBurst rather than flapping into a stopped state on a bad deploy.
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# Light sandboxing - this process needs outbound HTTPS (the C4/C6 LLM call, ANTHROPIC_API_KEY),
+# inbound loopback (fronted by `tailscale serve`, see docs/deployment.md), and its own state files.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/fathm/.fathm
+
+[Install]
+WantedBy=multi-user.target

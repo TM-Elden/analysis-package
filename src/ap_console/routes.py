@@ -402,9 +402,11 @@ def standard_sweep(
         except LLMClientError as exc:
             # D1: draft_proposals/draft_for_finding already guard the per-finding LLM call and
             # count an "llm_error" discard instead of raising - this except is defense in depth
-            # for any other LLMClientError surface (e.g. a future non-per-finding call), so the
-            # sweep button still never raw-500s even if that guarantee is ever weakened upstream.
-            error = f"Planner sweep failed to reach the model: {exc}"
+            # for any other LLMClientError surface (e.g. a future non-per-finding call, or a
+            # misconfigured server with no ANTHROPIC_API_KEY/AP_MANAGER_BOT_MODEL, D5 - see
+            # `data/fathm-mvp-review/report.md` section 5 item 5), so the sweep button still
+            # never raw-500s even if that guarantee is ever weakened upstream.
+            error = f"Planner sweep could not reach the LLM: {exc}"
         else:
             discarded = sum(result.discarded.values())
             notice = (
