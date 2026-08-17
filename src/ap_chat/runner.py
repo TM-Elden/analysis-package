@@ -102,6 +102,19 @@ class BotRunner:
     def _handle_message(self, message: IncomingMessage) -> None:
         identity = self.identity_map.resolve(message.platform_user_id)
         if identity is None:
+            # P5.4 reload-on-miss: a just-provisioned planner's id won't be in the snapshot the
+            # process loaded at startup - reload once and retry before refusing, so provisioning
+            # via the console admin flow works without bouncing the systemd unit. Not a file
+            # watcher and not per-message: this only fires on an actual resolve-miss, and only
+            # once per miss (a genuinely-unmapped id still costs exactly one extra reload, not a
+            # retry loop).
+            try:
+                self.identity_map.load()
+            except Exception:
+                logger.warning("allowlist reload-on-miss failed, continuing with stale map", exc_info=True)
+            else:
+                identity = self.identity_map.resolve(message.platform_user_id)
+        if identity is None:
             logger.info("refusing message from unmapped platform user %r", message.platform_user_id)
             if self.reply_when_unauthorized:
                 self.stats.unauthorized_replies += 1

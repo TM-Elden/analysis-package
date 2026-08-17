@@ -16,6 +16,7 @@ from ap_api.app import app
 from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
+from ap_chat.identity_map import read_entries
 from ap_gate.load_manifest import load_manifest
 from ap_index.index_store import IndexStore
 from ap_index.reindex import reindex_package
@@ -27,13 +28,18 @@ from conftest import EXAMPLE_PACKAGE
 
 
 @pytest.fixture()
-def client_and_store(tmp_path):
+def client_and_store(tmp_path, monkeypatch):
     store = PackageStore(tmp_path / "store")
     index = IndexStore(tmp_path / "index")
     auth_store = AuthStore(tmp_path / "auth.sqlite3")
     app.dependency_overrides[deps.get_store] = lambda: store
     app.dependency_overrides[deps.get_index] = lambda: index
     app.dependency_overrides[deps.get_auth_store] = lambda: auth_store
+    # P5.4 team-bot provisioning writes here - a per-test tmp_path keeps the file isolated and,
+    # since it doesn't exist until the first provision, exercises the "file doesn't exist yet"
+    # path `read_entries`/`add_entry` are built to tolerate.
+    allowlist_path = tmp_path / "chat_telegram_allowlist.json"
+    monkeypatch.setenv("AP_CHAT_ALLOWLIST_PATH", str(allowlist_path))
 
     auth_store.create_user("root.admin", display_name="Root", roles=frozenset({Role.ADMIN}), password="pw-admin")
     auth_store.create_user("tom.analyst", display_name="Tom", roles=frozenset({Role.ANALYST}), password="pw-tom")
@@ -58,6 +64,7 @@ def _login(client: TestClient, user_id: str, password: str) -> str:
 
 _ADMIN_GET_PATHS = [
     "/console/admin/users",
+    "/console/admin/team-bot",
     "/console/admin/index-health",
     "/console/admin/settings",
 ]
@@ -380,3 +387,138 @@ def test_standard_changelog_shows_registry_pointer_state(client_and_store, tmp_p
         assert "0.1" in r.text
     finally:
         proposal_store.close()
+
+
+# -- team bot access (P5.4) -----------------------------------------------------------------------
+
+
+def test_team_bot_post_routes_403_for_non_admin_identity(client_and_store):
+    client, _store, _index, _auth = client_and_store
+    csrf = _login(client, "tom.analyst", "pw-tom")
+    r = client.post(
+        "/console/admin/team-bot",
+        data={"fathm_user_id": "planner.x", "display_name": "X", "telegram_user_id": "1"},
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 403
+
+
+def test_provision_team_bot_creates_user_token_and_allowlist_row(client_and_store, tmp_path):
+    client, _store, _index, auth_store = client_and_store
+    csrf = _login(client, "root.admin", "pw-admin")
+
+    r = client.post(
+        "/console/admin/team-bot",
+        data={
+            "fathm_user_id": "planner.alice",
+            "display_name": "Alice Planner",
+            "telegram_user_id": "555000111",
+        },
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+    assert "provisioned" in r.text.lower()
+
+    # 1. Service-account user created, no password, default team_reader role.
+    user = auth_store.get_user("planner.alice")
+    assert user is not None
+    assert user.has_password is False
+    assert user.roles == "team_reader"
+    assert user.disabled is False
+
+    # 2. A live (non-revoked) bearer token exists for that user.
+    bearer_sessions = [s for s in auth_store.list_sessions("planner.alice") if s.kind == "bearer"]
+    assert len(bearer_sessions) == 1
+    assert bearer_sessions[0].revoked is False
+
+    # 3. The allowlist file gets the correct entry, written atomically.
+    allowlist_path = tmp_path / "chat_telegram_allowlist.json"
+    entries = read_entries(allowlist_path)
+    assert set(entries) == {"555000111"}
+    assert entries["555000111"].fathm_user_id == "planner.alice"
+    assert list(allowlist_path.parent.glob(".allowlist-*.tmp")) == []
+
+    # The access-list table renders the provisioned member.
+    assert "555000111" in r.text
+    assert "planner.alice" in r.text
+
+
+def test_provision_team_bot_with_explicit_roles(client_and_store, tmp_path):
+    client, _store, _index, auth_store = client_and_store
+    csrf = _login(client, "root.admin", "pw-admin")
+
+    r = client.post(
+        "/console/admin/team-bot",
+        data={
+            "fathm_user_id": "planner.bob",
+            "display_name": "Bob Planner",
+            "telegram_user_id": "555000222",
+            "roles": ["team_reader", "company_reader"],
+        },
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+    user = auth_store.get_user("planner.bob")
+    assert set(user.roles.split(",")) == {"team_reader", "company_reader"}
+
+
+def test_raw_token_never_appears_in_the_provisioning_response_or_access_list(client_and_store, tmp_path):
+    """Real test per the acceptance criterion: the raw bearer token is never displayed (unlike the
+    users & access tab's one-time-shown token issuance) - it goes straight into the allowlist file
+    and the console never echoes it back."""
+    client, _store, _index, auth_store = client_and_store
+    csrf = _login(client, "root.admin", "pw-admin")
+
+    r = client.post(
+        "/console/admin/team-bot",
+        data={"fathm_user_id": "planner.carol", "display_name": "Carol", "telegram_user_id": "555000333"},
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+
+    allowlist_path = tmp_path / "chat_telegram_allowlist.json"
+    raw_token = read_entries(allowlist_path)["555000333"].token
+    assert raw_token not in r.text
+
+    # And the access-list re-render (GET) never leaks it either.
+    r2 = client.get("/console/admin/team-bot")
+    assert raw_token not in r2.text
+
+
+def test_revoke_team_bot_removes_allowlist_row_and_disables_the_token(client_and_store, tmp_path):
+    client, _store, _index, auth_store = client_and_store
+    csrf = _login(client, "root.admin", "pw-admin")
+
+    client.post(
+        "/console/admin/team-bot",
+        data={"fathm_user_id": "planner.dave", "display_name": "Dave", "telegram_user_id": "555000444"},
+        headers={"X-Csrf": csrf},
+    )
+    allowlist_path = tmp_path / "chat_telegram_allowlist.json"
+    raw_token = read_entries(allowlist_path)["555000444"].token
+
+    r = client.post("/console/admin/team-bot/555000444/revoke", headers={"X-Csrf": csrf})
+    assert r.status_code == 200
+    assert "revoked" in r.text.lower()
+
+    # Allowlist row is gone.
+    assert "555000444" not in read_entries(allowlist_path)
+
+    # The user is disabled, and a disabled user's token resolves to no identity - real test against
+    # AuthStore, not just a status flag.
+    assert auth_store.get_user("planner.dave").disabled is True
+    assert auth_store.identity_for_token(raw_token) is None
+
+
+def test_provisioning_rejects_a_blank_telegram_id(client_and_store):
+    client, _store, _index, auth_store = client_and_store
+    csrf = _login(client, "root.admin", "pw-admin")
+
+    r = client.post(
+        "/console/admin/team-bot",
+        data={"fathm_user_id": "planner.eve", "display_name": "Eve", "telegram_user_id": "   "},
+        headers={"X-Csrf": csrf},
+    )
+    assert r.status_code == 200
+    assert "flash" in r.text
+    assert auth_store.get_user("planner.eve") is None  # nothing created on a rejected submit

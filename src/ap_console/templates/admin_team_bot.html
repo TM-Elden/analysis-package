@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Admin · team bot access{% endblock %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+{% include "_admin_subnav.html" %}
+<div class="eyebrow">the chart room</div>
+<h1>Team bot access</h1>
+<p style="color:var(--drift);font-size:14px;margin:0">
+  Provisioning a Telegram user id here composes the three steps
+  <span class="mono">docs/telegram-bot-setup.md</span> previously documented as manual operator
+  work: a password-less service account, a bearer token, and an allowlist row - all in one submit.
+  The raw token is never shown or logged; it goes straight into the allowlist file. Revoking
+  disables the fathm user (which also revokes every token they hold) and removes their allowlist
+  row.
+</p>
+{% include "_admin_team_bot_body.html" %}
+{% endblock %}

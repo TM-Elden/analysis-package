@@ -15,6 +15,7 @@ CLAUDE.md's Phase 3 console section).
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -24,6 +25,7 @@ from ap_api.deps import DEFAULT_INDEX_ROOT, DEFAULT_STORE_ROOT, get_auth_store, 
 from ap_auth.identity import Identity, IdentityError, parse_roles
 from ap_auth.roles import Role
 from ap_auth.store import AuthError, AuthStore, LastAdminError
+from ap_chat.identity_map import DEFAULT_ALLOWLIST_PATH, AllowlistError, add_entry, read_entries, remove_entry
 from ap_console.deps import ConsoleCsrfInvalid, console_csrf_token, require_console_admin, verify_console_csrf
 from ap_console.routes import _render, templates
 from ap_index.index_store import IndexStore
@@ -245,6 +247,137 @@ def admin_revoke_session(
     except AuthError as exc:
         error = str(exc)
     return _user_detail_response(request, identity, auth_store, user_id, error=error, notice=notice)
+
+
+# -- team bot access (P5.4, absorbs the queued fathm-phase3-team-bot-provisioning task) ------------
+#
+# Composes three existing primitives - `AuthStore.create_user(password=None)`,
+# `AuthStore.create_service_token`, and the `ap_chat.identity_map` allowlist file - into the one
+# console flow `docs/telegram-bot-setup.md`'s §2/§3 previously documented as manual operator steps.
+# `ap_chat.runner.BotRunner`'s reload-on-miss (`runner.py::_handle_message`) is what makes a
+# just-provisioned planner's first message work without bouncing the systemd unit.
+
+
+def _allowlist_path() -> Path:
+    """Same env var / default the chat bot itself resolves (`ap_chat.telegram.__main__`) - reading
+    that module's `DEFAULT_ALLOWLIST_PATH` constant, not a second literal, keeps the two in sync
+    without either importing the other's entrypoint."""
+    return Path(os.environ.get("AP_CHAT_ALLOWLIST_PATH", str(DEFAULT_ALLOWLIST_PATH))).expanduser()
+
+
+def _team_bot_context(auth_store: AuthStore, *, error: str | None = None, notice: str | None = None) -> dict:
+    path = _allowlist_path()
+    try:
+        entries = read_entries(path)
+    except AllowlistError as exc:
+        entries = {}
+        error = error or str(exc)
+    members: list[dict] = []
+    for telegram_id, mapped in sorted(entries.items()):
+        user = auth_store.get_user(mapped.fathm_user_id)
+        token_issued_at = None
+        if user is not None:
+            live_tokens = [s for s in auth_store.list_sessions(mapped.fathm_user_id) if s.kind == "bearer" and not s.revoked]
+            if live_tokens:
+                token_issued_at = live_tokens[0].created_at  # list_sessions is newest-first
+        members.append(
+            {
+                "telegram_id": telegram_id,
+                "fathm_user_id": mapped.fathm_user_id,
+                "display_name": user.display_name if user is not None else "(no matching user - orphaned entry)",
+                "disabled": user.disabled if user is not None else True,
+                "token_issued_at": token_issued_at,
+            }
+        )
+    return {
+        "members": members,
+        "roles": list(Role),
+        "allowlist_path": str(path),
+        "error": error,
+        "notice": notice,
+    }
+
+
+@router.get("/team-bot", response_class=HTMLResponse)
+def admin_team_bot(
+    request: Request,
+    identity: Annotated[Identity, Depends(require_console_admin)],
+    auth_store: Annotated[AuthStore, Depends(get_auth_store)],
+) -> HTMLResponse:
+    return _render(request, "admin_team_bot.html", identity, **_team_bot_context(auth_store))
+
+
+@router.post("/team-bot", response_class=HTMLResponse)
+def admin_provision_team_bot(
+    request: Request,
+    identity: Annotated[Identity, Depends(require_console_admin)],
+    auth_store: Annotated[AuthStore, Depends(get_auth_store)],
+    fathm_user_id: Annotated[str, Form()],
+    display_name: Annotated[str, Form()],
+    telegram_user_id: Annotated[str, Form()],
+    roles: Annotated[list[str], Form()] = [],
+) -> HTMLResponse:
+    error = None
+    notice = None
+    try:
+        verify_console_csrf(request)
+        telegram_id = telegram_user_id.strip()
+        if not telegram_id:
+            raise AuthError("Telegram user id must be non-empty")
+        role_set = parse_roles(",".join(roles)) if roles else frozenset({Role.TEAM_READER})
+        # Three-step provision, composed. Not a real cross-store transaction (a SQL DB and a JSON
+        # file can't share one - same honest framing as ap_proposals.apply's "ordering, not a
+        # shared transaction" contract) - if the allowlist write fails after the user/token already
+        # exist, disable the just-created user (which also revokes the token, via set_disabled's
+        # existing behavior) so a failed provision never leaves a live, unreachable account behind.
+        auth_store.create_user(
+            fathm_user_id, display_name=display_name, roles=role_set, password=None, actor=identity
+        )
+        try:
+            raw_token = auth_store.create_service_token(fathm_user_id, actor=identity)
+            add_entry(_allowlist_path(), telegram_id, fathm_user_id=fathm_user_id, token=raw_token)
+        except (OSError, AllowlistError, AuthError) as exc:
+            auth_store.set_disabled(fathm_user_id, True, actor=identity)
+            raise AuthError(f"failed to provision team bot, rolled back: {exc}") from exc
+        # `raw_token` is never referenced again past this point - never in `notice`, never logged.
+        notice = f"provisioned {fathm_user_id!r} for Telegram user {telegram_id!r}."
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (AuthError, IdentityError) as exc:
+        error = str(exc)
+    ctx = _team_bot_context(auth_store, error=error, notice=notice)
+    return templates.TemplateResponse(
+        request, "_admin_team_bot_body.html", {"csrf_token": console_csrf_token(request), **ctx}
+    )
+
+
+@router.post("/team-bot/{telegram_user_id}/revoke", response_class=HTMLResponse)
+def admin_revoke_team_bot(
+    request: Request,
+    telegram_user_id: str,
+    identity: Annotated[Identity, Depends(require_console_admin)],
+    auth_store: Annotated[AuthStore, Depends(get_auth_store)],
+) -> HTMLResponse:
+    error = None
+    notice = None
+    try:
+        verify_console_csrf(request)
+        path = _allowlist_path()
+        entries = read_entries(path)
+        mapped = entries.get(telegram_user_id)
+        if mapped is None:
+            raise AuthError(f"no such provisioned Telegram user: {telegram_user_id!r}")
+        auth_store.set_disabled(mapped.fathm_user_id, True, actor=identity)
+        remove_entry(path, telegram_user_id)
+        notice = f"revoked access for {mapped.fathm_user_id!r} (Telegram id {telegram_user_id!r})."
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+    except (AuthError, LastAdminError, AllowlistError, OSError) as exc:
+        error = str(exc)
+    ctx = _team_bot_context(auth_store, error=error, notice=notice)
+    return templates.TemplateResponse(
+        request, "_admin_team_bot_body.html", {"csrf_token": console_csrf_token(request), **ctx}
+    )
 
 
 # -- index health (C14 fail-closed visibility) -------------------------------
