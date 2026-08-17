@@ -13,10 +13,12 @@ from fastapi.testclient import TestClient
 
 import ap_api.deps as deps
 from ap_api.app import app
+from ap_auth.identity import Identity
 from ap_auth.roles import Role
 from ap_auth.store import AuthStore
 from ap_index.index_store import IndexStore
 from ap_index.models import SearchFilters
+from ap_lifecycle.workflow import LifecycleWorkflow
 from ap_store.store import PackageStore
 from conftest import EXAMPLE_PACKAGE
 
@@ -226,6 +228,26 @@ def test_export_succeeds_for_analyst(client_and_store):
     r = client.get(f"/packages/{pkg['package_id']}/export", params={"version": pkg["package_version"]}, headers=_csrf(analyst))
     assert r.status_code == 200
     assert len(r.content) > 0
+
+
+def test_export_of_a_purged_package_is_404_not_500(client_and_store):
+    """`GET /packages/{id}/export` on a purged package must 404, not 500 - the blob a purge
+    unlinks is exactly the blob `BlobStore.get` would otherwise raise a raw FileNotFoundError
+    trying to read, so the route must reject a purged record before ever touching the blob store."""
+    client, store, _index, _tmp, _auth = client_and_store
+    pkg = _publish_submit_approve(client, store)
+
+    admin_identity = Identity(id="root.admin", roles=frozenset({Role.ADMIN}))
+    workflow = LifecycleWorkflow(store=store)
+    workflow.recall(pkg["package_id"], pkg["package_version"], actor=admin_identity, reason="bad data")
+    purged = workflow.purge(pkg["package_id"], pkg["package_version"], actor=admin_identity, reason="retention")
+    assert purged.purged_at is not None
+
+    admin = _login(client, "root.admin", "pw-root")
+    r = client.get(
+        f"/packages/{pkg['package_id']}/export", params={"version": pkg["package_version"]}, headers=_csrf(admin)
+    )
+    assert r.status_code == 404, r.text
 
 
 def test_legal_hold_set_and_clear(client_and_store):

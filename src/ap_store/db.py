@@ -6,10 +6,12 @@ needed it is a store-level concept layered on top of this module (e.g. one `Pack
 tenant), not a column threaded through every query here - see CLAUDE.md for the explicit rationale.
 
 `packages` rows are one per immutable `(package_id, package_version)` pair - see ap_store.store for
-the immutability contract. `status` is the one mutable column: it is the review workflow's current
-state (ap_review), tracked separately from whatever `qa.status` the immutable manifest bytes
-happened to declare at publish time (mirrors the existing ap_gate precedent that a package's
-manifest-declared qa.checks[] is historical, not the live source of truth - see CLAUDE.md).
+the immutability contract. `status` is the one mutable column: it is the review/lifecycle workflow's
+current state (ap_review's draft/in_review/approved/rejected, plus ap_lifecycle's
+superseded/recalled/purged layered on top - see CLAUDE.md's Phase 5 section), tracked separately
+from whatever `qa.status` the immutable manifest bytes happened to declare at publish time (mirrors
+the existing ap_gate precedent that a package's manifest-declared qa.checks[] is historical, not the
+live source of truth - see CLAUDE.md).
 
 `store_settings` (P5.3) is a small audited tenant/store-level config KV table - it lives here, not
 in `auth.sqlite3`, because store/tenant configuration (e.g. `retention_days`, read by the C12

@@ -15,7 +15,8 @@ class PackageRecord:
     title: str
     as_of: str
     created_at: str  # store-assigned publish time, distinct from the manifest's own created_at
-    status: str  # live ap_review workflow status: draft | in_review | approved | rejected
+    status: str  # live status: draft | in_review | approved | rejected (ap_review), plus
+    # superseded | recalled | purged (ap_lifecycle, C12 - see CLAUDE.md's Phase 5 section)
     blob_sha256: str
     analyst_id: str | None
     reviewer_id: str | None

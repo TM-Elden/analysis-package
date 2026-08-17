@@ -11,9 +11,10 @@ Immutability: a given `(package_id, package_version)` is written once. Publishin
 again with byte-identical content is a no-op (idempotent retry, e.g. an agent retrying after a
 network hiccup); publishing it again with *different* content raises ImmutabilityError - an edit
 must bump `package_version` and publish that as a new row, never overwrite. `status`, however, is a
-mutable column: it is ap_review's live workflow status, intentionally decoupled from whatever
-`qa.status` the immutable manifest happened to declare at publish time (see ap_store.db module
-docstring, and CLAUDE.md).
+mutable column: it is the live review/lifecycle workflow status (ap_review, plus ap_lifecycle's
+supersede/recall/purge states layered on top - see CLAUDE.md's Phase 5 section), intentionally
+decoupled from whatever `qa.status` the immutable manifest happened to declare at publish time (see
+ap_store.db module docstring, and CLAUDE.md).
 
 Single-tenant by design - see ap_store.db.
 """

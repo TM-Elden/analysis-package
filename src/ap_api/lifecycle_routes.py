@@ -132,6 +132,8 @@ def export_package(
     `ap_manager_bot.scoping` already uses for `internal_restricted` content - an export is the full
     raw bytes including unredacted author fields, not the redacted index view."""
     record = store.get(package_id, version)
+    # A purged record's blob is gone (PackageStore.purge unlinks it once unreferenced) - treat it
+    # as not-found here rather than letting BlobStore.get below raise a raw FileNotFoundError.
     if record is None or record.purged_at is not None:
         raise HTTPException(status_code=404, detail=f"no such package_version: {package_id}/{version}")
     blob = store.blob_store.get(record.blob_sha256)
