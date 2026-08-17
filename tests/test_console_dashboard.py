@@ -7,8 +7,6 @@ repo. `base_url="https://testserver"` is required for the same reason test_conso
 
 from __future__ import annotations
 
-import json
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -176,3 +174,27 @@ def test_dashboard_rendered_html_has_no_person_identifiers(client_and_store, tmp
     r = client.post("/console/dashboard/recompute", headers={"X-Csrf": csrf})
     assert ANALYST.id not in r.text
     assert REVIEWER.id not in r.text
+
+
+def test_recompute_csrf_failure_preserves_the_latest_snapshot(client_and_store, tmp_path):
+    """Regression for the CSRF-failure fragment discarding an already-recorded snapshot: a bad
+    X-Csrf on a later click must not make the fragment render as if nothing had ever been
+    scanned - it should keep showing the last successful recompute's numbers alongside the error
+    flash, and must not append a second snapshot row."""
+    client, _store, _prop_store = client_and_store
+    store = _swap_in_drift_store(tmp_path)
+    csrf = _login(client)
+
+    ok = client.post("/console/dashboard/recompute", headers={"X-Csrf": csrf})
+    assert ok.status_code == 200
+    assert "No scan has ever run yet" not in ok.text
+    assert len(read_snapshots(store.root)) == 1
+
+    bad = client.post("/console/dashboard/recompute", headers={"X-Csrf": "wrong-token"})
+    assert bad.status_code == 200
+    assert "Security token expired or missing" in bad.text
+    # the prior scan's tier-2 numbers must still render, not the "never scanned" empty state.
+    assert "No scan has ever run yet" not in bad.text
+    assert "engines_pinned" in bad.text
+    # a rejected recompute must not itself append a new (unrecorded-scan) snapshot row.
+    assert len(read_snapshots(store.root)) == 1
