@@ -66,7 +66,7 @@ class FormattedScriptedLLMClient(LLMClient):
         else:
             top = results[0]
             citations = [{"ref_id": top["ref_id"]}]
-            lead = f"This was held for a documented planning reason, not a data error."
+            lead = "This was held for a documented planning reason, not a data error."
             detail = f"Source: {top['package_id']} ({top['chunk_type']} {top['field_path']})."
             answer_input = {"answer": f"{lead}\n{detail}", "no_evidence": False, "citations": citations}
         return {
