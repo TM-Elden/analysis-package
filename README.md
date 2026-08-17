@@ -2,11 +2,17 @@
 
 **fathm** *(v.)* - to understand something fully, down to its source.
 
-**Product:** fathm  
-**Format / standard:** Analysis Package (`ap/0.2`)
+## Vision (canonical)
 
-> Understand every analysis fully, down to its source.  
-> Powered by the Analysis Package standard.
+**Enforce metadata standards inside the agent** (Hermes, clawbot, other agents) so analysis work is **standard-documented** as an Analysis Package - not left in chat and naked spreadsheets.
+
+See **[docs/VISION.md](docs/VISION.md)**.
+
+**Product:** fathm = in-agent standard + gate  
+**Format:** Analysis Package (`ap/0.2`)  
+**Not (yet):** full enterprise platform as the point  
+
+> Done means gated package metadata - or it doesn’t count.
 
 ---
 

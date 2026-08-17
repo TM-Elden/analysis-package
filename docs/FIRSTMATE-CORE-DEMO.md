@@ -1,131 +1,70 @@
-# firstmate kickoff - fathm CORE DEMO ONLY
+# firstmate kickoff - fathm VISION REFRAME + core demo
 
-**Handoff ID:** `fathm-core-demo-2026-08-16`  
-**From:** Hermes / Tom  
-**To:** firstmate / captain (PiSD)  
-**Authority:** This brief **supersedes** feature expansion from `DESIGN-FATHM-SYSTEM` C10–C19 for near-term work. Full system docs remain reference; **do not build more platform** until core demo is green.
+**Handoff ID:** `fathm-vision-agent-standards-2026-08-16`  
+**Supersedes:** `FIRSTMATE-CORE-DEMO.md` platform-leaning bits; keep P/M demo checkboxes but re-aim **how** they’re built.
 
-**Repo:** https://github.com/TM-Elden/fathm  
-**Path:** Meta internal pilot (SSD forecast). Not YC/fundraise.
+## Vision (read this first)
 
----
+**The whole point:** enforce **metadata standards inside the agent** (Hermes, clawbot, other agents) so analysis work has **standard documentation** (Analysis Package) - not chat + naked sheets as the record.
 
-## Mission
+Full lock: `docs/VISION.md`
 
-Ship a **demo-complete** loop for the **planner workflow**, then a thin **manager ask** on top.  
-Stop over-building proposals, lifecycle, registry polish, MCP, multi-tenant, etc.
+### Not the point
+Standalone mega-console, proposal/registry platform, lifecycle suite, as the primary product.
 
-### One-sentence proof
-> Bot drafts the SSD forecast → human judgment is captured → it only counts when gated as a package → (manager) one question gets a cited answer.
+### Is the point
+Agent tools + gate such that **done = gated package with required metadata**.
 
 ---
 
-## Phase P - Planner workflow demo (PRIORITY 1)
+## Build order (strict)
 
-### Done when all are true (live or scripted demo ≤4 min)
-1. Draft came from **agent path** (SSD forecast)
-2. Artifact is an **Analysis Package** (not chat transcript)
-3. **Gate blocks** incomplete publish (actionable fail)
-4. Planner adds **one override** with author + reason code + plain why
-5. **Gate passes**
-6. **Publish** yields package id + version
-7. Planner can **reopen this pack** and still see the override
+### 1. Agent adapter (PRIMARY)
+Ship tools an agent must use (MCP and/or Hermes skill and/or simple CLI the agent calls):
 
-### Exact demo steps to support in product
-| Step | UX / API must support |
-|------|------------------------|
-| Open pack | View package layout: MANIFEST, inputs/, outputs/, labels/, qa/ |
-| Gate check | Run ap-gate (button or CLI equivalent) with human-readable fails |
-| Gate fail | e.g. missing reason on manual hold / missing declared output |
-| Add override | labels/overrides.jsonl or UI: target, action/code, reason text, author |
-| Gate pass | Re-check green |
-| Publish | store.publish → id + version; immutability on same version |
-| Reopen | Load published pack; show overrides list |
+| Tool | Behavior |
+|------|----------|
+| `pack_init` | Create ap layout + MANIFEST skeleton for a workflow (e.g. SSD forecast) |
+| `pack_check` | Run ap-gate; return structured fails the agent can fix |
+| `pack_label` / `override_add` | Append human/agent override with author, reason code, text |
+| `pack_set_meta` | Set required manifest fields (inputs as-of, method summary, outputs) |
+| `pack_publish` optional | Local store publish if already easy; else “gate pass = done” is enough |
 
-### Explicitly OUT for Phase P
-- Planner bot / Standard-change proposals / dry-run-before-approve / registry apply
-- Lifecycle: supersede, recall, legal hold, retention, purge
-- MCP agent-capture kit polish (unless already needed to create the SSD pack)
-- Multi-role auth beyond single user + optional reviewer
-- Company bot, training export, L2 semantic CI
-- Deployment packaging as a goal in itself
+**Enforcement:** agent runbook/skill says: you may not claim complete until `pack_check` is pass. Prefer hard fail in tool layer over polite docs only.
 
-### SSD pack
-- Prefer **real SSD forecast** package from Tom's chatbot workflow
-- Fallback: thin SSD-shaped pack cloned from `examples/commodity-commit-v1` with SSD naming - mark as fixture
-- Profile: reuse commodity_commit_forecast or minimal SSD profile if already exists; **do not** invent a large new standard
+### 2. Keep gate + example pack green
+`ap-gate check examples/commodity-commit-v1` + fail fixtures for missing labels/meta.
 
-### Acceptance tests (must automate)
-- Gold/example pack still passes gate
-- Fixture: missing override/reason → gate fail
-- Fixture: override present → gate pass → publish → get by id shows override
-- No regressions that block `ap-gate check examples/commodity-commit-v1`
+### 3. Planner demo (same 7 checks as before)
+But driven **through the agent tools**, not only console clicking:
+1. Agent draft path  
+2. Package is the artifact  
+3. Gate blocks incomplete  
+4. Override with credit  
+5. Gate pass  
+6. Publish or “documented” stamp  
+7. Reopen pack still has override  
+
+### 4. Manager beat (thin, secondary)
+One question → cite into package. Only after agent path works. Reuse existing ask if present; do not expand RAG.
 
 ---
 
-## Phase M - Manager ask demo (PRIORITY 2, after P green)
+## Stop / freeze
+- New proposal workflow features  
+- Lifecycle (recall/hold/purge)  
+- Registry apply-on-approve polish  
+- Multi-tenant auth expansion  
+- New console screens not required for agent demo  
 
-### Done when
-1. At least one **published** SSD (or demo) pack in store  
-2. Manager enters **one natural language question**  
-3. Answer in plain English  
-4. **Citation** opens/lands on the package and the relevant override or field  
-
-### Example questions to support
-- “Why is [SKU] on hold?”
-- “Where did [number] come from?”
-
-### Explicitly OUT for Phase M
-- Perfect RAG quality
-- Multi-team corpus
-- Planner Standard HITL
-- Fine-tuned model
-
-### One-line product truth
-> Model = Q&A over packages we already trust, with lineage. No package, no answer.
+Use existing console only if it helps show the package; agent path is the hero.
 
 ---
 
-## Build rules
+## Branches / status
+- Branch: `fm/fathm-agent-standards-demo`  
+- Status: `~/firstmate/state/fathm-core-demo.status`  
+- Report: `done: agent standards path — pack_* tools + demo script — PR <url>`
 
-1. **Cut over create** - Prefer wiring existing `ap_gate`, `ap_store`, `ap_console` / ask path over new subsystems.  
-2. **Demo path first** - If a feature is not on the P or M checklist, it waits.  
-3. **Single tenant** - Tom + manager sponsor.  
-4. **Readable fails** - Gate messages for planners, not stack traces.  
-5. **Credit** - Override author is non-negotiable.  
-6. **Branch naming** - `fm/fathm-core-demo-planner` then `fm/fathm-core-demo-manager`  
-7. **Status file** - `~/firstmate/state/fathm-core-demo.status`  
-   - Append sparingly: `working:`, `done:`, `blocked:`, `needs-decision:`  
-8. **Do not** open new phase-4/5 feature work unless blocked on P/M.
-
----
-
-## Suggested implementation order
-
-1. Audit what already exists on `main` for: console pack view, gate button, override edit, publish, ask/query  
-2. Gap-fill **only** missing P steps for a smooth 4-minute demo  
-3. Script + checklist in `docs/DEMO-CORE.md` (planner then manager)  
-4. One fixture pack under `examples/` or `tests/fixtures/` for SSD demo if real data can't live in git  
-5. Phase M: single ask box over published packs with citations  
-6. Stop and report `done: core demo P+M ready` with PR link(s)
-
----
-
-## Reference (read, don't expand scope from)
-
-- Manager pitch: `docs/PITCH-MANAGER-SSD.md` / `docs/html/fathm-manager-ssd.html`
-- Path: `docs/PATH-INTERNAL-META.md`
-- Standard: `standard/ap-0.2/STANDARD.md`
-- Gate: `src/ap_gate/`
-- Design full system: historical scope - **do not resume C10–C19 buildout**
-
----
-
-## Definition of done (handoff complete)
-
-Captain can run a **planner demo** meeting the 7 checkboxes and optionally a **manager cite** in the same session without touching proposals/lifecycle.
-
-Report:
-```
-done: core demo P [and M] — PR <url> — demo script docs/DEMO-CORE.md
-```
+## Definition of done
+A Hermes or clawbot-equivalent agent, using only project tools + gate, produces a **pass** Analysis Package for the SSD (or fixture) workflow with at least one credited override - without a human hand-editing YAML as the primary path.
