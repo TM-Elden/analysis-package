@@ -40,6 +40,10 @@ from ap_console.deps import (
 from ap_console.gate_report import render_gate_report_html
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import LLMClient
+from ap_planner_bot.analytics import build_snapshot, compute_corpus_analytics
+from ap_planner_bot.detectors import Finding, run_all_detectors
+from ap_planner_bot.scan import scan_corpus
+from ap_planner_bot.snapshot_store import append_snapshot, read_snapshots
 from ap_planner_bot.sweep import run_sweep
 from ap_proposals.kinds import ProposalValidationError
 from ap_proposals.notify import ProposalNotifier
@@ -472,6 +476,117 @@ def standard_dry_run(
             "csrf_token": console_csrf_token(request),
             "dry_run_error": error,
         },
+    )
+
+
+#: Status vocabulary these queue-depth counts read against - matches ap_review/ap_proposals' live
+#: workflow states (see _STATUSES / _PROPOSAL_STATUSES above).
+_REVIEW_QUEUE_STATUS = "in_review"
+_PROPOSAL_QUEUE_STATUS = "pending_hitl"
+
+
+def _dashboard_tier1_context(store: PackageStore, proposal_store: ProposalStore) -> dict:
+    """Instant store stats (design report section 5.2 tier 1) - plain SQL, no corpus scan.
+    `PackageStore.stats()` itself never selects `analyst_id`/`reviewer_id` (see its docstring);
+    the two queue-depth counts below reuse the exact `ListFilter`/`.total` pattern
+    `_review_queue_context`/`_proposal_queue_context` already use elsewhere in this module, not a
+    new query shape."""
+    return {
+        "store_stats": store.stats(),
+        "review_queue_depth": store.list(ListFilter(status=_REVIEW_QUEUE_STATUS, page_size=1)).total,
+        "proposal_queue_depth": proposal_store.list(
+            ProposalListFilter(status=_PROPOSAL_QUEUE_STATUS, page_size=1)
+        ).total,
+    }
+
+
+def _snapshot_to_tier2_rows(snapshot: dict[str, Any] | None) -> dict:
+    """Reshapes one `ap_planner_bot.snapshot_store` row - or a live `build_snapshot(...)` dict,
+    same shape - into template-ready rows. Kept as one function so the initial page load (reads
+    the latest stored snapshot, no scan) and the "Recompute now" fragment (a freshly-built
+    snapshot dict, not yet read back from disk) render through identical markup - see dashboard()
+    / dashboard_recompute() below."""
+    snapshot = snapshot or {}
+    reason_rows = sorted(snapshot.get("reason_code_counts", {}).items(), key=lambda kv: (-kv[1], kv[0]))
+    profile_rows = sorted(snapshot.get("profile_version_counts", {}).items())
+    return {
+        "package_count": snapshot.get("package_count", 0),
+        "check_stats": snapshot.get("check_stats", []),
+        "reason_code_rows": reason_rows,
+        "other_reason_code_share": snapshot.get("other_reason_code_share", 0.0),
+        "profile_version_rows": profile_rows,
+        "agent_draft_fail_rate": snapshot.get("agent_draft_fail_rate"),
+        "as_of": snapshot.get("ts"),
+    }
+
+
+def _dashboard_live_context(
+    *, snapshot: dict[str, Any] | None, findings: list[Finding], live: bool, series: list[dict[str, Any]]
+) -> dict:
+    return {
+        "tier2": _snapshot_to_tier2_rows(snapshot),
+        "has_data": snapshot is not None,
+        "live": live,
+        "findings": findings,
+        "series": series,
+    }
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def dashboard(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[PackageStore, Depends(get_store)],
+    proposal_store: Annotated[ProposalStore, Depends(get_proposal_store)],
+) -> HTMLResponse:
+    """Gate-analytics dashboard (design report section 5.2). Tier 1 (store_stats/queue depths) is
+    plain SQL, always live. Tier 2/3 render from the latest recorded snapshot
+    (`analytics/snapshots.jsonl`, see `ap_planner_bot.snapshot_store`) with no corpus scan on page
+    load - the freshness/latency choice the brief calls for. The "Recompute now" button
+    (`POST /dashboard/recompute` below) runs a live scan in-request and swaps in fresh numbers."""
+    tier1 = _dashboard_tier1_context(store, proposal_store)
+    series = read_snapshots(store.root)
+    latest = series[-1] if series else None
+    live_ctx = _dashboard_live_context(snapshot=latest, findings=[], live=False, series=series)
+    return _render(request, "dashboard.html", identity=identity, **tier1, **live_ctx)
+
+
+@router.post("/dashboard/recompute", response_class=HTMLResponse)
+def dashboard_recompute(
+    request: Request,
+    identity: Annotated[Identity, Depends(get_console_identity)],
+    store: Annotated[PackageStore, Depends(get_store)],
+) -> HTMLResponse:
+    """"Recompute now" button target (same in-request-live-scan precedent as the Standard tab's
+    sweep button): reruns `ap_planner_bot.scan.scan_corpus` for real, computes tier-2 analytics
+    (`ap_planner_bot.analytics.compute_corpus_analytics`) and the current drift-signal findings
+    (`ap_planner_bot.detectors.run_all_detectors`) over that one scan, and appends the resulting
+    snapshot to `analytics/snapshots.jsonl` - the same trend-recorder write the weekly sweep makes
+    (`ap_planner_bot.sweep.run_sweep`), just triggered on demand. Re-renders only the
+    `#dashboard-live` fragment (htmx outerHTML swap) - tier 1's SQL counts don't need recomputing
+    on this click, mirroring how the Standard tab's sweep button only swaps its own table."""
+    error = None
+    try:
+        verify_console_csrf(request)
+    except ConsoleCsrfInvalid:
+        error = "Security token expired or missing - refresh the page and try again."
+
+    if error is None:
+        scan = scan_corpus(store)
+        analytics = compute_corpus_analytics(scan)
+        snapshot = build_snapshot(analytics)
+        append_snapshot(store.root, snapshot)
+        findings = run_all_detectors(scan)
+        live_ctx = _dashboard_live_context(
+            snapshot=snapshot, findings=findings, live=True, series=read_snapshots(store.root)
+        )
+    else:
+        series = read_snapshots(store.root)
+        latest = series[-1] if series else None
+        live_ctx = _dashboard_live_context(snapshot=latest, findings=[], live=False, series=series)
+
+    return templates.TemplateResponse(
+        request, "_dashboard_live.html", {"csrf_token": console_csrf_token(request), "error": error, **live_ctx}
     )
 
 

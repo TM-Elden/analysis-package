@@ -69,6 +69,20 @@ class ListPage:
     page_size: int = 20
 
 
+@dataclass
+class StoreStats:
+    """Tier-1 gate-analytics dashboard input (design report `data/fathm-phase5-readiness/
+    report.md` section 5.2): plain `GROUP BY` counts over columns that are never a person
+    identifier - `status`, `profile`, `gate_overall`. Deliberately does not select `analyst_id` /
+    `reviewer_id` (present on this same table) or anything from `owners_json` - see
+    `PackageStore.stats`'s docstring and CLAUDE.md's dashboard section."""
+
+    total: int = 0
+    status_counts: dict[str, int] = field(default_factory=dict)
+    profile_counts: dict[str, int] = field(default_factory=dict)
+    gate_overall_counts: dict[str, int] = field(default_factory=dict)
+
+
 class PackageStore:
     def __init__(self, root: Path | str):
         self.root = Path(root)
@@ -236,6 +250,26 @@ class PackageStore:
                 [*params, page_size, offset],
             ).fetchall()
             return ListPage(items=[self._row_to_record(r) for r in rows], total=total, page=page, page_size=page_size)
+
+    def stats(self) -> StoreStats:
+        """Instant, scan-free counts for the gate-analytics dashboard's tier 1 (design report
+        section 5.2). Every `GROUP BY` here is over `status` / `profile` / `gate_overall` only -
+        no `analyst_id`/`reviewer_id`/`owners_json` column is ever selected, by construction, so
+        this method cannot regress into the author-keyed aggregation the dashboard's hard
+        invariant forbids (see CLAUDE.md)."""
+        with self._lock:
+            total = self.conn.execute("SELECT COUNT(*) FROM packages").fetchone()[0]
+            status_rows = self.conn.execute("SELECT status, COUNT(*) FROM packages GROUP BY status").fetchall()
+            profile_rows = self.conn.execute("SELECT profile, COUNT(*) FROM packages GROUP BY profile").fetchall()
+            gate_rows = self.conn.execute(
+                "SELECT gate_overall, COUNT(*) FROM packages GROUP BY gate_overall"
+            ).fetchall()
+        return StoreStats(
+            total=total,
+            status_counts={r[0]: r[1] for r in status_rows},
+            profile_counts={r[0]: r[1] for r in profile_rows},
+            gate_overall_counts={r[0]: r[1] for r in gate_rows},
+        )
 
     # -- workflow support (called by ap_review, not policy-aware itself) --
 

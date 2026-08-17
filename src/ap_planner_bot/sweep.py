@@ -26,9 +26,11 @@ from ap_auth.identity import Identity, identity_from_env
 from ap_chat.telegram.notify import notifier_from_env
 from ap_index.index_store import IndexStore
 from ap_manager_bot.llm_client import AnthropicHTTPClient
+from ap_planner_bot.analytics import build_snapshot, compute_corpus_analytics
 from ap_planner_bot.detectors import run_all_detectors
 from ap_planner_bot.scan import scan_corpus
 from ap_planner_bot.service import SweepDraftResult, draft_proposals
+from ap_planner_bot.snapshot_store import append_snapshot
 from ap_proposals.notify import ProposalNotifier
 from ap_proposals.policy import ProposalPolicy
 from ap_proposals.store import ProposalStore
@@ -51,11 +53,16 @@ def run_sweep(
     identity: Identity,
     notifier: ProposalNotifier | None = None,
 ) -> SweepDraftResult:
-    """Scan -> detect -> draft -> persist, over the stores/client given. Pure library call - no
-    env resolution, no process I/O - so `main()` and tests (and the console route) share exactly
-    this one code path. `notifier` (§5.8, default `None` = no notifications) fires
-    `proposal.created` for each proposal `draft_proposals` persists - see `ap_proposals.notify`."""
+    """Scan -> detect -> draft -> persist, over the stores/client given. Pure library call, though
+    not I/O-free: this is also the P5.2 trend recorder, so it appends one gate-analytics snapshot
+    row (`ap_planner_bot.analytics.build_snapshot`, no person identifiers - see that module's
+    docstring) to `<store.root>/analytics/snapshots.jsonl` on every call, sweep or console
+    "Recompute now" button alike, using the same scan this function already ran - no second scan.
+    `main()` and tests (and the console route) all share exactly this one code path. `notifier`
+    (§5.8, default `None` = no notifications) fires `proposal.created` for each proposal
+    `draft_proposals` persists - see `ap_proposals.notify`."""
     scan = scan_corpus(store)
+    append_snapshot(store.root, build_snapshot(compute_corpus_analytics(scan)))
     findings = run_all_detectors(scan)
     workflow = ProposalWorkflow(store=proposal_store, policy=ProposalPolicy(), notifier=notifier)
     return draft_proposals(findings, index=index, workflow=workflow, llm_client=llm_client, identity=identity)

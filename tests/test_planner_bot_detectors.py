@@ -14,6 +14,7 @@ from _planner_bot_corpus import (
     build_drift_corpus,
 )
 
+from ap_planner_bot.analytics import build_snapshot, compute_corpus_analytics
 from ap_planner_bot.detectors import (
     ALL_DETECTORS,
     Finding,
@@ -118,9 +119,15 @@ def test_no_dead_end_questions_detector_exists():
 
 
 def test_no_author_or_owner_keys_anywhere_in_scan_or_findings(tmp_path):
-    """Non-negotiable (design report section 7): a detector output must never key off - or leak -
-    an author/owner identifier, however indirectly. Checks both the scan's own aggregable data
-    (OverrideRow has no author field at all - see scan.py) and every Finding's detail dict."""
+    """Non-negotiable (design report section 7, extended to the P5.2 dashboard by
+    `data/fathm-phase5-readiness/report.md` section 5.2): a detector - or dashboard - output must
+    never key off - or leak - an author/owner identifier, however indirectly. Checks the scan's
+    own aggregable data (OverrideRow has no author field at all - see scan.py), every Finding's
+    detail dict, and (P5.2 addition) the dashboard's own analytics/snapshot payload
+    (`ap_planner_bot.analytics`) - the store-stats tier is the one place a `PackageRecord`'s
+    `analyst_id`/`reviewer_id` columns are reachable at all (see ap_console/routes.py's
+    `_dashboard_tier1_context`, which deliberately never touches them; this test instead asserts
+    the fact at the analytics/scan layer, which is the layer this test file already owns)."""
     for corpus_builder in (build_drift_corpus, build_clean_corpus):
         store = corpus_builder(tmp_path / corpus_builder.__name__)
         scan = scan_corpus(store)
@@ -135,6 +142,26 @@ def test_no_author_or_owner_keys_anywhere_in_scan_or_findings(tmp_path):
                 if isinstance(value, str):
                     assert value not in _FORBIDDEN_VALUES, f"{finding.detector} detail leaked an identity: {value!r}"
             assert not _FORBIDDEN_VALUES & set(finding.package_ids)
+
+        analytics = compute_corpus_analytics(scan)
+        snapshot = build_snapshot(analytics)
+        _assert_no_forbidden_identifiers(snapshot)
+
+
+def _assert_no_forbidden_identifiers(obj, *, path: str = "$") -> None:
+    """Recursively walks a JSON-shaped value (dict/list/scalar) - the dashboard's snapshot dict -
+    asserting no key is a forbidden identifier name and no string value is one of the fixture's
+    known author/reviewer ids. Recursive so it also covers nested structures a future snapshot
+    field might add, not just the top level."""
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            assert key not in _FORBIDDEN_KEYS, f"{path}.{key} is a forbidden key"
+            _assert_no_forbidden_identifiers(value, path=f"{path}.{key}")
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            _assert_no_forbidden_identifiers(item, path=f"{path}[{i}]")
+    elif isinstance(obj, str):
+        assert obj not in _FORBIDDEN_VALUES, f"{path} leaked an identity: {obj!r}"
 
 
 def test_finding_is_a_plain_typed_dataclass():
